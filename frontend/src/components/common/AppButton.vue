@@ -2,7 +2,7 @@
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
-    variant?: 'primary' | 'secondary'
+    variant?: 'primary' | 'secondary' | 'danger'
     loading?: boolean
     disabled?: boolean
   }>(),
@@ -50,5 +50,12 @@ withDefaults(
 }
 .app-button--secondary:hover:not(:disabled) {
   background: var(--surface-muted);
+}
+.app-button--danger {
+  background: var(--danger-solid);
+  color: var(--danger-solid-contrast);
+}
+.app-button--danger:hover:not(:disabled) {
+  background: var(--danger-solid-hover);
 }
 </style>

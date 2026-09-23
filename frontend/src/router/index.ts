@@ -28,6 +28,16 @@ const router = createRouter({
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
     },
+    {
+      path: '/sessions/new',
+      name: 'session-create',
+      component: () => import('../views/SessionCreateView.vue'),
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('../views/HistoryView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: { name: 'dashboard' } },
   ],
 })

@@ -10,6 +10,11 @@
   --accent-contrast: #ffffff;
   --danger: #b42318;
   --danger-bg: #fef3f2;
+  --danger-solid: #b42318;
+  --danger-solid-hover: #912018;
+  --danger-solid-contrast: #ffffff;
+  --success: #067647;
+  --success-bg: #ecfdf3;
   --notice: #b54708;
   --notice-bg: #fffaeb;
 
@@ -30,6 +35,10 @@
     --accent-hover: #7c7ff5;
     --danger: #fda29b;
     --danger-bg: #2c1513;
+    --danger-solid: #d92d20;
+    --danger-solid-hover: #f04438;
+    --success: #75e0a7;
+    --success-bg: #0c2a1c;
     --notice: #fec84b;
     --notice-bg: #2b2210;
   }
@@ -121,4 +130,24 @@ a {
   color: var(--text-muted);
   font-size: 0.9rem;
   text-align: center;
+}
+
+/* Shared layout for the signed-in pages inside AppShell. */
+.page-title {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.muted {
+  color: var(--text-muted);
 }

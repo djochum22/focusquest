@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { hasErrors, validateLogin, validateSetup, type SetupForm } from './validation'
+import {
+  hasErrors,
+  validateLogin,
+  validateSession,
+  validateSetup,
+  type SessionForm,
+  type SetupForm,
+} from './validation'
 
 const validSetup: SetupForm = {
   username: 'douglas',
@@ -41,5 +48,37 @@ describe('validateSetup', () => {
     const errors = validateSetup({ ...validSetup, displayName: ' ', timezone: '' })
     expect(errors.displayName).toBeDefined()
     expect(errors.timezone).toBeDefined()
+  })
+})
+
+describe('validateSession', () => {
+  const valid: SessionForm = {
+    taskMode: 'TASK_REQUIRED',
+    taskCategory: 'CODING',
+    taskDescription: 'Refactor',
+    plannedFocusMinutes: 25,
+  }
+
+  it('accepts a valid task session', () => {
+    expect(validateSession(valid)).toEqual({})
+  })
+
+  it('accepts a task-free session without a category', () => {
+    expect(validateSession({ ...valid, taskMode: 'TASK_FREE', taskCategory: '', taskDescription: '' })).toEqual({})
+  })
+
+  it('requires a category for a task session', () => {
+    expect(validateSession({ ...valid, taskCategory: '' }).taskCategory).toBeDefined()
+  })
+
+  it('rejects durations under five minutes, blank and fractional durations', () => {
+    expect(validateSession({ ...valid, plannedFocusMinutes: 4 }).plannedFocusMinutes).toBeDefined()
+    expect(validateSession({ ...valid, plannedFocusMinutes: 5 })).toEqual({})
+    expect(validateSession({ ...valid, plannedFocusMinutes: '' }).plannedFocusMinutes).toBeDefined()
+    expect(validateSession({ ...valid, plannedFocusMinutes: 12.5 }).plannedFocusMinutes).toBeDefined()
+  })
+
+  it('rejects an over-long task description', () => {
+    expect(validateSession({ ...valid, taskDescription: 'x'.repeat(501) }).taskDescription).toBeDefined()
   })
 })
