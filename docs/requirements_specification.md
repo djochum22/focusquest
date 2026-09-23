@@ -398,7 +398,7 @@ When the user resumes:
 - The pause end timestamp is recorded.
 - The pause duration is calculated.
 - The finalized pause duration is added to qualifying time.
-- The corresponding streak contribution is recorded.
+- The corresponding streak contribution is recorded. This credits the total time already passed in the session (the active time so far plus the pause), so the day's total is current while the session continues. When the session later ends, only the time since this credit is added.
 - The session returns to ACTIVE.
 
 When the user abandons or interrupts a paused session:
@@ -480,6 +480,12 @@ Result:
 
 This precedence must be documented and tested.
 
+"Most specific" is defined as follows: a rule with more host labels is more specific (`m.youtube.com` over `youtube.com`); if the host is equally specific, the rule with more path segments is. Host specificity therefore outranks path specificity. Among all rules that match a URL the most specific wins, and when an allowlist rule and a block rule are equally specific the allowlist rule wins. The full matching and normalization behavior is specified in the technical architecture (section 9).
+
+### Rule format
+
+A rule is a domain (`example.com`) or a domain plus path (`example.com/docs`), with no scheme, port, query string, fragment or wildcard. Rules are stored lowercased and matching ignores case, including in the path, so a change of letter case cannot get around a rule. Query strings are rejected rather than ignored, because a rule for one specific page would otherwise silently become a rule for the whole section. A URL's own query string never affects matching.
+
 ### Blocking during a session
 
 - Matching websites shall be blocked while a focus session is active.
@@ -488,6 +494,7 @@ This precedence must be documented and tested.
 - The page should display the blocked target, session name, remaining time, and relevant streak progress.
 - The extension shall not provide a normal bypass button.
 - Manual override is handled by the main application and is recorded as a penalty event.
+- While blocking is being enforced, the blocking configuration may only get stricter: the user can add a block rule or remove an allowlist rule, but cannot edit or delete a block rule, or add or edit an allowlist rule. This replaces a per-session copy of the blocked targets; the user has one set of rules that applies to every session.
 
 ### Release behavior after abandonment
 
@@ -496,6 +503,8 @@ If the user abandons a session:
 - If the daily streak target has already been reached, website blocking releases immediately.
 - If the daily streak target has not been reached, website blocking remains active.
 - The user may use a manual override to release blocking, subject to the daily XP penalty.
+
+If the user completes a session, blocking is released. If a session is interrupted for a technical reason, blocking is released (`TECHNICAL_RELEASE`) so that a failure can never lock the user out. If an abandoned session keeps blocking active, it stays active until the user completes a session or overrides; starting a new session supersedes the abandoned one. Whether blocking is currently enforced is derived from the status of the user's most recently started session (see the technical architecture, section 13).
 
 The session state and blocking state should be stored separately because an abandoned session can still have active website blocking.
 
@@ -536,6 +545,10 @@ The active streak configuration must define:
 - required minutes
 - task mode
 - optional required category
+
+### Default streak configuration
+
+A user always has a streak configuration; it can never be missing. Until the user changes it, the default applies: a **daily** streak with a target of **30 minutes** that counts **task-based** sessions of any category. It is created when the account is set up (and on first use for any account that lacks one). Only the daily streak has a default; a weekly streak exists only when the user configures one.
 
 ## 12\. Daily and weekly streaks
 
@@ -685,10 +698,10 @@ A manual override releases website blocking before the normal release condition 
 When the user activates a manual override:
 
 - Website blocking releases immediately.
-- The active session is abandoned or interrupted according to the implementation decision.
+- The active session is abandoned (ABANDONED with overrideUsed = true); it is allowed only from ACTIVE or PAUSED.
 - No session-completion XP is awarded.
 - A daily XP penalty is applied.
-- The event is permanently recorded.
+- The event is permanently recorded (currently as the overrideUsed flag, the OVERRIDE_USED blocking state and the penalty transaction; a dedicated BlockingOverride record with a reason is still planned).
 - The user sees the penalty before confirming.
 
 ### Recommended penalty model
@@ -711,7 +724,7 @@ Possible types:
 - CHALLENGE_COMPLETION
 - MANUAL_OVERRIDE_PENALTY
 
-The exact penalty percentage or amount remains open.
+The exact penalty percentage or amount remains open. The implementation currently applies a fixed placeholder of 10 XP, once per overridden session, configurable through `focusquest.xp.manual-override-penalty`.
 
 Example confirmation:
 
@@ -811,6 +824,8 @@ SessionBlockedTarget
 - id
 - sessionId
 - blockedTargetId
+
+Not implemented. The user has a single set of block and allowlist rules that applies to every session, and the configuration lock (section 10) prevents loosening it while blocking is enforced.
 
 ### StreakConfiguration
 
@@ -913,6 +928,8 @@ GET /api/focus-sessions/current
 
 GET /api/focus-sessions/history
 
+`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content. `GET /api/focus-sessions/{id}` and `GET /api/focus-sessions/history` are not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
+
 ### Blocked targets
 
 GET /api/blocked-targets
@@ -946,6 +963,22 @@ POST /api/streak-configurations
 PUT /api/streak-configurations/{id}
 
 GET /api/streak-periods/current
+
+None of the streak endpoints are implemented yet; every user has the default daily configuration until they are.
+
+### Chrome extension
+
+GET /api/extension/blocking-state
+
+GET /api/extension/current-session
+
+POST /api/extension/heartbeat
+
+The extension polls these with the same bearer token as the rest of the API; see the technical architecture (section 10) for the response shapes.
+
+### Errors
+
+All errors return `{ "code": "...", "message": "..." }`; see the technical architecture (section 7) for the codes.
 
 ### Progression and rewards
 
@@ -1141,17 +1174,17 @@ The research should define measurable observable events rather than claiming to 
 The following decisions remain open or need more precision:
 
 1. Exact XP values for completing sessions.
-2. Exact daily XP penalty for manual overrides.
+2. Exact daily XP penalty for manual overrides. (A placeholder of 10 XP is implemented.)
 3. Exact gem rewards derived from XP.
 4. Exact cost of a streak freeze.
-5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached.
+5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Provisionally decided: they remain blocked until the daily target is reached, a session is completed, or the user overrides.)
 6. The exact behavior when a session crosses midnight or the end of a weekly period.
 7. Whether weekly progress includes time that also completed a daily streak.
 8. Whether a paused interval spanning midnight is split across periods when finalized.
 9. Whether completion requires active focus time only, as currently recommended, or elapsed session time.
 10. Whether the user can manually end a completed-period session without a penalty.
 11. Whether the MVP supports an emergency release distinct from a manual override.
-12. Exact Chrome extension-to-application communication method.
+12. Exact Chrome extension-to-application communication method. (Decided: the extension polls authenticated REST endpoints, with a lightweight heartbeat that signals when to re-fetch.)
 13. Exact local authentication mechanism.
 14. Data backup and export format.
 15. Exact initial task-category list.

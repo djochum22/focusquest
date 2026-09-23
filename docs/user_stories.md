@@ -17,6 +17,9 @@ so that the application can store my data locally and display my name.
 - Given the user has not entered a display name,  
   when the user confirms the setup,  
   then the application uses a default identifier such as "Local User."
+- Given the user confirms the setup,  
+  when the local profile is created,  
+  then the application also creates the default daily streak configuration (30 minutes, task-based sessions).
 
 ## **US-002: View and edit local profile**
 
@@ -138,15 +141,15 @@ so that I can prevent access to distracting websites.
 
 **Acceptance criteria:**
 
-- Given the user is creating a session,  
-  when the user selects blocked targets,  
-  then the application stores the selected domains and paths for the session.
-- Given the user has selected blocked targets,  
-  when the session starts,  
-  then the Chrome extension blocks the configured targets.
-- Given the session is active,  
-  when the user attempts to change the blocked targets,  
-  then the application does not allow changes to the session's blocking configuration.
+- Given the user has added block rules for domains and paths,  
+  when a session starts,  
+  then the Chrome extension blocks the active rules.
+- Given a session is active or paused, or blocking is still enforced after an abandonment,  
+  when the user adds a block rule or removes an allowlist rule,  
+  then the application accepts the change, because it can only make blocking stricter.
+- Given a session is active or paused, or blocking is still enforced after an abandonment,  
+  when the user attempts to edit or delete a block rule, or to add or edit an allowlist rule,  
+  then the application refuses the change with a clear message.
 
 ## **Epic 4: Starting and completing sessions**
 
@@ -231,7 +234,10 @@ so that I can continue my focus commitment.
   then the finalized paused time is added to the session's qualifying time.
 - Given the pause is finalized,  
   when the streak contribution is updated,  
-  then the paused time is added to the applicable streak period.
+  then the total time already passed in the session (active time so far plus the pause) is added to the applicable daily and weekly streak periods.
+- Given time was credited to the streak at resume,  
+  when the session later ends,  
+  then only the time since that credit is added, so no time is counted twice.
 - Given the session is resumed,  
   when the resume is recorded,  
   then the session transitions back to ACTIVE.
@@ -254,7 +260,7 @@ so that I can stop the commitment before completion.
   then the application finalizes the pause and calculates its duration.
 - Given the session is abandoned,  
   when qualifying time is calculated,  
-  then both active and finalized paused time are added to the applicable streak period.
+  then the active and finalized paused time not already credited at a resume is added to the applicable streak period.
 - Given the session is abandoned,  
   when session-completion XP is considered,  
   then no completion XP is awarded.
@@ -293,7 +299,7 @@ so that I can unblock websites even if my daily streak is incomplete.
   then the session is marked as abandoned with overrideUsed = true.
 - Given the override is executed,  
   when XP is calculated for the day,  
-  then a daily XP penalty is applied.
+  then a daily XP penalty is applied, once for that session.
 - Given the override is executed,  
   when the event is recorded,  
   then the override and penalty are stored permanently.
@@ -378,6 +384,9 @@ so that I can track my focus progress each day.
 
 **Acceptance criteria:**
 
+- Given the user has never configured a streak,  
+  when the application needs a streak configuration,  
+  then it uses the default: daily, 30 minutes, task-based sessions of any category, and a user never has no streak configuration.
 - Given the user configures a streak,  
   when the user selects "Daily,"  
   then the application sets the period type to daily.
@@ -666,6 +675,9 @@ so that I can use my browser normally.
 - Given the daily streak target has not been reached,  
   when the user abandons a session without override,  
   then the extension continues blocking.
+- Given a session is interrupted for a technical reason,  
+  when the interruption is recorded,  
+  then the extension releases blocking so the user is never locked out by a failure.
 
 ## **US-142: Handle extension restart**
 

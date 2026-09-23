@@ -103,14 +103,14 @@ The architecture should follow these principles:
 **Backend**
 
 - Java 21.
-- Spring Boot 3.
+- Spring Boot 4.
 - Spring Web.
 - Spring Data JPA.
 - Spring Validation.
 - Spring Security.
 - H2 database for local development and MVP persistence.
 - Flyway or Liquibase for database migrations; Flyway is recommended.
-- Maven.
+- Gradle (Kotlin DSL).
 - JUnit 5.
 - Mockito.
 - Spring Boot test support.
@@ -341,8 +341,8 @@ com.example.focusquest
     SessionPauseRepository.java
     SessionService.java
     SessionController.java
-    SessionMapper.java
-    dto/
+    CreateSessionRequest.java
+    FocusSessionDto.java
 
   streak/
     StreakConfiguration.java
@@ -359,28 +359,33 @@ com.example.focusquest
     dto/
 
   blocking/
+    RuleTarget.java                (shared base of the two rule entities)
     BlockedTarget.java
     AllowlistTarget.java
     TargetType.java
+    RuleTargetRepository.java      (shared queries)
     BlockedTargetRepository.java
     AllowlistTargetRepository.java
+    RuleNormalizer.java            (rule matching reference implementation, see section 9)
+    UrlRule.java
+    TargetUrl.java
+    RulePrecedence.java
     BlockingService.java
+    BlockingSnapshot.java
+    CurrentSessionSnapshot.java
     BlockingController.java
     ExtensionController.java
-    dto/
+    RuleTargetRequest.java, RuleTargetResponse.java
+    BlockingStateResponse.java, ExtensionRule.java, CurrentSessionResponse.java
+    HeartbeatRequest.java, HeartbeatResponse.java
 
   progression/
     ExperienceTransaction.java
     ExperienceTransactionType.java
-    GemTransaction.java
-    GemTransactionType.java
-    StreakFreeze.java
-    ProgressionService.java
+    ExperienceTransactionRepository.java
     ExperienceService.java
-    GemService.java
-    StreakFreezeService.java
-    ProgressionController.java
-    dto/
+    (planned, Phase 5: GemTransaction, GemTransactionType, StreakFreeze, ProgressionService,
+     GemService, StreakFreezeService, ProgressionController)
 
   export/
     ExportService.java
@@ -390,16 +395,24 @@ com.example.focusquest
   shared/
     exception/
       GlobalExceptionHandler.java
+      ErrorResponse.java
       ResourceNotFoundException.java
       InvalidSessionStateException.java
-      ValidationException.java
-      UnauthorizedException.java
+      InvalidRuleException.java
+      DuplicateRuleException.java
+      (ValidationException and UnauthorizedException are not needed so far: bean validation is
+       reported by GlobalExceptionHandler and 401 by AuthEntryPoint)
     time/
       ClockProvider.java
       TimeCalculationService.java
     validation/
       UrlRuleValidator.java
 ```
+
+Implementation notes on the structure above:
+
+- Request and response DTOs live next to their controller rather than in `dto/` subpackages, and are mapped with a static `from(...)` factory instead of a `SessionMapper`.
+- Not implemented yet: `UserController`, `StreakController` (and the streak DTOs), `WebConfig`, `TimeCalculationService`.
 
 **Layering rules**
 
@@ -439,6 +452,23 @@ The following operations should be transactional:
 - Complete or freeze a streak period.
 
 Idempotency must be considered for requests that can produce rewards or contributions.
+
+**Error responses**
+
+Every error response is JSON of the form `{ "code": "...", "message": "..." }` (`ErrorResponse`).
+
+| Code | HTTP status | Raised when |
+| ---- | ----------- | ----------- |
+| `INVALID_RULE` | 400 | A block or allowlist rule is not a valid domain or domain/path rule |
+| `DUPLICATE_RULE` | 409 | A rule with the same normalized value already exists |
+| `NOT_FOUND` | 404 | The resource does not exist or belongs to another user (deliberately indistinguishable) |
+| `INVALID_SESSION_STATE` | 400 | An operation is not allowed from the session's current status |
+| `VALIDATION_ERROR` | 400 | Request body fails bean validation; the message names each offending field |
+| `UNAUTHORIZED` | 401 | Missing, invalid or expired bearer token |
+| `CONFLICT`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, ... | as named | Any other `ResponseStatusException` or Spring MVC error; the code is the HTTP status name |
+| `INTERNAL_ERROR` | 500 | Anything unexpected. The message is always generic; the real exception is only logged |
+
+`GlobalExceptionHandler` produces all of these except `UNAUTHORIZED`, which `AuthEntryPoint` writes in the security filter chain before Spring MVC is reached, using the same `ErrorResponse` shape. The typed exceptions extend `ResponseStatusException`, so services can keep throwing either.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -680,6 +710,17 @@ Recommended matching precedence:
 
 This rule must be expressed in the extension implementation and covered by tests.
 
+**Rule normalization, matching and precedence (reference implementation)**
+
+The backend contains a reference implementation of the rules in the `blocking` package (`RuleNormalizer`, `UrlRule`, `TargetUrl`, `RulePrecedence`) with its own tests. The extension's `ruleNormalizer.ts`, `urlMatcher.ts` and `rulePrecedence.ts` must reproduce its behavior exactly.
+
+- **Rule syntax:** a domain (`example.com`) or a domain plus path (`example.com/docs`). No scheme, port, query string, fragment, wildcard, or `.`/`..` path segment. A domain needs at least two labels. Query strings are rejected rather than stripped, because dropping one silently would widen the rule.
+- **Normalization:** the rule is lowercased and a trailing slash is dropped. A leading `www.` is kept, since `www.example.com` and `example.com` are different rules with different specificity. Stored values, uniqueness checks and the rules sent to the extension are all in this canonical form.
+- **URL side:** only `http` and `https` URLs are evaluated. The host is lowercased and loses a trailing dot; the path is percent-decoded, lowercased, has dot segments and repeated slashes collapsed, and ignores a trailing slash; the query string and fragment are ignored. Matching is deliberately forgiving so a URL cannot dodge a rule by being spelled differently (for example `/%73horts` or `//shorts`), and path matching is case-insensitive, as Chrome's own declarative rules are.
+- **Matching:** the host matches if it equals the rule host or is a subdomain of it (`youtube.com` matches `m.youtube.com`, not `notyoutube.com`). A path rule matches the path itself and its descendants on a segment boundary (`/shorts` matches `/shorts/abc`, not `/shortsfoo`). A domain rule matches every path.
+- **Specificity:** a rule with more host labels is more specific; if equal, the one with more path segments is. Host specificity outranks path specificity, so `m.youtube.com` (allowed) beats `youtube.com/shorts` (blocked) for `m.youtube.com/shorts`.
+- **Precedence:** among all rules that match a URL, the most specific one wins; when an allowlist rule and a block rule are equally specific, the allowlist rule wins. This yields the order above: most-specific allowlist, most-specific block, broader allowlist, broader block, default allow. Only active rules take part.
+
 **Extension synchronization**
 
 The extension should synchronize with the backend:
@@ -735,6 +776,14 @@ POST /api/focus-sessions/{id}/abandon
 POST /api/focus-sessions/{id}/override
 ```
 
+Notes:
+
+- `POST /api/focus-sessions` returns 201 with the planned session. The session body is `FocusSessionDto`; `activeFocusSeconds` and `remainingFocusSeconds` are live (they include the segment still running as of `generatedAt`).
+- `GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content.
+- `GET /api/focus-sessions/{id}` and `GET /api/focus-sessions/history` are not implemented yet.
+- `POST .../override` takes no body. No override reason is collected yet.
+- Every `{id}` operation checks that the session belongs to the caller; another user's session is reported as `NOT_FOUND`.
+
 **Streaks**
 
 ```
@@ -745,6 +794,8 @@ POST /api/streak-configurations
 PUT  /api/streak-configurations/{id}
 GET  /api/streak-periods/current
 ```
+
+None of the streak endpoints are implemented yet. Until they are, every user simply has the default daily configuration described in section 11.
 
 **Blocking and allowlists**
 
@@ -760,6 +811,13 @@ PUT    /api/allowlist-targets/{id}
 DELETE /api/allowlist-targets/{id}
 ```
 
+Notes:
+
+- Request body: `{ "targetValue": "example.com/docs", "displayName": "Docs", "active": true }`. Only `targetValue` is required. `displayName` defaults to the normalized rule; `active` defaults to true on create and to the current value on update.
+- The rule type (`DOMAIN` or `URL_PATH`) is derived from `targetValue` and returned in the response; clients never send it.
+- Creating returns 201; deleting returns 204. A rule that duplicates an existing one after normalization is rejected with `DUPLICATE_RULE`.
+- **Configuration lock:** while blocking is being enforced (see section 13), the configuration may only get stricter. Creating a block rule and deleting an allowlist rule are allowed; editing or deleting a block rule, and creating or editing an allowlist rule, are refused with 409.
+
 **Progression**
 
 ```
@@ -773,22 +831,18 @@ POST /api/me/streak-freezes/purchase
 
 **Extension-specific API**
 
-The extension can use authenticated endpoints such as:
+The extension uses three endpoints, authenticated with the same bearer token as the rest of the API:
 
 ```
-GET /api/extension/blocking-state
-GET /api/extension/current-session
+GET  /api/extension/blocking-state
+GET  /api/extension/current-session
 POST /api/extension/heartbeat
 ```
 
-The exact endpoints may be consolidated. The extension should receive only the data it needs:
-
-- Whether enforcement is active.
-- Blocking state.
-- Session identifier.
-- Block rules.
-- Allowlist rules.
-- Relevant session display information for the blocked page.
+- **`blocking-state`** returns `enforcementActive`, `sessionId`, `blockingState`, `stateVersion`, `generatedAt`, and the active `blockRules` and `allowRules`. Each rule carries its `targetType`, canonical `targetValue`, pre-split `host` and `path` (null for a domain rule), and `displayName`. When enforcement is not active, both rule lists are empty and the extension should remove any blocking it has installed.
+- **`current-session`** returns what the blocked page shows: session id, status, blocking state, task description, planned/active/remaining seconds, start time, and today's daily streak progress (`qualifyingSeconds`, `targetSeconds`, `status`). It returns 204 No Content when nothing is being enforced. `dailyStreak` is null until time has first been credited that day.
+- **`heartbeat`** accepts an optional `{ "stateVersion": "..." }` and returns `serverTime`, `enforcementActive`, `sessionId`, the current `stateVersion` and `refreshRequired`. The extension calls it periodically and re-fetches `blocking-state` only when `refreshRequired` is true.
+- `stateVersion` is a fingerprint of the enforcement flag, the enforcing session and its blocking state, and the active rules. It changes exactly when the extension must re-synchronize, and is not affected by a pause or resume, which do not change blocking.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -856,7 +910,12 @@ FocusSession
 - overrideUsed
 - completionXpAwarded
 - createdAt
+- activeSegmentStartedAt
+- streakCreditedActiveSeconds
+- streakCreditedPausedSeconds
 ```
+
+The last three are internal bookkeeping. `activeSegmentStartedAt` marks when the current uninterrupted ACTIVE stretch began, so elapsed time can be added across pause/resume cycles. The two `streakCredited...` fields record how much of the session's time has already been credited to the streak, so each credit covers only the time since the previous one (see section 13).
 
 **SessionPause**
 
@@ -908,6 +967,8 @@ StreakConfiguration
 - createdAt
 ```
 
+**Default configuration.** A user always has a daily streak configuration, so there is never "no streak". The default is `DAILY`, `targetMinutes = 30`, `requiredTaskMode = TASK_REQUIRED`, no required category (task-free sessions therefore do not count until the user changes it), effective from the epoch. It is created when the account is set up, and `StreakService` creates it on first use for any user that lacks one, so accounts that pre-date the default are covered too. Only the daily period has a default: a weekly streak exists only if the user configures one.
+
 **StreakPeriod**
 
 ```
@@ -943,6 +1004,8 @@ StreakContribution
 - createdAt
 ```
 
+A session normally has several contribution rows per period: one each time a pause is resumed, and one when the session ends. Each row holds only the time since the previous credit.
+
 **ExperienceTransaction**
 
 ```
@@ -955,6 +1018,8 @@ ExperienceTransaction
 - referenceId
 - createdAt
 ```
+
+Implemented so far: the only `type` is `MANUAL_OVERRIDE_PENALTY`, with `referenceType = FOCUS_SESSION` and a negative `amount`. A unique index on `(userId, type, referenceType, referenceId)` guarantees a session is penalized at most once.
 
 **GemTransaction**
 
@@ -991,6 +1056,8 @@ BlockingOverride
 - createdAt
 ```
 
+Not implemented yet. For now an override is recorded by `FocusSession.overrideUsed`, the `OVERRIDE_USED` blocking state, and the penalty `ExperienceTransaction`.
+
 **Important constraints and indexes**
 
 Recommended constraints:
@@ -1018,6 +1085,8 @@ blocked_targets(user_id, active)
 allowlist_targets(user_id, active)
 ```
 
+Additional unique constraints: `blocked_targets(user_id, target_value)`, `allowlist_targets(user_id, target_value)`, and `experience_transactions(user_id, type, reference_type, reference_id)`. `BlockedTarget` and `AllowlistTarget` share their fields; `targetValue` is always the canonical normalized rule, `targetType` is derived from it, and `displayName` defaults to it.
+
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
 **12\. Core domain services**
@@ -1034,12 +1103,16 @@ Responsibilities:
 - Abandon a session.
 - Handle interruption and recovery.
 - Finalize active and pause intervals.
-- Enforce valid state transitions.
+- Enforce valid state transitions and session ownership.
+- Credit streak progress when a pause is resumed and when a session ends.
+- Settle the session's blocking state when it ends.
+- Apply the manual override (abandon with `overrideUsed`, release blocking, record the penalty).
 
 **StreakService**
 
 Responsibilities:
 
+- Guarantee the default daily configuration exists.
 - Create or load current daily or weekly period.
 - Apply configuration snapshots.
 - Determine whether a session qualifies.
@@ -1053,17 +1126,18 @@ Responsibilities:
 
 Responsibilities:
 
-- Store block and allowlist rules.
-- Build the rule configuration required by the extension.
-- Determine whether enforcement should be active.
-- Determine release behavior after completion, abandonment, or override.
+- Store block and allowlist rules: create, update, delete and list, with normalization, duplicate detection and per-user ownership.
+- Refuse rule changes that would loosen blocking while enforcement is active.
+- Determine whether enforcement is active, derived from the latest started session's status (section 13).
+- Build the state the extension synchronizes: rules, `stateVersion`, and the blocked-page session details.
+- Apply the matching and precedence rules to a URL (`evaluateUrl`), for tests and later UI use.
 
 **ExperienceService**
 
 Responsibilities:
 
-- Award completion XP exactly once.
-- Apply manual-override penalties.
+- Award completion XP exactly once (planned).
+- Apply manual-override penalties (implemented; once per session, amount from `focusquest.xp.manual-override-penalty`, currently a placeholder of 10).
 - Calculate daily XP according to the configured rules.
 - Keep XP transaction history.
 
@@ -1116,8 +1190,18 @@ COMPLETED, ABANDONED, and INTERRUPTED are terminal session states for the MVP un
 - An unresolved pause contributes nothing to the streak yet.
 - Resuming, abandoning, interrupting, or finalizing closes the pause.
 - A finalized pause contributes to qualifying time if the session matches the streak configuration.
+- The pause is finalized, and credited, when the session is resumed, abandoned or overridden (an interrupted session discards it).
 - Paused time never counts toward the required active focus duration for session completion.
 - Website blocking remains active throughout the pause.
+
+**Streak crediting rule**
+
+Streak progress is credited at two moments:
+
+1. **On resume:** the total time already passed in the session (the active time before the pause plus the pause just finalized) is credited to the current daily and weekly periods at once, so the day's total is up to date while the session continues.
+2. **When the session ends** (complete, abandon, override): only the time since the last credit is credited.
+
+The session records what it has already credited, so no time is counted twice. An unresolved pause contributes nothing. Time in an interrupted session that was not yet credited is discarded, but anything credited at an earlier resume stays. Each credit goes to the period current at the moment it is made.
 
 **Session completion rule**
 
@@ -1135,17 +1219,32 @@ An abandoned session:
 
 - Grants no session-completion XP.
 - Keeps recorded active and finalized paused time for streak progress if the session qualifies.
-- Releases websites immediately only when the daily target has already been reached.
-- Otherwise maintains enforcement until a new qualifying session, another applicable release condition, or a manual override.
+- Releases websites immediately only when the daily target has already been reached, counting the time credited by this abandonment.
+- Otherwise maintains enforcement until a new session is completed, or a manual override. Starting a new session supersedes the abandoned one.
 
 **Manual override rule**
 
 A manual override:
 
-- Releases website blocking immediately.
-- Marks the session as abandoned with overrideUsed = true.
-- Applies a daily XP penalty.
-- Stores an audit record.
+- Releases website blocking immediately, with blocking state `OVERRIDE_USED`.
+- Is allowed only from ACTIVE or PAUSED, and marks the session ABANDONED with overrideUsed = true.
+- Credits the session's remaining time to the streak like any abandonment.
+- Applies an XP penalty as a negative `ExperienceTransaction`, once per session. The amount is a placeholder (10) set in `focusquest.xp.manual-override-penalty`.
+- Stores the audit trail as `overrideUsed`, the blocking state and the transaction (a dedicated `BlockingOverride` record is planned).
+
+**Enforcement and release rule**
+
+Whether the extension must block is derived from the status of the user's most recently started session, not from the stored blocking state alone:
+
+| Latest session | Enforcing? |
+| -------------- | ---------- |
+| ACTIVE or PAUSED | Yes |
+| COMPLETED | No; completing sets `RELEASED` |
+| INTERRUPTED | No; sets `TECHNICAL_RELEASE`, so a technical failure never locks the user out |
+| ABANDONED | Yes, unless the blocking state is no longer `ACTIVE` (released or overridden) or today's daily target has been reached |
+| PLANNED / none | No |
+
+When a session is abandoned, the blocking state is set to `RELEASED` if the daily target is reached afterwards, otherwise it stays `ACTIVE`. The backend keeps one blocking configuration per user (the active block and allowlist rules) rather than a per-session snapshot; the configuration lock in section 10 stops it being loosened during enforcement.
 
 **Daily and weekly boundaries**
 
@@ -1165,6 +1264,8 @@ Use:
 - Mockito.
 - Spring Boot integration tests.
 - H2 for simple integration tests.
+- A full session-lifecycle integration test with no mocks (real services and an in-memory database), covering streak crediting, release decisions, override and rule locking.
+- Controller slice tests that load the real security configuration (`@WithRealSecurityConfig`); without it a `@WebMvcTest` silently runs under Spring Boot's default security.
 - Testcontainers with PostgreSQL before migration or production deployment.
 
 High-priority unit tests:
@@ -1319,7 +1420,7 @@ The MVP is intentionally local and single-user. Future migration should preserve
 | ---                | ---                                                                                 |
 | Frontend           | Vue 3 + TypeScript + Vite                                                           |
 | ---                | ---                                                                                 |
-| Backend            | Java 21 + Spring Boot 3                                                             |
+| Backend            | Java 21 + Spring Boot 4                                                             |
 | ---                | ---                                                                                 |
 | Security           | Spring Security + BCrypt + JWT bearer tokens                                        |
 | ---                | ---                                                                                 |
