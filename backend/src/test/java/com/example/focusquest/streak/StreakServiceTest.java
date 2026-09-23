@@ -55,6 +55,8 @@ class StreakServiceTest {
         lenient().when(streakPeriodRepository.save(any(StreakPeriod.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(streakContributionRepository.save(any(StreakContribution.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(streakConfigurationRepository.save(any(StreakConfiguration.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
     }
 
     private StreakConfiguration configuration(StreakPeriodType type, int targetMinutes, TaskMode mode,
@@ -336,6 +338,154 @@ class StreakServiceTest {
         streakService.completePeriod(period);
 
         assertThatThrownBy(() -> streakService.markMissedPeriod(period)).isInstanceOf(ResponseStatusException.class);
+    }
+
+    // --- default streak configuration ---
+
+    @Test
+    void defaultConfigurationIsDailyThirtyMinutesOfTaskBasedWorkEffectiveFromTheEpoch() {
+        StreakConfiguration defaults = StreakConfiguration.defaultFor(user, BASE_INSTANT);
+
+        assertThat(defaults.getPeriodType()).isEqualTo(StreakPeriodType.DAILY);
+        assertThat(defaults.getTargetMinutes()).isEqualTo(30);
+        assertThat(defaults.getRequiredTaskMode()).isEqualTo(TaskMode.TASK_REQUIRED);
+        assertThat(defaults.getRequiredCategory()).isNull();
+        assertThat(defaults.getEffectiveFrom()).isEqualTo(Instant.EPOCH);
+        assertThat(defaults.getCreatedAt()).isEqualTo(BASE_INSTANT);
+        assertThat(StreakConfiguration.DEFAULT_PERIOD_TYPE).isEqualTo(StreakPeriodType.DAILY);
+    }
+
+    @Test
+    void createDefaultConfigurationSavesTheDefaultWhenTheUserHasNoDailyConfiguration() {
+        when(streakConfigurationRepository
+                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                        eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+
+        StreakConfiguration created = streakService.createDefaultConfiguration(user);
+
+        assertThat(created.getPeriodType()).isEqualTo(StreakPeriodType.DAILY);
+        assertThat(created.getTargetMinutes()).isEqualTo(30);
+        org.mockito.Mockito.verify(streakConfigurationRepository).save(created);
+    }
+
+    @Test
+    void createDefaultConfigurationIsIdempotentAndKeepsAnExistingConfiguration() {
+        StreakConfiguration existing = configuration(StreakPeriodType.DAILY, 45, TaskMode.TASK_REQUIRED, TaskCategory.CODING);
+        stubConfiguration(StreakPeriodType.DAILY, existing);
+
+        assertThat(streakService.createDefaultConfiguration(user)).isSameAs(existing);
+
+        org.mockito.Mockito.verify(streakConfigurationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void getActiveConfigurationForDailyNeverFailsAndFallsBackToTheDefault() {
+        when(streakConfigurationRepository
+                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                        eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+
+        StreakConfiguration configuration = streakService.getActiveConfiguration(user, StreakPeriodType.DAILY);
+
+        assertThat(configuration).isNotNull();
+        assertThat(configuration.getTargetMinutes()).isEqualTo(30);
+    }
+
+    @Test
+    void getActiveConfigurationForWeeklyHasNoDefaultAndFailsWhenNoneIsConfigured() {
+        stubNoConfiguration(StreakPeriodType.WEEKLY);
+
+        assertThatThrownBy(() -> streakService.getActiveConfiguration(user, StreakPeriodType.WEEKLY))
+                .isInstanceOf(ResponseStatusException.class);
+        org.mockito.Mockito.verify(streakConfigurationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void createPeriodForDailyUsesTheDefaultConfigurationWhenNoneIsStored() {
+        when(streakConfigurationRepository
+                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                        eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+
+        StreakPeriod period = streakService.createPeriod(user, StreakPeriodType.DAILY);
+
+        assertThat(period.getTargetMinutes()).isEqualTo(30);
+        assertThat(period.getRequiredTaskMode()).isEqualTo(TaskMode.TASK_REQUIRED);
+    }
+
+    @Test
+    void recordContributionCountsTowardTheDefaultDailyStreakForAUserWhoNeverConfiguredOne() {
+        when(streakConfigurationRepository
+                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                        eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+        when(streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+
+        List<StreakContribution> contributions =
+                streakService.recordContribution(session(TaskMode.TASK_REQUIRED, TaskCategory.CODING), 600, 0);
+
+        assertThat(contributions).hasSize(1);
+        assertThat(contributions.get(0).getStreakPeriod().getTargetMinutes()).isEqualTo(30);
+        assertThat(contributions.get(0).getQualifyingSeconds()).isEqualTo(600);
+    }
+
+    @Test
+    void readOnlyLookupsNeverCreateTheDefaultConfiguration() {
+        when(streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(eq(user), eq(StreakPeriodType.DAILY), any()))
+                .thenReturn(Optional.empty());
+
+        assertThat(streakService.isDailyTargetReached(user)).isFalse();
+        assertThat(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).isEmpty();
+
+        org.mockito.Mockito.verify(streakConfigurationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // --- read-only observation of the current period ---
+
+    @Test
+    void findCurrentPeriodReturnsTheExistingPeriodWithoutCreatingOne() {
+        StreakPeriod period = createAndStubDailyPeriod(30, TaskMode.TASK_REQUIRED, null);
+        org.mockito.Mockito.clearInvocations(streakPeriodRepository);
+
+        assertThat(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).containsSame(period);
+        org.mockito.Mockito.verify(streakPeriodRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void findCurrentPeriodIsEmptyAndCreatesNothingWhenNoPeriodExists() {
+        when(streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(
+                eq(user), eq(StreakPeriodType.DAILY), any())).thenReturn(Optional.empty());
+
+        assertThat(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).isEmpty();
+        org.mockito.Mockito.verify(streakPeriodRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void dailyTargetIsNotReachedWhileThePeriodIsActive() {
+        createAndStubDailyPeriod(30, TaskMode.TASK_REQUIRED, null);
+
+        assertThat(streakService.isDailyTargetReached(user)).isFalse();
+    }
+
+    @Test
+    void dailyTargetIsReachedOnceThePeriodIsCompleted() {
+        StreakPeriod period = createAndStubDailyPeriod(30, TaskMode.TASK_REQUIRED, null);
+        streakService.completePeriod(period);
+
+        assertThat(streakService.isDailyTargetReached(user)).isTrue();
+    }
+
+    @Test
+    void dailyTargetIsNotReachedForAFrozenPeriodOrWhenNoPeriodExists() {
+        StreakPeriod period = createAndStubDailyPeriod(30, TaskMode.TASK_REQUIRED, null);
+        streakService.consumeFreeze(period);
+        assertThat(streakService.isDailyTargetReached(user)).isFalse();
+
+        when(streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(
+                eq(user), eq(StreakPeriodType.DAILY), any())).thenReturn(Optional.empty());
+        assertThat(streakService.isDailyTargetReached(user)).isFalse();
     }
 
     // --- freeze consumption ---

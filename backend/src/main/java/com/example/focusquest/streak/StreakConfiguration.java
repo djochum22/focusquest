@@ -21,6 +21,14 @@ import java.time.Instant;
 @Table(name = "streak_configurations")
 public class StreakConfiguration {
 
+    /**
+     * The default streak: a daily target of 30 minutes of task-based work (any category). Every
+     * user always has at least this daily configuration; see {@link StreakService}.
+     */
+    public static final StreakPeriodType DEFAULT_PERIOD_TYPE = StreakPeriodType.DAILY;
+    public static final int DEFAULT_TARGET_MINUTES = 30;
+    public static final TaskMode DEFAULT_TASK_MODE = TaskMode.TASK_REQUIRED;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -63,6 +71,15 @@ public class StreakConfiguration {
         this.requiredCategory = requiredCategory;
         this.effectiveFrom = effectiveFrom;
         this.createdAt = createdAt;
+    }
+
+    /**
+     * The default daily configuration. It is effective from the epoch so that it governs every
+     * period the user can ever be in, including any that started before the row was created.
+     */
+    public static StreakConfiguration defaultFor(User user, Instant createdAt) {
+        return new StreakConfiguration(user, DEFAULT_PERIOD_TYPE, DEFAULT_TARGET_MINUTES, DEFAULT_TASK_MODE,
+                null, Instant.EPOCH, createdAt);
     }
 
     public Long getId() {

@@ -38,6 +38,9 @@ focusquest:
     # environment variable (FOCUSQUEST_JWT_SECRET) — never commit a real secret.
     secret: "${FOCUSQUEST_JWT_SECRET:CHANGE_ME_local_dev_placeholder_secret_not_for_prod_use}"
     expiration-minutes: 60
+  xp:
+    # Placeholder. The exact daily XP penalty for a manual override is still an open product decision.
+    manual-override-penalty: 10
   cors:
     allowed-origins:
       - http://localhost:5173

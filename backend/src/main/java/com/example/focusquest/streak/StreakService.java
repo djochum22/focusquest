@@ -49,6 +49,47 @@ public class StreakService {
     }
 
     /**
+     * Ensures the user has a daily streak configuration, creating the default one
+     * ({@link StreakConfiguration#defaultFor}) if none exists. Idempotent. Called when the account
+     * is set up; {@link #getActiveConfiguration} repeats the guarantee lazily, so a user created
+     * before this existed, or whose setup was interrupted, is covered as well.
+     */
+    @Transactional
+    public StreakConfiguration createDefaultConfiguration(User user) {
+        return findActiveConfiguration(user, StreakConfiguration.DEFAULT_PERIOD_TYPE, clockProvider.now())
+                .orElseThrow(() -> new IllegalStateException("A default streak configuration must always exist"));
+    }
+
+    /**
+     * The configuration in force for the user and period type. For the default period type
+     * (daily) this never fails: the default configuration is created on first use. Other period
+     * types have no default and fail if the user never configured them.
+     */
+    @Transactional
+    public StreakConfiguration getActiveConfiguration(User user, StreakPeriodType periodType) {
+        return getActiveConfiguration(user, periodType, clockProvider.now());
+    }
+
+    /**
+     * Read-only variant of {@link #getCurrentPeriod}: returns the period covering the current
+     * moment if one exists, and never creates one or fails for an unconfigured period type. Used by
+     * callers that only observe streak progress.
+     */
+    @Transactional(readOnly = true)
+    public Optional<StreakPeriod> findCurrentPeriod(User user, StreakPeriodType periodType) {
+        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, clockProvider.now());
+        return streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
+    }
+
+    /** True when today's daily streak period exists and has reached its target. */
+    @Transactional(readOnly = true)
+    public boolean isDailyTargetReached(User user) {
+        return findCurrentPeriod(user, StreakPeriodType.DAILY)
+                .map(period -> period.getStatus() == StreakPeriodStatus.COMPLETED)
+                .orElse(false);
+    }
+
+    /**
      * Creates the streak period covering the current moment, snapshotting the user's currently
      * active configuration for that period type onto it.
      */
@@ -113,9 +154,7 @@ public class StreakService {
         if (existing.isPresent()) {
             return existing;
         }
-        return streakConfigurationRepository
-                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
-                        user, periodType, now)
+        return findActiveConfiguration(user, periodType, now)
                 .map(configuration -> streakPeriodRepository.save(buildPeriod(user, periodType, configuration, window)));
     }
 
@@ -165,11 +204,24 @@ public class StreakService {
     }
 
     private StreakConfiguration getActiveConfiguration(User user, StreakPeriodType periodType, Instant asOf) {
-        return streakConfigurationRepository
-                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
-                        user, periodType, asOf)
+        return findActiveConfiguration(user, periodType, asOf)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "No active " + periodType + " streak configuration for this user"));
+    }
+
+    /**
+     * The stored configuration in force at {@code asOf}. If none exists and the period type is the
+     * default one, the default configuration is created and returned, so daily is never empty.
+     */
+    private Optional<StreakConfiguration> findActiveConfiguration(User user, StreakPeriodType periodType, Instant asOf) {
+        Optional<StreakConfiguration> stored = streakConfigurationRepository
+                .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                        user, periodType, asOf);
+        if (stored.isPresent() || periodType != StreakConfiguration.DEFAULT_PERIOD_TYPE) {
+            return stored;
+        }
+        return Optional.of(streakConfigurationRepository.save(
+                StreakConfiguration.defaultFor(user, clockProvider.now())));
     }
 
     private void requireActive(StreakPeriod period) {

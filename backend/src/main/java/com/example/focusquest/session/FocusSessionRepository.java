@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface FocusSessionRepository extends JpaRepository<FocusSession, Long> {
 
     Optional<FocusSession> findFirstByUserAndStatusIn(User user, Collection<SessionStatus> statuses);
+
+    Optional<FocusSession> findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(User user);
 }

@@ -1,5 +1,6 @@
 package com.example.focusquest.security;
 
+import com.example.focusquest.shared.exception.ErrorResponse;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -10,7 +11,6 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Map;
 
 @Component
 public class AuthEntryPoint implements AuthenticationEntryPoint {
@@ -24,11 +24,9 @@ public class AuthEntryPoint implements AuthenticationEntryPoint {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-        Map<String, Object> body = Map.of(
-                "status", HttpStatus.UNAUTHORIZED.value(),
-                "error", "Unauthorized",
-                "message", "Authentication is required to access this resource"
-        );
+        // Same {code, message} shape as every other error. This runs in the security filter chain,
+        // before Spring MVC, so GlobalExceptionHandler cannot produce it.
+        ErrorResponse body = new ErrorResponse("UNAUTHORIZED", "Authentication is required to access this resource");
 
         objectMapper.writeValue(response.getOutputStream(), body);
     }

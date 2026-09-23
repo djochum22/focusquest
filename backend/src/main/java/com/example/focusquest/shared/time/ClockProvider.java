@@ -26,6 +26,10 @@ public class ClockProvider {
         return Instant.now(clock);
     }
 
+    public Clock getClock() {
+        return clock;
+    }
+
     public void setClock(Clock clock) {
         this.clock = clock;
     }

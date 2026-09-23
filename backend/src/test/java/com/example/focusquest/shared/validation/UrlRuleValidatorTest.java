@@ -33,7 +33,12 @@ class UrlRuleValidatorTest {
             "you tube.com",
             "-youtube.com",
             "youtube.com/short s",
-            " youtube.com"
+            " youtube.com",
+            "youtube.com/watch?v=abc",
+            "youtube.com/shorts?feature=share",
+            "youtube.com/shorts#comments",
+            "youtube.com/a/../b",
+            "youtube.com/./shorts"
     })
     void rejectsInvalidRules(String value) {
         assertThat(UrlRuleValidator.isValidUrlRule(value)).isFalse();
@@ -55,5 +60,14 @@ class UrlRuleValidatorTest {
         assertThat(UrlRuleValidator.isValidPath("/")).isFalse();
         assertThat(UrlRuleValidator.isValidPath("//shorts")).isFalse();
         assertThat(UrlRuleValidator.isValidPath("/shorts")).isTrue();
+    }
+
+    @Test
+    void isValidPathRejectsQueryFragmentAndDotSegmentsButAllowsDotsInNames() {
+        assertThat(UrlRuleValidator.isValidPath("/watch?v=1")).isFalse();
+        assertThat(UrlRuleValidator.isValidPath("/shorts#top")).isFalse();
+        assertThat(UrlRuleValidator.isValidPath("/a/../b")).isFalse();
+        assertThat(UrlRuleValidator.isValidPath("/a/./b")).isFalse();
+        assertThat(UrlRuleValidator.isValidPath("/file.v2/..hidden")).isTrue();
     }
 }

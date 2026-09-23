@@ -57,10 +57,23 @@ public final class UrlRuleValidator {
         return true;
     }
 
-    /** Returns true when {@code path} starts with "/", has no empty segments, and is non-root. */
+    /**
+     * Returns true when {@code path} starts with "/", has no empty segments, is non-root, and
+     * contains no query string, fragment, or dot segments. Query strings are rejected rather than
+     * stripped because dropping one silently would widen the rule (a rule for one video would
+     * quietly become a rule for the whole site section).
+     */
     public static boolean isValidPath(String path) {
         if (path == null || !path.startsWith("/") || path.equals("/") || path.contains("//")) {
             return false;
+        }
+        if (path.indexOf('?') >= 0 || path.indexOf('#') >= 0) {
+            return false;
+        }
+        for (String segment : path.substring(1).split("/", -1)) {
+            if (segment.equals(".") || segment.equals("..")) {
+                return false;
+            }
         }
         return true;
     }

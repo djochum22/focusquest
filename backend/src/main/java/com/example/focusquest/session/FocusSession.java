@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Entity
@@ -83,6 +84,14 @@ public class FocusSession {
     // SessionService can add elapsed seconds to activeFocusSeconds across pause/resume cycles.
     @Column(name = "active_segment_started_at")
     private Instant activeSegmentStartedAt;
+
+    // Internal bookkeeping only: the part of the totals above that SessionService has already
+    // credited to the streak, so each credit covers just the time since the previous one.
+    @Column(name = "streak_credited_active_seconds", nullable = false)
+    private long streakCreditedActiveSeconds;
+
+    @Column(name = "streak_credited_paused_seconds", nullable = false)
+    private long streakCreditedPausedSeconds;
 
     protected FocusSession() {
     }
@@ -157,8 +166,49 @@ public class FocusSession {
         this.activeSegmentStartedAt = null;
     }
 
+    /**
+     * Ends the session as ABANDONED because the user manually released website blocking. Blocking
+     * is released for good, so the state is OVERRIDE_USED rather than something the daily streak
+     * target could later change.
+     */
+    void markOverridden(Instant now) {
+        markAbandoned(now);
+        this.overrideUsed = true;
+        this.blockingState = BlockingState.OVERRIDE_USED;
+    }
+
+    long uncreditedActiveSeconds() {
+        return activeFocusSeconds - streakCreditedActiveSeconds;
+    }
+
+    long uncreditedPausedSeconds() {
+        return finalizedPausedSeconds - streakCreditedPausedSeconds;
+    }
+
+    /** Records that everything accumulated so far has been credited to the streak. */
+    void markStreakCredited() {
+        this.streakCreditedActiveSeconds = activeFocusSeconds;
+        this.streakCreditedPausedSeconds = finalizedPausedSeconds;
+    }
+
+    void updateBlockingState(BlockingState blockingState) {
+        this.blockingState = blockingState;
+    }
+
     Instant getActiveSegmentStartedAt() {
         return activeSegmentStartedAt;
+    }
+
+    /**
+     * Active focus seconds as of {@code now}, including the still-running ACTIVE segment. The
+     * stored {@code activeFocusSeconds} only advances on pause/complete/abandon, so callers that
+     * display live progress need this instead.
+     */
+    public long activeSecondsAt(Instant now) {
+        if (status != SessionStatus.ACTIVE || activeSegmentStartedAt == null) {
+            return activeFocusSeconds;
+        }
+        return activeFocusSeconds + Math.max(0, Duration.between(activeSegmentStartedAt, now).getSeconds());
     }
 
     public Long getId() {
