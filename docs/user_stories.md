@@ -298,14 +298,17 @@ so that I can unblock websites even if my daily streak is incomplete.
 **Acceptance criteria:**
 
 - Given a session is active or paused,  
+  when the user looks for a manual override,  
+  then no override is offered, and the application rejects an override request until the session has been abandoned.
+- Given a session has been abandoned and website blocking is still active,  
   when the user activates a manual override,  
   then the application displays a warning that a daily XP penalty will be applied.
 - Given the user confirms the override,  
   when the override is executed,  
   then website blocking is released immediately.
 - Given the override is executed,  
-  when the session is finalized,  
-  then the session is marked as abandoned with overrideUsed = true.
+  when the override is recorded,  
+  then the already-abandoned session is marked with overrideUsed = true.
 - Given the override is executed,  
   when XP is calculated for the day,  
   then a daily XP penalty is applied, once for that session.

@@ -606,6 +606,15 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
   - A signed-out user who opens login or setup is routed by `GET /api/auth/setup-status`: to setup while `setupRequired` is true, to login once it is false. If the backend cannot be reached the requested screen is shown and reports the connection error.
 - The dev server runs on port 5173 (`strictPort`), the only frontend origin the backend's CORS configuration allows.
 
+**Session management in the frontend**
+
+- `api/sessionApi.ts` wraps every `/api/focus-sessions` endpoint the UI uses; `stores/sessionStore.ts` holds the current session, the last ended session and the history.
+- Every state change (create, start, pause, resume, complete, abandon, override) is a backend call, and the returned `FocusSessionDto` replaces the local copy. The UI never computes session state, completion eligibility, XP or streak progress. When a call fails, the store re-fetches the current session so the screen reflects what the server actually holds, and the backend's error message is shown.
+- Creating a session only creates it as `PLANNED`; the user starts it with a separate action, which is when the timer and blocking begin. The backend cannot list `PLANNED` sessions, so the store remembers the planned one locally and it is lost on a page reload. A `PLANNED` session that is never started, or is replaced by editing the details, stays on the server and blocks nothing.
+- `SessionTimer` counts locally between server responses, from the moment each response arrived (`Date.now()` at receipt) rather than from the server's `generatedAt`, so browser clock skew cannot distort it. When the countdown reaches zero the dashboard re-fetches the session, and the Complete button is enabled from the server's `remainingFocusSeconds`, not the local countdown. The dashboard also re-fetches when the tab becomes visible again.
+- Abandon asks for confirmation. Manual override is offered only after a session has been abandoned with blocking still held: the session summary on the dashboard shows an "Override blocking" button, and the running and paused views have none. It opens `ManualOverrideDialog`, which warns that an XP penalty will be applied without stating an amount (the penalty is a server-side, configurable placeholder), and calls the override endpoint only after the user confirms. Because the abandoned session is otherwise lost on a reload, the store looks at the latest history entry when there is no running session and restores it if it is `ABANDONED` with blocking `ACTIVE`; that summary has no dismiss button while the override is available.
+- The session views are `DashboardView` (current session, or the summary of the one that just ended), `SessionCreateView` and `HistoryView`.
+
 **Frontend security behavior**
 
 - Send bearer tokens in authenticated API requests.
@@ -802,8 +811,9 @@ Notes:
 
 - `POST /api/focus-sessions` returns 201 with the planned session. The session body is `FocusSessionDto`; `activeFocusSeconds` and `remainingFocusSeconds` are live (they include the segment still running as of `generatedAt`).
 - `GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content.
-- `GET /api/focus-sessions/{id}` and `GET /api/focus-sessions/history` are not implemented yet.
-- `POST .../override` takes no body. No override reason is collected yet.
+- `GET /api/focus-sessions/history` returns the caller's ended sessions (`COMPLETED`, `ABANDONED`, `INTERRUPTED`) as a JSON array of `FocusSessionDto`, most recently started first. The optional `limit` parameter defaults to 50 and is clamped to 1-200. There is no paging yet.
+- `GET /api/focus-sessions/{id}` is not implemented yet.
+- `POST .../override` takes no body and no override reason is collected yet. It is accepted only for an `ABANDONED` session whose blocking is still `ACTIVE`, that is still the user's latest started session, and while today's daily target is unmet. Calling it on an `ACTIVE` or `PAUSED` session is refused with `INVALID_SESSION_STATE` ("Abandon the session before overriding website blocking"), so a session is always ended and its time credited before anything is overridden.
 - Every `{id}` operation checks that the session belongs to the caller; another user's session is reported as `NOT_FOUND`.
 
 **Streaks**
@@ -1128,7 +1138,7 @@ Responsibilities:
 - Enforce valid state transitions and session ownership.
 - Credit streak progress when a pause is resumed and when a session ends.
 - Settle the session's blocking state when it ends.
-- Apply the manual override (abandon with `overrideUsed`, release blocking, record the penalty).
+- Apply the manual override to an already-abandoned session (set `overrideUsed`, release blocking, record the penalty).
 
 **StreakService**
 
@@ -1242,15 +1252,15 @@ An abandoned session:
 - Grants no session-completion XP.
 - Keeps recorded active and finalized paused time for streak progress if the session qualifies.
 - Releases websites immediately only when the daily target has already been reached, counting the time credited by this abandonment.
-- Otherwise maintains enforcement until a new session is completed, or a manual override. Starting a new session supersedes the abandoned one.
+- Otherwise maintains enforcement until a new session is completed, or a manual override of that abandoned session. Starting a new session supersedes the abandoned one.
 
 **Manual override rule**
 
 A manual override:
 
 - Releases website blocking immediately, with blocking state `OVERRIDE_USED`.
-- Is allowed only from ACTIVE or PAUSED, and marks the session ABANDONED with overrideUsed = true.
-- Credits the session's remaining time to the streak like any abandonment.
+- Is allowed only for a session that is already ABANDONED and still holding blocking (blocking state `ACTIVE`), that is the user's latest started session, while today's daily target is unmet. It is refused for ACTIVE, PAUSED, PLANNED and COMPLETED sessions and cannot be applied twice.
+- Sets overrideUsed = true on the abandoned session. The session's time was already credited to the streak when it was abandoned, so an override credits nothing further.
 - Applies an XP penalty as a negative `ExperienceTransaction`, once per session. The amount is a placeholder (10) set in `focusquest.xp.manual-override-penalty`.
 - Stores the audit trail as `overrideUsed`, the blocking state and the transaction (a dedicated `BlockingOverride` record is planned).
 

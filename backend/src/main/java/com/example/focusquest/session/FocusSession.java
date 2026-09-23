@@ -167,12 +167,11 @@ public class FocusSession {
     }
 
     /**
-     * Ends the session as ABANDONED because the user manually released website blocking. Blocking
-     * is released for good, so the state is OVERRIDE_USED rather than something the daily streak
-     * target could later change.
+     * Records that the user manually released website blocking after abandoning this session.
+     * Blocking is released for good, so the state is OVERRIDE_USED rather than something the daily
+     * streak target could later change. The session itself was already ended by the abandonment.
      */
-    void markOverridden(Instant now) {
-        markAbandoned(now);
+    void markOverridden() {
         this.overrideUsed = true;
         this.blockingState = BlockingState.OVERRIDE_USED;
     }

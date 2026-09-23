@@ -191,12 +191,24 @@ class SessionLifecycleIntegrationTest {
     }
 
     @Test
-    void overridingReleasesBlockingKeepsTheTimeAndRecordsExactlyOnePenalty() {
+    void overridingAnAbandonedSessionReleasesBlockingKeepsTheTimeAndRecordsExactlyOnePenalty() {
         configureDailyTarget(30);
         FocusSession session = newStartedSession(10);
         advance(60);
         sessionService.pauseSession(session.getId(), user.getUsername());
         advance(30);
+
+        // A running (here paused) session cannot be overridden: nothing changes and no penalty is taken.
+        assertThatThrownBy(() -> sessionService.overrideSession(session.getId(), user.getUsername()))
+                .isInstanceOf(InvalidSessionStateException.class);
+        assertThat(reload(session).getStatus()).isEqualTo(SessionStatus.PAUSED);
+        assertThat(reload(session).isOverrideUsed()).isFalse();
+        assertThat(experienceTransactionRepository.findAll()).isEmpty();
+
+        sessionService.abandonSession(session.getId(), user.getUsername());
+        assertThat(reload(session).getBlockingState()).isEqualTo(BlockingState.ACTIVE);
+        assertThat(enforcing()).isTrue();
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
 
         sessionService.overrideSession(session.getId(), user.getUsername());
 

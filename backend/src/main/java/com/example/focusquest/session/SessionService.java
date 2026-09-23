@@ -6,6 +6,7 @@ import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,7 @@ import java.util.Optional;
 
 /**
  * Owns the focus-session state machine. Streak progress is credited when a pause is resumed and
- * when a session ends (complete, abandon, override); ending a session also settles its blocking
+ * when a session ends (complete or abandon); ending a session also settles its blocking
  * state. Each happens in the same transaction as the transition, so the session, the streak and
  * website blocking can never disagree.
  *
@@ -31,7 +32,12 @@ public class SessionService {
 
     public static final int MIN_PLANNED_FOCUS_MINUTES = 5;
 
+    public static final int DEFAULT_HISTORY_LIMIT = 50;
+    public static final int MAX_HISTORY_LIMIT = 200;
+
     private static final List<SessionStatus> BLOCKING_STATUSES = List.of(SessionStatus.ACTIVE, SessionStatus.PAUSED);
+    private static final List<SessionStatus> ENDED_STATUSES =
+            List.of(SessionStatus.COMPLETED, SessionStatus.ABANDONED, SessionStatus.INTERRUPTED);
 
     private final FocusSessionRepository focusSessionRepository;
     private final SessionPauseRepository sessionPauseRepository;
@@ -76,6 +82,17 @@ public class SessionService {
     @Transactional(readOnly = true)
     public Optional<FocusSession> findCurrentSession(User user) {
         return focusSessionRepository.findFirstByUserAndStatusIn(user, BLOCKING_STATUSES);
+    }
+
+    /**
+     * The user's ended sessions (completed, abandoned or interrupted), most recently started first.
+     * {@code limit} is clamped to 1..{@link #MAX_HISTORY_LIMIT}.
+     */
+    @Transactional(readOnly = true)
+    public List<FocusSession> findHistory(User user, int limit) {
+        int pageSize = Math.min(Math.max(limit, 1), MAX_HISTORY_LIMIT);
+        return focusSessionRepository.findByUserAndStatusInOrderByStartedAtDescIdDesc(
+                user, ENDED_STATUSES, PageRequest.of(0, pageSize));
     }
 
     /** The user's most recently started session in any state, or empty if none was ever started. */
@@ -198,23 +215,41 @@ public class SessionService {
     }
 
     /**
-     * Manually releases website blocking before the normal release condition is met. The session
-     * ends as ABANDONED with {@code overrideUsed} set, its time still counts toward the streak, and
-     * the user takes an XP penalty. Allowed even if the daily target was already reached.
+     * Manually releases website blocking that an abandoned session is still holding. The session
+     * must already be ABANDONED, so its intervals are settled and its time is credited to the
+     * streak before anything is overridden; override never ends or alters a running session. It
+     * must also be the user's latest started session with blocking still ACTIVE and today's daily
+     * target not yet reached, because that is exactly when blocking is being enforced. The user
+     * takes an XP penalty, once per session.
      */
     @Transactional
     public FocusSession overrideSession(Long sessionId, String username) {
         FocusSession session = getOwnedSessionOrThrow(sessionId, username);
-        requireStatus(session, SessionStatus.ACTIVE, SessionStatus.PAUSED);
+        if (session.getStatus() == SessionStatus.ACTIVE || session.getStatus() == SessionStatus.PAUSED) {
+            throw new InvalidSessionStateException("Abandon the session before overriding website blocking");
+        }
+        requireStatus(session, SessionStatus.ABANDONED);
+        if (session.isOverrideUsed()) {
+            throw new InvalidSessionStateException("Website blocking has already been overridden");
+        }
+        if (session.getBlockingState() != BlockingState.ACTIVE
+                || !isLatestStartedSession(session)
+                || streakService.isDailyTargetReached(session.getUser())) {
+            throw new InvalidSessionStateException("Website blocking is not being enforced for this session");
+        }
 
-        Instant now = clockProvider.now();
-        settleOpenInterval(session, now);
-        session.markOverridden(now);
-        recordStreakContribution(session);
+        session.markOverridden();
         FocusSession saved = focusSessionRepository.save(session);
 
         experienceService.applyManualOverridePenalty(session.getUser(), session.getId());
         return saved;
+    }
+
+    private boolean isLatestStartedSession(FocusSession session) {
+        return focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(session.getUser())
+                .map(latest -> latest == session
+                        || (latest.getId() != null && latest.getId().equals(session.getId())))
+                .orElse(false);
     }
 
     @Transactional
@@ -234,8 +269,8 @@ public class SessionService {
     /**
      * Credits the session's time that the streak has not seen yet to the current daily and weekly
      * periods. It runs when a pause is resumed, crediting everything so far (the active time before
-     * the pause plus the pause just finalized), and again when the session ends (complete, abandon,
-     * override), crediting the remainder. The session remembers what it has already credited, so a
+     * the pause plus the pause just finalized), and again when the session ends (complete or
+     * abandon), crediting the remainder. The session remembers what it has already credited, so a
      * moment of time is never counted twice. An unresolved pause contributes nothing until then,
      * and time from an interrupted session is discarded, never credited.
      */

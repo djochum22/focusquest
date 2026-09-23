@@ -128,6 +128,28 @@ class SessionControllerTest {
     }
 
     @Test
+    void historyListsEndedSessionsUsingTheRequestedLimit() throws Exception {
+        FocusSession completed = session(SessionStatus.COMPLETED, BlockingState.RELEASED);
+        FocusSession abandoned = session(SessionStatus.ABANDONED, BlockingState.OVERRIDE_USED);
+        when(sessionService.findHistory(user, 2)).thenReturn(java.util.List.of(completed, abandoned));
+
+        mockMvc.perform(get("/api/focus-sessions/history").param("limit", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$[1].status").value("ABANDONED"));
+    }
+
+    @Test
+    void historyDefaultsTheLimitAndReturnsAnEmptyListWhenThereAreNoEndedSessions() throws Exception {
+        when(sessionService.findHistory(user, SessionService.DEFAULT_HISTORY_LIMIT)).thenReturn(java.util.List.of());
+
+        mockMvc.perform(get("/api/focus-sessions/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     void everyLifecycleEndpointDelegatesToTheServiceWithTheAuthenticatedUsername() throws Exception {
         FocusSession started = session(SessionStatus.ACTIVE, BlockingState.ACTIVE);
         FocusSession paused = session(SessionStatus.PAUSED, BlockingState.ACTIVE);

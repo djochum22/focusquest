@@ -12,12 +12,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -546,10 +551,22 @@ class SessionServiceTest {
 
     // --- manual override ---
 
-    @Test
-    void overrideFromActiveEndsTheSessionAsAbandonedWithOverrideUsedAndReleasesBlocking() {
+    /** Abandons a fresh 10-minute session with blocking left active, and makes it the latest started session. */
+    private FocusSession abandonWithBlockingStillActive() {
         FocusSession session = createAndStartSession(10);
         advanceClockBy(120);
+        when(streakService.isDailyTargetReached(user)).thenReturn(false);
+        sessionService.abandonSession(SESSION_ID);
+        lenient().when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(session));
+        return session;
+    }
+
+    @Test
+    void overrideOfAnAbandonedSessionMarksItOverriddenAndReleasesBlocking() {
+        FocusSession session = abandonWithBlockingStillActive();
+        Instant abandonedAt = session.getAbandonedAt();
+        advanceClockBy(30);
 
         FocusSession result = sessionService.overrideSession(SESSION_ID, "doug");
 
@@ -557,49 +574,43 @@ class SessionServiceTest {
         assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
         assertThat(session.isOverrideUsed()).isTrue();
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.OVERRIDE_USED);
-        assertThat(session.getAbandonedAt()).isEqualTo(clockProvider.now());
-        assertThat(session.getActiveFocusSeconds()).isEqualTo(120);
+        assertThat(session.getAbandonedAt()).isEqualTo(abandonedAt);
         assertThat(session.isCompletionXpAwarded()).isFalse();
     }
 
     @Test
-    void overrideRecordsTheStreakContributionAndAppliesTheXpPenaltyForThisSession() {
-        FocusSession session = createAndStartSession(10);
-        advanceClockBy(120);
+    void overrideAppliesTheXpPenaltyButDoesNotCreditTheStreakAgain() {
+        FocusSession session = abandonWithBlockingStillActive();
+        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(session, 120L, 0L);
 
         sessionService.overrideSession(SESSION_ID, "doug");
 
-        verify(streakService).recordContribution(session, 120L, 0L);
         verify(experienceService).applyManualOverridePenalty(eq(user), any());
+        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong());
     }
 
     @Test
-    void overrideFromPausedFinalizesTheOpenPauseAndCountsItTowardTheStreak() {
+    void overrideIsRefusedWhileTheSessionIsActiveOrPausedAndChangesNothing() {
         FocusSession session = createAndStartSession(10);
-        advanceClockBy(60);
-        SessionPause openPause = pauseAndCaptureOpenPause(session);
-        advanceClockBy(45);
-
-        sessionService.overrideSession(SESSION_ID, "doug");
-
-        assertThat(openPause.isFinalized()).isTrue();
-        assertThat(session.getFinalizedPausedSeconds()).isEqualTo(45);
-        verify(streakService).recordContribution(session, 60L, 45L);
-        assertThat(session.getBlockingState()).isEqualTo(BlockingState.OVERRIDE_USED);
-    }
-
-    @Test
-    void overrideDoesNotConsultTheDailyTargetBecauseItAlwaysReleases() {
-        createAndStartSession(10);
         advanceClockBy(120);
 
-        sessionService.overrideSession(SESSION_ID, "doug");
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("Abandon the session");
 
-        verify(streakService, never()).isDailyTargetReached(any());
+        pauseAndCaptureOpenPause(session);
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("Abandon the session");
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.PAUSED);
+        assertThat(session.isOverrideUsed()).isFalse();
+        verify(experienceService, never()).applyManualOverridePenalty(any(), any());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
     }
 
     @Test
-    void overrideRejectsSessionsThatAreNotActiveOrPaused() {
+    void overrideIsRefusedForPlannedAndCompletedSessions() {
         FocusSession planned = createSession(10);
         stubLookup(planned);
         assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
@@ -616,16 +627,57 @@ class SessionServiceTest {
     }
 
     @Test
-    void overrideCannotBeAppliedTwice() {
-        createAndStartSession(10);
+    void overrideIsRefusedWhenAbandoningAlreadyReleasedBlocking() {
+        FocusSession session = createAndStartSession(10);
         advanceClockBy(120);
+        when(streakService.isDailyTargetReached(user)).thenReturn(true);
+        sessionService.abandonSession(SESSION_ID);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.RELEASED);
+
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("not being enforced");
+
+        verify(experienceService, never()).applyManualOverridePenalty(any(), any());
+    }
+
+    @Test
+    void overrideIsRefusedWhenTheDailyTargetHasSinceBeenReached() {
+        abandonWithBlockingStillActive();
+        when(streakService.isDailyTargetReached(user)).thenReturn(true);
+
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("not being enforced");
+
+        verify(experienceService, never()).applyManualOverridePenalty(any(), any());
+    }
+
+    @Test
+    void overrideIsRefusedForAnAbandonedSessionThatANewerSessionHasReplaced() {
+        abandonWithBlockingStillActive();
+        FocusSession newer = new FocusSession(user, "Newer", TaskMode.TASK_REQUIRED, TaskCategory.CODING, 10,
+                clockProvider.now());
+        when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(newer));
+
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("not being enforced");
+
+        verify(experienceService, never()).applyManualOverridePenalty(any(), any());
+    }
+
+    @Test
+    void overrideCannotBeAppliedTwice() {
+        abandonWithBlockingStillActive();
         sessionService.overrideSession(SESSION_ID, "doug");
 
         assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
-                .isInstanceOf(InvalidSessionStateException.class);
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("already been overridden");
 
         verify(experienceService, org.mockito.Mockito.times(1)).applyManualOverridePenalty(any(), any());
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong());
     }
 
     // --- ownership and error types ---
@@ -689,5 +741,30 @@ class SessionServiceTest {
                 .thenReturn(Optional.of(session));
 
         assertThat(sessionService.findCurrentSession(user)).containsSame(session);
+    }
+    @Test
+    void findHistoryQueriesEndedSessionsOnly() {
+        FocusSession ended = createSession(25);
+        when(focusSessionRepository.findByUserAndStatusInOrderByStartedAtDescIdDesc(
+                same(user), any(), any(Pageable.class))).thenReturn(List.of(ended));
+
+        assertThat(sessionService.findHistory(user, 10)).containsExactly(ended);
+
+        ArgumentCaptor<Collection<SessionStatus>> statuses = ArgumentCaptor.forClass(Collection.class);
+        verify(focusSessionRepository).findByUserAndStatusInOrderByStartedAtDescIdDesc(
+                same(user), statuses.capture(), eq(PageRequest.of(0, 10)));
+        assertThat(statuses.getValue())
+                .containsExactlyInAnyOrder(SessionStatus.COMPLETED, SessionStatus.ABANDONED, SessionStatus.INTERRUPTED);
+    }
+
+    @Test
+    void findHistoryClampsTheLimit() {
+        sessionService.findHistory(user, 0);
+        sessionService.findHistory(user, 10_000);
+
+        verify(focusSessionRepository).findByUserAndStatusInOrderByStartedAtDescIdDesc(
+                same(user), any(), eq(PageRequest.of(0, 1)));
+        verify(focusSessionRepository).findByUserAndStatusInOrderByStartedAtDescIdDesc(
+                same(user), any(), eq(PageRequest.of(0, SessionService.MAX_HISTORY_LIMIT)));
     }
 }

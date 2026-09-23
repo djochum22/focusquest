@@ -3,6 +3,7 @@ package com.example.focusquest.session;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.user.UserService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -48,6 +50,15 @@ public class SessionController {
                 .map(this::toDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Completed, abandoned and interrupted sessions, most recently started first. */
+    @GetMapping("/history")
+    public List<FocusSessionDto> history(@AuthenticationPrincipal UserDetails principal,
+                                          @RequestParam(defaultValue = "" + SessionService.DEFAULT_HISTORY_LIMIT) int limit) {
+        return sessionService.findHistory(userService.getByUsername(principal.getUsername()), limit).stream()
+                .map(this::toDto)
+                .toList();
     }
 
     @PostMapping("/{id}/start")

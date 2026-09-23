@@ -502,9 +502,9 @@ If the user abandons a session:
 
 - If the daily streak target has already been reached, website blocking releases immediately.
 - If the daily streak target has not been reached, website blocking remains active.
-- The user may use a manual override to release blocking, subject to the daily XP penalty.
+- The user may then use a manual override of the abandoned session to release blocking, subject to the daily XP penalty.
 
-If the user completes a session, blocking is released. If a session is interrupted for a technical reason, blocking is released (`TECHNICAL_RELEASE`) so that a failure can never lock the user out. If an abandoned session keeps blocking active, it stays active until the user completes a session or overrides; starting a new session supersedes the abandoned one. Whether blocking is currently enforced is derived from the status of the user's most recently started session (see the technical architecture, section 13).
+If the user completes a session, blocking is released. If a session is interrupted for a technical reason, blocking is released (`TECHNICAL_RELEASE`) so that a failure can never lock the user out. If an abandoned session keeps blocking active, it stays active until the user completes a session or overrides the abandoned session; starting a new session supersedes the abandoned one. Whether blocking is currently enforced is derived from the status of the user's most recently started session (see the technical architecture, section 13).
 
 The session state and blocking state should be stored separately because an abandoned session can still have active website blocking.
 
@@ -698,7 +698,7 @@ A manual override releases website blocking before the normal release condition 
 When the user activates a manual override:
 
 - Website blocking releases immediately.
-- The active session is abandoned (ABANDONED with overrideUsed = true); it is allowed only from ACTIVE or PAUSED.
+- It is allowed only for a session that has already been abandoned and is still holding blocking; a running (ACTIVE or PAUSED) session must be abandoned first, so the session is finished and its time credited before anything is overridden. The abandoned session is marked overrideUsed = true.
 - No session-completion XP is awarded.
 - A daily XP penalty is applied.
 - The event is permanently recorded (currently as the overrideUsed flag, the OVERRIDE_USED blocking state and the penalty transaction; a dedicated BlockingOverride record with a reason is still planned).
@@ -928,7 +928,7 @@ GET /api/focus-sessions/current
 
 GET /api/focus-sessions/history
 
-`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content. `GET /api/focus-sessions/{id}` and `GET /api/focus-sessions/history` are not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
+`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content. `GET /api/focus-sessions/history` returns the ended sessions (completed, abandoned, interrupted), most recently started first, with an optional `limit` (default 50, at most 200). `GET /api/focus-sessions/{id}` is not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
 
 ### Blocked targets
 
