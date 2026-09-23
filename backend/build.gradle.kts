@@ -27,8 +27,12 @@ dependencies {
     // Persistence
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("com.h2database:h2")
+    // Spring Boot 4 splits autoconfiguration per feature; the H2 console servlet needs its own module too.
+    runtimeOnly("org.springframework.boot:spring-boot-h2console")
 
-    // Migrations (H2 support ships inside flyway-core; no separate flyway-database-h2 module exists)
+    // Migrations (H2 support ships inside flyway-core; no separate flyway-database-h2 module exists).
+    // Spring Boot 4 splits autoconfiguration per feature, so the Flyway glue module must be added explicitly.
+    implementation("org.springframework.boot:spring-boot-flyway")
     implementation("org.flywaydb:flyway-core")
 
     // Validation
@@ -43,6 +47,9 @@ dependencies {
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    // Spring Boot 4 moved @WebMvcTest, and the MockMvc Spring Security wiring, into their own modules.
+    testImplementation("org.springframework.boot:spring-boot-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-security-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

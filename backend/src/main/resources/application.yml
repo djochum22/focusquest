@@ -32,6 +32,18 @@ server:
   port: 8080
   address: 127.0.0.1
 
+focusquest:
+  jwt:
+    # Placeholder only. Replace with a random, at-least-32-byte secret via an
+    # environment variable (FOCUSQUEST_JWT_SECRET) — never commit a real secret.
+    secret: "${FOCUSQUEST_JWT_SECRET:CHANGE_ME_local_dev_placeholder_secret_not_for_prod_use}"
+    expiration-minutes: 60
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      # Replace with the extension's actual id from chrome://extensions after loading it unpacked.
+      - chrome-extension://REPLACE_WITH_EXTENSION_ID
+
 logging:
   level:
     root: INFO
