@@ -921,12 +921,14 @@ StreakPeriod
 - targetMinutes
 - requiredTaskMode
 - requiredCategory
-- qualifyingMinutes
-- overtimeMinutes
+- qualifyingSeconds
+- overtimeSeconds
 - status
 - freezeConsumed
 - completedAt
 ```
+
+`qualifyingSeconds` and `overtimeSeconds` are tracked in seconds, not minutes, so that repeated small contributions (short sessions, finalized pauses) accumulate exactly instead of losing time to per-contribution minute rounding. `targetMinutes` remains a minute-granularity configuration value.
 
 **StreakContribution**
 
