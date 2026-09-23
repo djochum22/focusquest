@@ -10,16 +10,25 @@ so that the application can store my data locally and display my name.
 
 - Given the application is launched for the first time,  
   when the setup screen is displayed,  
-  then the user can enter an optional display name and confirm the time zone.
-- Given the user has entered a display name,  
+  then the user can enter a username, a password, a display name and confirm the time zone.
+- Given the user has entered all required fields,  
   when the user confirms the setup,  
   then the application stores the local profile and does not show the setup screen again.
-- Given the user has not entered a display name,  
+- Given the user has left the display name, username or password empty, or the password confirmation does not match,  
   when the user confirms the setup,  
-  then the application uses a default identifier such as "Local User."
+  then the application shows what is missing and does not create the profile.
 - Given the user confirms the setup,  
   when the local profile is created,  
   then the application also creates the default daily streak configuration (30 minutes, task-based sessions).
+- Given no local profile exists yet,  
+  when the user opens the application,  
+  then the application shows the setup screen instead of the login screen.
+- Given a local profile already exists,  
+  when the user opens the setup screen,  
+  then the application redirects to the login screen.
+- Given the user confirms the setup,  
+  when the local profile is created,  
+  then the user is signed in and taken to the dashboard without a separate login step.
 
 ## **US-002: View and edit local profile**
 

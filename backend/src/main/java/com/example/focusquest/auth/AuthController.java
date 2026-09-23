@@ -25,6 +25,11 @@ public class AuthController {
         this.userService = userService;
     }
 
+    @GetMapping("/setup-status")
+    public SetupStatusResponse setupStatus() {
+        return new SetupStatusResponse(!userService.hasUser());
+    }
+
     @PostMapping("/setup")
     public ResponseEntity<LoginResponse> setup(@Valid @RequestBody SetupRequest request) {
         LoginResponse response = authService.setup(request);

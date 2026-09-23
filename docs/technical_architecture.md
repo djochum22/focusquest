@@ -191,14 +191,19 @@ Flow:
 
 ```
 1. User opens the Vue application.
-2. User enters local username and password.
-3. Frontend sends credentials to /api/auth/login.
-4. Backend validates password using BCrypt.
-5. Backend creates a signed JWT.
-6. Frontend stores the token securely for the local application session.
-7. Frontend sends Authorization: Bearer <token> with API requests.
-8. Chrome extension stores and uses the same token for extension API calls.
+2. Frontend calls GET /api/auth/setup-status. If setupRequired is true it shows the setup screen
+   (first launch); otherwise it shows the login screen.
+3. User enters local username and password.
+4. Frontend sends credentials to /api/auth/login.
+5. Backend validates password using BCrypt.
+6. Backend creates a signed JWT.
+7. Frontend stores the token securely for the local application session.
+8. Frontend sends Authorization: Bearer <token> with API requests.
+9. Chrome extension stores and uses the same token for extension API calls.
 ```
+
+On first launch the user creates the account through POST /api/auth/setup instead of step 4. Setup
+returns the same response as login, so the user is signed in immediately.
 
 **User account model**
 
@@ -229,7 +234,7 @@ Passwords must never be stored in plaintext. Passwords must be hashed with BCryp
 
 **Endpoint access policy**
 
-<div class="joplin-table-wrapper"><table><thead><tr><th><p>Endpoint group</p></th><th><p>Access policy</p></th></tr><tr><th><pre><code>/api/auth/login</code></pre></th><th><p>Public</p></th></tr><tr><th><pre><code>/api/auth/setup</code></pre></th><th><p>Public only when no local user exists</p></th></tr><tr><th><p>/api/auth/** remaining protected operations</p></th><th><p>Authenticated where applicable</p></th></tr><tr><th><pre><code>/api/**</code></pre></th><th><p>Authenticated</p></th></tr><tr><th><p>Extension endpoints</p></th><th><p>Authenticated with bearer token</p></th></tr><tr><th><p>Health endpoint, if exposed</p></th><th><p>Local-only or public depending on configuration</p></th></tr></thead></table></div>
+<div class="joplin-table-wrapper"><table><thead><tr><th><p>Endpoint group</p></th><th><p>Access policy</p></th></tr><tr><th><pre><code>/api/auth/login</code></pre></th><th><p>Public</p></th></tr><tr><th><pre><code>/api/auth/setup</code></pre></th><th><p>Public only when no local user exists</p></th></tr><tr><th><pre><code>/api/auth/setup-status</code></pre></th><th><p>Public; reveals only whether first-launch setup is still pending</p></th></tr><tr><th><p>/api/auth/** remaining protected operations</p></th><th><p>Authenticated where applicable</p></th></tr><tr><th><pre><code>/api/**</code></pre></th><th><p>Authenticated</p></th></tr><tr><th><p>Extension endpoints</p></th><th><p>Authenticated with bearer token</p></th></tr><tr><th><p>Health endpoint, if exposed</p></th><th><p>Local-only or public depending on configuration</p></th></tr></thead></table></div>
 
 **CSRF**
 
@@ -263,6 +268,7 @@ Authorization, Content-Type
 **Token storage**
 
 - The frontend should avoid exposing long-lived tokens unnecessarily.
+- The Vue frontend keeps the token in `sessionStorage`, so it is discarded when the browser tab closes. It also records the token's expiry time and treats an expired token as signed out without calling the backend. After a page reload only the token survives; the user profile is re-fetched from `GET /api/auth/me`, and a rejected token signs the user out.
 - The Chrome extension should use chrome.storage rather than plain page local storage for extension-owned token storage.
 - The application should not log bearer tokens.
 - The extension must not inject tokens into ordinary website pages.
@@ -322,6 +328,7 @@ com.example.focusquest
     LoginRequest.java
     LoginResponse.java
     SetupRequest.java
+    SetupStatusResponse.java
 
   user/
     User.java
@@ -589,10 +596,20 @@ Use Pinia for cross-view state such as:
 
 Keep API calls inside api/ modules or stores rather than putting fetch logic directly into presentational components.
 
+**Authentication flow in the frontend**
+
+- `api/client.ts` is a single Axios instance. It adds `Authorization: Bearer <token>` to every request and reports 401 responses to the auth store. It receives the store through `configureApiClient()` in `main.ts` rather than importing it, so the api layer does not depend on the stores. The backend URL comes from `VITE_API_BASE_URL` and defaults to `http://127.0.0.1:8080`.
+- `stores/authStore.ts` owns the token, its expiry and the signed-in user, and exposes `login`, `setup`, `restoreSession`, `fetchSetupRequired` and `logout`.
+- `router/navigationGuard.ts` runs before every navigation. Routes are protected unless they carry `meta.public`.
+  - A protected route without a valid session redirects to login, keeping the requested path in a `redirect` query parameter. Only same-app paths are honoured as redirect targets.
+  - A signed-in user who opens login or setup is sent to the dashboard.
+  - A signed-out user who opens login or setup is routed by `GET /api/auth/setup-status`: to setup while `setupRequired` is true, to login once it is false. If the backend cannot be reached the requested screen is shown and reports the connection error.
+- The dev server runs on port 5173 (`strictPort`), the only frontend origin the backend's CORS configuration allows.
+
 **Frontend security behavior**
 
 - Send bearer tokens in authenticated API requests.
-- Redirect to login on an HTTP 401 response.
+- Redirect to login on an HTTP 401 response, but only when the rejected request carried a bearer token (an expired or invalid session). A 401 on `POST /api/auth/login` means wrong credentials and is shown on the login form instead.
 - Do not trust UI-only validation for business rules.
 - Do not store secrets in source code.
 - Do not expose extension credentials in website content scripts.
@@ -754,11 +771,16 @@ Authorization: Bearer <JWT>
 **Authentication**
 
 ```
+GET  /api/auth/setup-status
 POST /api/auth/setup
 POST /api/auth/login
 GET  /api/auth/me
 POST /api/auth/change-password
 ```
+
+- **`setup-status`** is public and returns `{ "setupRequired": true }` while no local user exists and `{ "setupRequired": false }` afterwards. The frontend uses it to choose between the setup and login screens. It exposes nothing beyond what `setup` already reveals: that call returns `409 CONFLICT` once an account exists.
+- **`setup`** and **`login`** both return `token`, `tokenType`, `expiresInSeconds` and the `user`. `setup` creates the single local account (`username` 3-100 characters, `password` 8-100, `displayName` up to 100, `timezone` an IANA zone id up to 50), creates its default streak configuration, and responds `201 CREATED`.
+- **`login`** answers a wrong username or password with `401 UNAUTHORIZED`, the same status as an expired session. Clients tell the two apart by whether the request carried a bearer token.
 
 **Session lifecycle**
 

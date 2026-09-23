@@ -51,7 +51,8 @@ public class SecurityConfig {
                 // frame-blocking headers. It's local development tooling only (server binds to 127.0.0.1).
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/setup", "/api/auth/login", "/error", "/h2-console/**")
+                        .requestMatchers("/api/auth/setup", "/api/auth/setup-status", "/api/auth/login", "/error",
+                                "/h2-console/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
