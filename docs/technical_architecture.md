@@ -221,12 +221,12 @@ User
 - createdAt
 ```
 
-Passwords must never be stored in plaintext. Passwords must be hashed with BCrypt.
+Passwords must never be stored in plaintext. Passwords must be hashed with BCrypt. BCrypt only handles the first 72 bytes and its encoder rejects anything longer, so setup accepts passwords of 8 to 72 characters and refuses more than 72 UTF-8 bytes with HTTP 400. Login answers 401 for a longer password, since none can have been set. Setup also refuses a time zone that `ZoneId` does not know: every streak calculation resolves it, so an unknown one would break the app after setup.
 
 **JWT requirements**
 
-- JWT signing secret must be provided through configuration or environment variables.
-- The secret must not be committed to Git.
+- JWT signing secret must be provided through configuration or environment variables (`FOCUSQUEST_JWT_SECRET`, at least 32 bytes).
+- The secret must not be committed to Git. No default secret ships with the code: when the variable is unset the backend generates a random secret for that run and logs a warning (never the value), so everyone is signed out whenever the backend restarts.
 - JWTs should have an expiration time.
 - The backend must validate signature, expiration, and subject.
 - JWT authentication must populate Spring Security's authentication context.
@@ -253,6 +253,8 @@ chrome-extension://<extension-id>
 
 The extension ID may differ during development and production packaging. It should be configured rather than hard-coded where possible.
 
+Origins are matched exactly (no patterns), and credentialed cross-origin requests are not allowed, because authentication is a bearer header and never a cookie. Preflight responses are cached for an hour. The extension does not depend on this list: it calls the backend with its manifest host permissions.
+
 Allowed methods should be limited to:
 
 ```
@@ -264,6 +266,16 @@ Allowed request headers should include only what is needed:
 ```
 Authorization, Content-Type
 ```
+
+**Response headers and development tooling**
+
+- Responses carry Spring Security's default protective headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Cache-Control: no-store`.
+- The H2 console is off by default, because it gives full access to the database, password hash included, behind an empty database password. Start the backend with `FOCUSQUEST_H2_CONSOLE=true` to use it. Only then does security let `/h2-console/**` through and relax `X-Frame-Options` to `SAMEORIGIN`, which the console needs.
+- Every other unauthenticated request, including unknown paths, gets the same 401 JSON body, so routes cannot be enumerated.
+
+**Logging**
+
+`GlobalExceptionHandler` is the only place the backend logs a request failure. It logs the stack trace of unexpected exceptions and returns a generic message to the client. Nothing logs request bodies, passwords, password hashes, tokens or the signing secret, and `SecurityConfigurationIntegrationTest` checks that across login, failed login, bad tokens, malformed bodies and data deletion. The extension logger has the same rule (see `extension/src/utils/logger.ts`).
 
 **Token storage**
 
@@ -279,7 +291,7 @@ Authorization, Content-Type
 - Token refresh or short-lived access tokens.
 - Local device registration for the extension.
 - An extension sign-in flow and an extension credential that outlives a 60-minute session (see the extension follow-up work in section 9).
-- Rate limiting.
+- Rate limiting, in particular of failed logins: the API is bound to 127.0.0.1, but nothing slows repeated guesses from another local process.
 - Audit logging for sensitive actions.
 - Role-based authorization if multiple users are introduced.
 
@@ -1372,6 +1384,10 @@ Use:
 - Spring Boot integration tests.
 - H2 for simple integration tests.
 - A full session-lifecycle integration test with no mocks (real services and an in-memory database), covering streak crediting, release decisions, override and rule locking.
+- HTTP-level integration tests (`integration/`, built on `support/ApiIntegrationTest`) that drive the running application through MockMvc with the real security filter chain, controllers, services and an in-memory database, and a controllable clock:
+  - `SessionWorkflowApiIntegrationTest`: first-launch setup through a full session (start, pause, resume, complete), abandon and override, rule locking, error shapes, isolation between users, and export and deletion.
+  - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, overtime, and configuration validation.
+  - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, password and time zone limits, CORS, response headers, and secrets in the logs.
 - Controller slice tests that load the real security configuration (`@WithRealSecurityConfig`); without it a `@WebMvcTest` silently runs under Spring Boot's default security.
 - Testcontainers with PostgreSQL before migration or production deployment.
 
@@ -1405,6 +1421,8 @@ Use Vitest for:
 - Streak-progress rendering.
 - Override confirmation dialog.
 - Error states.
+
+Covered by the suite: `validation.test.ts` (all form rules), `LoginView`, `SetupView`, `SessionForm` and `SessionCreateView` (validation messages, submitted payloads, backend and network errors, double-submit protection, safe redirects), `apiError` (how any failure becomes a message), `tokenStorage` (corrupt or blocked storage), the common form and dialog components, and the active, paused and override views.
 
 **Extension tests**
 
