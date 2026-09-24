@@ -1,0 +1,153 @@
+:root {
+  --bg: #f4f5f9;
+  --card: #ffffff;
+  --text: #1c1e2b;
+  --muted: #5d6178;
+  --accent: #5b5bd6;
+  --accent-text: #ffffff;
+  --border: #dcdeea;
+  --notice-bg: #fff4d6;
+  --notice-text: #6b4a00;
+  --track: #e6e8f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14151f;
+    --card: #1e2030;
+    --text: #eceef8;
+    --muted: #a3a7c0;
+    --accent: #8b8bf0;
+    --accent-text: #14151f;
+    --border: #33364d;
+    --notice-bg: #3a2f12;
+    --notice-text: #f3d998;
+    --track: #33364d;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.site {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.session {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.task {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.timer {
+  margin: 8px 0 0;
+  font-size: 44px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.progress {
+  height: 8px;
+  margin-top: 16px;
+  background: var(--track);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.notice {
+  margin: 20px 0 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  border-radius: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+button,
+.button {
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button.secondary {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--border);
+}
+
+[hidden] {
+  display: none !important;
+}

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "FocusQuest",
+  "version": "0.1.0",
+  "description": "Blocks distracting websites during a FocusQuest focus session.",
+  "minimum_chrome_version": "120",
+
+  "permissions": ["declarativeNetRequest", "storage", "alarms", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background/serviceWorker.js",
+    "type": "module"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["pages/blocked/blocked.html"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}

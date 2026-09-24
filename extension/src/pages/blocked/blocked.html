@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blocked · FocusQuest</title>
+    <link rel="stylesheet" href="blocked.css" />
+  </head>
+  <body>
+    <main class="card">
+      <p class="eyebrow">FocusQuest</p>
+      <h1 id="heading">This site is blocked</h1>
+      <p id="site" class="site" hidden></p>
+      <p id="reason" class="muted" hidden></p>
+
+      <section id="session" class="session" hidden>
+        <p id="task" class="task"></p>
+        <p id="timer" class="timer" aria-live="off"></p>
+        <p id="timer-label" class="muted"></p>
+
+        <div id="streak" hidden>
+          <div class="progress" role="progressbar" aria-label="Today's streak progress" aria-valuemin="0">
+            <div id="streak-bar" class="progress-bar"></div>
+          </div>
+          <p id="streak-text" class="muted"></p>
+        </div>
+      </section>
+
+      <p id="notice" class="notice" role="status" hidden></p>
+
+      <div class="actions">
+        <button id="back" type="button">Go back</button>
+        <a id="open-app" class="button secondary" href="#" target="_blank" rel="noopener">Open FocusQuest</a>
+        <a id="continue" class="button secondary" href="#" hidden>Continue to site</a>
+      </div>
+    </main>
+    <script type="module" src="blocked.js"></script>
+  </body>
+</html>
