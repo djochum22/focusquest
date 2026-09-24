@@ -96,7 +96,8 @@ There is no login screen in the extension yet. It needs the same JWT the web app
    ```
 
 Writing the token triggers an immediate sync. The token expires after 60 minutes
-(`focusquest.jwt.expiration-minutes`); repeat both steps with a fresh one when it does.
+(`focusquest.jwt.expiration-minutes`); repeat both steps with a fresh one when it does. Unless
+`FOCUSQUEST_JWT_SECRET` is set, restarting the backend invalidates it too.
 
 Check the connection at any time from the same console:
 

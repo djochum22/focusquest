@@ -9,7 +9,9 @@ import type { StreakPeriodType } from '../types/streak'
 export const USERNAME_MIN = 3
 export const USERNAME_MAX = 100
 export const PASSWORD_MIN = 8
-export const PASSWORD_MAX = 100
+/** The backend hashes passwords with BCrypt, which only handles the first 72 bytes and rejects more. */
+export const PASSWORD_MAX = 72
+export const PASSWORD_MAX_BYTES = 72
 export const DISPLAY_NAME_MAX = 100
 export const TIMEZONE_MAX = 50
 export const MIN_PLANNED_FOCUS_MINUTES = 5
@@ -56,6 +58,9 @@ export function validateSetup(form: SetupForm): FieldErrors<SetupForm> {
     errors.password = 'Choose a password.'
   } else if (form.password.length < PASSWORD_MIN || form.password.length > PASSWORD_MAX) {
     errors.password = `Password must be ${PASSWORD_MIN}–${PASSWORD_MAX} characters.`
+  } else if (new TextEncoder().encode(form.password).length > PASSWORD_MAX_BYTES) {
+    // Accented and non-Latin characters take several bytes each, so the character count is not enough.
+    errors.password = 'Password is too long. Shorten it (some characters count as more than one).'
   }
 
   if (!form.confirmPassword) {

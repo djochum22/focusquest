@@ -23,7 +23,9 @@ spring:
 
   h2:
     console:
-      enabled: true
+      # Off by default: it exposes the whole database. For local debugging start the backend with
+      # FOCUSQUEST_H2_CONSOLE=true and open http://127.0.0.1:8080/h2-console
+      enabled: ${FOCUSQUEST_H2_CONSOLE:false}
       path: /h2-console
       settings:
         web-allow-others: false
@@ -34,9 +36,10 @@ server:
 
 focusquest:
   jwt:
-    # Placeholder only. Replace with a random, at-least-32-byte secret via an
-    # environment variable (FOCUSQUEST_JWT_SECRET) — never commit a real secret.
-    secret: "${FOCUSQUEST_JWT_SECRET:CHANGE_ME_local_dev_placeholder_secret_not_for_prod_use}"
+    # Set FOCUSQUEST_JWT_SECRET to a random string of at least 32 bytes to keep sign-ins across
+    # restarts (for example: openssl rand -base64 48). Left unset, a random secret is generated
+    # each run and everyone is signed out on restart. Never commit a real secret.
+    secret: "${FOCUSQUEST_JWT_SECRET:}"
     expiration-minutes: 60
   # The XP and gem economy; see docs/technical_architecture.md, section 19 (XP and gem economy).
   xp:

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   hasErrors,
+  PASSWORD_MAX,
+  USERNAME_MAX,
   validateLogin,
   validateSession,
   validateSetup,
@@ -39,6 +41,33 @@ describe('validateSetup', () => {
     expect(errors.username).toBeDefined()
     expect(errors.password).toBeDefined()
     expect(errors.confirmPassword).toBeUndefined()
+  })
+
+  it('accepts a password of exactly the maximum length and rejects one character more', () => {
+    const atLimit = 'p'.repeat(PASSWORD_MAX)
+    expect(validateSetup({ ...validSetup, password: atLimit, confirmPassword: atLimit }).password).toBeUndefined()
+
+    const over = 'p'.repeat(PASSWORD_MAX + 1)
+    expect(validateSetup({ ...validSetup, password: over, confirmPassword: over }).password).toMatch(/8–72/)
+  })
+
+  it('counts bytes, not characters, against the limit the backend hashing imposes', () => {
+    // 50 characters, but 100 bytes in UTF-8.
+    const accented = 'é'.repeat(50)
+    expect(validateSetup({ ...validSetup, password: accented, confirmPassword: accented }).password).toMatch(
+      /too long/,
+    )
+  })
+
+  it('rejects an over-long username and display name', () => {
+    const errors = validateSetup({ ...validSetup, username: 'u'.repeat(USERNAME_MAX + 1), displayName: 'd'.repeat(101) })
+    expect(errors.username).toBeDefined()
+    expect(errors.displayName).toBeDefined()
+  })
+
+  it('trims the username before measuring it', () => {
+    expect(validateSetup({ ...validSetup, username: '  ab  ' }).username).toBeDefined()
+    expect(validateSetup({ ...validSetup, username: '  abc  ' }).username).toBeUndefined()
   })
 
   it('rejects mismatched password confirmation', () => {

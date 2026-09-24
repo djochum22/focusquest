@@ -2,6 +2,7 @@ package com.example.focusquest.config;
 
 import com.example.focusquest.security.AuthEntryPoint;
 import com.example.focusquest.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,13 +22,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthEntryPoint authEntryPoint;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final boolean h2ConsoleEnabled;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                            AuthEntryPoint authEntryPoint,
-                           CorsConfigurationSource corsConfigurationSource) {
+                           CorsConfigurationSource corsConfigurationSource,
+                           @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.authEntryPoint = authEntryPoint;
         this.corsConfigurationSource = corsConfigurationSource;
+        this.h2ConsoleEnabled = h2ConsoleEnabled;
     }
 
     @Bean
@@ -47,15 +51,22 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling.authenticationEntryPoint(authEntryPoint))
-                // H2 console has its own login and renders in a frame; exempt it from JWT auth and
-                // frame-blocking headers. It's local development tooling only (server binds to 127.0.0.1).
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/setup", "/api/auth/setup-status", "/api/auth/login", "/error",
-                                "/h2-console/**")
-                        .permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/api/auth/setup", "/api/auth/setup-status", "/api/auth/login", "/error")
+                            .permitAll();
+                    if (h2ConsoleEnabled) {
+                        // Local development tooling with its own login (see application.yml). Off by default:
+                        // it gives full read and write access to the database, password hash included.
+                        auth.requestMatchers("/h2-console/**").permitAll();
+                    }
+                    auth.anyRequest().authenticated();
+                })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        if (h2ConsoleEnabled) {
+            // The console renders itself in frames. Every other response keeps the default DENY.
+            http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
+        }
 
         return http.build();
     }

@@ -42,6 +42,10 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        // No password this long can have been set, and the encoder throws instead of comparing it.
+        if (UserService.exceedsPasswordLimit(request.password())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+        }
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
