@@ -539,55 +539,81 @@ so that I am discouraged from abandoning sessions early.
   when the calculation is performed,  
   then the daily XP total has a minimum of zero.
 
-## **Epic 12: Gems and streak freezes**
+## **Epic 12: Gems and streak loss**
 
-## **US-110: Earn gems based on XP**
+## **US-110: Earn gems**
 
 As a user,  
-I want to earn gems based on my XP,  
-so that I can use them for rewards such as streak freezes.
+I want to earn gems for reaching levels and streak targets,  
+so that progress feels rewarded.
 
 **Acceptance criteria:**
 
-- Given the user earns XP,  
-  when the XP is recorded,  
-  then the application calculates gem rewards according to the configured rules.
+- Given the user reaches a new level,  
+  when the level is recorded,  
+  then the application grants the configured level gems once for that level.
+- Given a daily or weekly streak period reaches its target,  
+  when the streak reward is recorded,  
+  then the application grants the configured streak gems once for that period.
 - Given gems are earned,  
   when the gem transaction is recorded,  
   then the user's gem balance is updated.
+- Given the same reward is reported again,  
+  when it is processed,  
+  then no further gems are granted.
 
-## **US-111: Purchase a streak freeze**
-
-As a user,  
-I want to purchase a streak freeze with gems,  
-so that I can protect my streak if I miss a period.
-
-**Acceptance criteria:**
-
-- Given the user has sufficient gems,  
-  when the user purchases a streak freeze,  
-  then the application deducts the configured gem cost.
-- Given the purchase is successful,  
-  when the transaction is recorded,  
-  then the user's available freeze count increases.
-
-## **US-112: Automatic consumption of a streak freeze**
+## **US-111: Lose the streak when a period is missed**
 
 As a user,  
-I want my streak freeze to be automatically consumed when I miss a streak period,  
-so that my streak is preserved.
+I want my streak to end when I miss a day or week,  
+so that the streak reflects consecutive effort.
+
+There are no streak freezes.
 
 **Acceptance criteria:**
 
 - Given a streak period ends without reaching its target,  
-  when the user has at least one available freeze,  
-  then the application consumes one freeze automatically.
-- Given a freeze is consumed,  
   when the streak is evaluated,  
-  then the streak is preserved and the period is marked as frozen.
-- Given the user has no available freezes,  
-  when the period ends without reaching the target,  
-  then the streak is lost according to the streak policy.
+  then the current streak is zero.
+- Given the current period has not reached its target yet,  
+  when the streak is evaluated,  
+  then the streak is the run of periods up to the previous one.
+- Given the current period reaches its target,  
+  when the streak is evaluated,  
+  then the current period is added to the streak.
+
+## **US-112: See the current streak**
+
+As a user,  
+I want to see my current streak in days or weeks,  
+so that I know what I have built and what I stand to lose.
+
+**Acceptance criteria:**
+
+- Given the user has a daily streak,  
+  when the streaks page is opened,  
+  then it shows the streak in days.
+- Given the user has also configured a weekly streak,  
+  when the streaks page is opened,  
+  then it shows that streak in weeks as well.
+- Given the current period has not reached its target,  
+  when the streak is shown,  
+  then the page says what the user must do to extend it.
+
+## **US-113: Streak settings are locked during a session**
+
+As a user,  
+I want streak settings to be locked while website blocking is active,  
+so that I cannot lower my target to escape a session.
+
+**Acceptance criteria:**
+
+- Given a session is active or paused, or an abandoned session is still holding blocking,  
+  when the user tries to create or change a streak configuration,  
+  then the application refuses and explains why.
+- Given blocking is released by completing a session or by an override,  
+  when the user changes a streak configuration,  
+  then the change is accepted.
 
 ## **Epic 13: History and statistics**
 

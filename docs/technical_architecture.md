@@ -6,7 +6,7 @@
 
 **Project type:** Local-first productivity web application with a Chrome browser extension
 
-**MVP:** One local user, local data storage, secure backend API, Chrome website blocking, focus sessions, streaks, XP, and later gems/streak freezes.
+**MVP:** One local user, local data storage, secure backend API, Chrome website blocking, focus sessions, streaks, XP, levels, and gems. There are no streak freezes: a missed day or week ends the streak.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -21,7 +21,7 @@ The system separates:
 - **Streak progress:** Accumulated qualifying time across sessions.
 - **Session completion:** Completion of a planned amount of active focus time.
 - **Browser enforcement:** Blocking selected websites while enforcement is active.
-- **Rewards:** XP, later gems, and streak freezes.
+- **Rewards:** XP, levels and gems (section 19). There are no streak freezes.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -91,7 +91,7 @@ The architecture should follow these principles:
 | ---                 | ---                                                                                                                            |
 | Spring Boot backend | Authentication, authorization, session state, time calculation, streak calculation, rewards, validation, persistence, REST API |
 | ---                 | ---                                                                                                                            |
-| H2 database         | Local storage for user, sessions, pauses, streaks, block rules, XP, gems, freezes, configuration                               |
+| H2 database         | Local storage for user, sessions, pauses, streaks, block rules, XP, gems, configuration                               |
 | ---                 | ---                                                                                                                            |
 | Chrome extension    | URL matching, domain/path blocking, allowlist precedence, blocked page, extension-to-backend synchronization                   |
 | ---                 | ---                                                                                                                            |
@@ -299,7 +299,6 @@ The Spring Boot backend is responsible for:
 - Streak configuration and period snapshots.
 - Daily and weekly streak calculations.
 - XP and gem transaction management.
-- Streak-freeze consumption.
 - Blocked-target and allowlist management.
 - Extension session-state responses.
 - Data export and deletion.
@@ -361,9 +360,12 @@ com.example.focusquest
     StreakPeriodRepository.java
     StreakContributionRepository.java
     StreakService.java
-    StreakController.java
     StreakPeriodCalculator.java
-    dto/
+    StreakController.java
+    StreakConfigurationService.java   (edits to streak settings, refused while blocking is enforced)
+    StreakProgressResponse.java, CurrentStreaksResponse.java
+    StreakConfigurationResponse.java
+    CreateStreakConfigurationRequest.java, UpdateStreakConfigurationRequest.java
 
   blocking/
     RuleTarget.java                (shared base of the two rule entities)
@@ -391,13 +393,21 @@ com.example.focusquest
     ExperienceTransactionType.java
     ExperienceTransactionRepository.java
     ExperienceService.java
-    (planned, Phase 5: GemTransaction, GemTransactionType, StreakFreeze, ProgressionService,
-     GemService, StreakFreezeService, ProgressionController)
+    GemTransaction.java
+    GemTransactionType.java
+    GemTransactionRepository.java
+    GemService.java
+    Levels.java                       (the level curve)
+    ProgressionService.java           (ties XP and gem rewards together)
+    ProgressionController.java
+    ProgressionResponse.java, ExperienceTransactionResponse.java, GemTransactionResponse.java
 
   export/
     ExportService.java
     ExportController.java
     LocalDataExportDto.java
+    DataDeletionService.java
+    DataDeletionController.java
 
   shared/
     exception/
@@ -419,7 +429,8 @@ com.example.focusquest
 Implementation notes on the structure above:
 
 - Request and response DTOs live next to their controller rather than in `dto/` subpackages, and are mapped with a static `from(...)` factory instead of a `SessionMapper`.
-- Not implemented yet: `UserController`, `StreakController` (and the streak DTOs), `WebConfig`, `TimeCalculationService`.
+- Not implemented yet: `UserController`, `WebConfig`, `TimeCalculationService`.
+- The export and deletion services read and delete other modules' data through those modules' repositories (`deleteAllByUser` and `findByUser...` queries) rather than through their services, since they need every row, not the filtered views the services expose.
 
 **Layering rules**
 
@@ -455,8 +466,7 @@ The following operations should be transactional:
 - Record streak contribution.
 - Award XP.
 - Apply XP penalty.
-- Purchase or consume streak freeze.
-- Complete or freeze a streak period.
+- Complete a streak period, and pay its rewards.
 
 Idempotency must be considered for requests that can produce rewards or contributions.
 
@@ -492,7 +502,7 @@ The Vue frontend is responsible for:
 - Pause, resume, complete, abandon, and override controls.
 - Streak configuration UI.
 - Displaying streak progress.
-- Displaying XP, gems, freezes, history, and settings.
+- Displaying XP, level, gems, history, and settings.
 - Calling backend APIs.
 - Rendering understandable errors and confirmations.
 
@@ -614,6 +624,17 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - `SessionTimer` counts locally between server responses, from the moment each response arrived (`Date.now()` at receipt) rather than from the server's `generatedAt`, so browser clock skew cannot distort it. When the countdown reaches zero the dashboard re-fetches the session, and the Complete button is enabled from the server's `remainingFocusSeconds`, not the local countdown. The dashboard also re-fetches when the tab becomes visible again.
 - Abandon asks for confirmation. Manual override is offered only after a session has been abandoned with blocking still held: the session summary on the dashboard shows an "Override blocking" button, and the running and paused views have none. It opens `ManualOverrideDialog`, which warns that an XP penalty will be applied without stating an amount (the penalty is a server-side, configurable placeholder), and calls the override endpoint only after the user confirms. Because the abandoned session is otherwise lost on a reload, the store looks at the latest history entry when there is no running session and restores it if it is `ABANDONED` with blocking `ACTIVE`; that summary has no dismiss button while the override is available.
 - The session views are `DashboardView` (current session, or the summary of the one that just ended), `SessionCreateView` and `HistoryView`.
+
+**Streaks, progression and settings in the frontend**
+
+- `api/streakApi.ts`, `api/progressionApi.ts` and `api/settingsApi.ts` wrap the endpoints in section 10; `stores/streakStore.ts`, `stores/progressionStore.ts` and `stores/settingsStore.ts` hold the results. As with sessions, the frontend only displays what the backend reports: it never credits streak time, decides that a target is reached, or computes XP. The percentage bar and "time to go" figure in `StreakProgress` are display arithmetic on the backend's `qualifyingSeconds` and `targetMinutes`.
+- `StreaksView` shows the level and XP (`XpDisplay`), the gem balance (`GemDisplay`), the current progress of each configured streak (`StreakProgress`) and one `StreakConfigurationForm` per period type. `StreakProgress` leads with the current streak in the streak's own unit ("5 days in a row" for a daily streak, "3 weeks in a row" for a weekly one) and what the user must do to extend it, then states how much time is counted against the target, how much is left, which sessions count, when the period resets, and any overtime. A user with both streaks sees both counts. The bars are `progressbar`s and the status is also written out, so colour is never the only signal.
+- The streak count comes from the backend (`dailyStreak`, `weeklyStreak`); the frontend never counts periods. `XpDisplay` shows the level, the XP total and the share of the current level completed, from the level bounds the backend reports, so the frontend does not know the level curve either.
+- While website blocking is being enforced the settings forms are disabled and a notice says why. The page infers this from the session store (a running or paused session, or an abandoned one still holding blocking); the backend refuses the change with `409` regardless, and its message is shown if the page guessed wrong.
+- The daily streak always exists, so its form always edits; the weekly form creates the streak the first time and edits it afterwards. The store picks create or update from whether a configuration for that period type is loaded, and re-loads the configurations when a save fails, so a weekly streak added from another tab does not send the next save down the wrong path. The view tells the user that a change applies only to periods that have not started.
+- `GemDisplay` takes a `balance` and shows "Not available" for `null`, which is only the case before the progression request has finished, so the card never shows a made-up zero.
+- `SettingsView` shows the account, downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`), and deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
+- Not built yet: `StreakHistory`, `XpHistory` and the blocking-rule views. `FreezeInventory` will not be built, since there are no freezes.
 
 **Frontend security behavior**
 
@@ -827,7 +848,14 @@ PUT  /api/streak-configurations/{id}
 GET  /api/streak-periods/current
 ```
 
-None of the streak endpoints are implemented yet. Until they are, every user simply has the default daily configuration described in section 11.
+Implemented: `GET /api/streaks/current`, `GET` and `POST /api/streak-configurations`, and `PUT /api/streak-configurations/{id}`. Not implemented: `GET /api/streaks/history` and `GET /api/streak-periods/current` (the current period is already in `streaks/current`).
+
+- **`streaks/current`** returns `{ "daily": ..., "weekly": ..., "dailyStreak": n, "weeklyStreak": n }`. `dailyStreak` and `weeklyStreak` are the current streak lengths (see section 19); `weekly` and `weeklyStreak` are null until a weekly streak is configured. Each period is `periodType`, `startTime`, `endTime` (exclusive), `targetMinutes`, `requiredTaskMode`, `requiredCategory`, `qualifyingSeconds` (capped at the target), `overtimeSeconds` and `status`. Before any time is credited in a period the values come from the active configuration with zero progress, and no period is stored, so a fresh day still shows its target. `weekly` is null until a weekly streak is configured.
+- **`GET /api/streak-configurations`** returns the configuration in force for each period type: always the daily one, and the weekly one if configured. Each has `id`, `periodType`, `targetMinutes`, `requiredTaskMode` and `requiredCategory` (null means any category).
+- **Lock:** `POST` and `PUT` are refused with `409 CONFLICT` ("Streak settings cannot be changed while website blocking is active") while blocking is being enforced (section 13): a running or paused session, or an abandoned one still holding blocking. Without it the user could lower today's target after committing to a session and abandon it once the lower target is met, releasing blocking without the override penalty. Reading is always allowed, and the lock lifts when the session completes or the blocking is overridden.
+- **`POST`** configures a period type that has none. Since daily always exists, this is in practice the weekly streak; a type that is already configured is refused with `409 CONFLICT`. **`PUT`** changes `targetMinutes`, `requiredTaskMode` and `requiredCategory`; the period type cannot be changed. Another user's configuration is `NOT_FOUND`.
+- **Validation:** `targetMinutes` must be 5 to 1440 for a daily streak and 5 to 10080 for a weekly one. A task-free streak cannot name a category, and `TASK_FREE` is not a valid required category. Failures are `400 BAD_REQUEST`.
+- **Effect of a change:** the configuration is edited in place. Periods copy their settings when they are created (section 11), so a period already in progress keeps the old ones and the change governs periods that have not started. Until the first time is credited on a given day, that day has no period yet and picks up the new configuration.
 
 **Blocking and allowlists**
 
@@ -860,6 +888,18 @@ GET  /api/me/gem-history
 GET  /api/me/streak-freezes
 POST /api/me/streak-freezes/purchase
 ```
+
+Implemented: `GET /api/me/progression`, which returns `{ "totalXp", "level", "levelStartXp", "nextLevelXp", "gems" }`. `totalXp` is the sum of the user's XP ledger, floored at zero, so override penalties never show as a negative balance. `levelStartXp` and `nextLevelXp` are the total XP at which the current level began and the next begins, so a client can draw progress through the level without knowing the curve. `gems` is the sum of the gem ledger. The history endpoints (`xp-history`, `gem-history`, and the `gems` shortcut) are not implemented. The streak-freeze endpoints will not be, since there are no freezes.
+
+**Settings**
+
+```
+GET    /api/export
+DELETE /api/me/data
+```
+
+- **`export`** returns everything held for the caller as one JSON document: `exportedAt`, `schemaVersion` (currently `1.2`), `user` (never the password hash), `focusSessions`, `streakConfigurations`, `streakPeriods`, `experienceTransactions`, `gemTransactions`, `blockedTargets` and `allowlistTargets`. New kinds of data get a new schema version.
+- **`DELETE /api/me/data`** deletes all of the caller's sessions, pauses, streak contributions, periods and configurations, XP and gem transactions, block and allowlist rules, and the account itself, and returns 204. The next launch is first-time setup, and the old token is rejected with 401. It is refused with `409 CONFLICT` while website blocking is being enforced (section 13); otherwise it would be a way to release blocking without the override penalty. The user must end the session, or abandon it and override, first.
 
 **Extension-specific API**
 
@@ -1051,7 +1091,7 @@ ExperienceTransaction
 - createdAt
 ```
 
-Implemented so far: the only `type` is `MANUAL_OVERRIDE_PENALTY`, with `referenceType = FOCUS_SESSION` and a negative `amount`. A unique index on `(userId, type, referenceType, referenceId)` guarantees a session is penalized at most once.
+The `type` is `SESSION_COMPLETION` (`referenceType = FOCUS_SESSION`), `STREAK_COMPLETION` (`referenceType = STREAK_PERIOD`) or `MANUAL_OVERRIDE_PENALTY` (`FOCUS_SESSION`, negative `amount`). A unique index on `(userId, type, referenceType, referenceId)` guarantees each session or period is paid, or penalized, at most once. See section 19 for the amounts.
 
 **GemTransaction**
 
@@ -1060,22 +1100,13 @@ GemTransaction
 - id
 - userId
 - amount
-- transactionType
+- type
+- referenceType
 - referenceId
 - createdAt
 ```
 
-**StreakFreeze**
-
-```
-StreakFreeze
-- id
-- userId
-- status
-- purchasedAt
-- consumedAt
-- consumedForPeriodId
-```
+The `type` is `LEVEL_UP` (`referenceType = LEVEL`, `referenceId` the level number) or `STREAK_COMPLETION` (`referenceType = STREAK_PERIOD`). The balance is the sum of the entries. A unique index on `(userId, type, referenceType, referenceId)` means a level, or a streak period, pays gems once, even if the level is lost and reached again. Spending would be a negative `amount`; nothing spends gems yet.
 
 **BlockingOverride**
 
@@ -1152,7 +1183,8 @@ Responsibilities:
 - Track progress and overtime.
 - Complete a streak period.
 - Mark a missed period.
-- Consume a streak freeze automatically where appropriate.
+- Work out the current streak length for a period type (section 19).
+- Trigger the streak rewards when a period reaches its target.
 
 **BlockingService**
 
@@ -1164,31 +1196,36 @@ Responsibilities:
 - Build the state the extension synchronizes: rules, `stateVersion`, and the blocked-page session details.
 - Apply the matching and precedence rules to a URL (`evaluateUrl`), for tests and later UI use.
 
+**StreakConfigurationService**
+
+Responsibilities:
+
+- List, create and update streak configurations through `StreakService`.
+- Refuse creating or updating while website blocking is being enforced (section 10).
+
 **ExperienceService**
 
 Responsibilities:
 
-- Award completion XP exactly once (planned).
-- Apply manual-override penalties (implemented; once per session, amount from `focusquest.xp.manual-override-penalty`, currently a placeholder of 10).
-- Calculate daily XP according to the configured rules.
-- Keep XP transaction history.
+- Award session-completion XP and streak-completion XP, each exactly once per session or period (section 19).
+- Apply manual-override penalties (once per session, amount from `focusquest.xp.manual-override-penalty`).
+- Report the XP total: the ledger sum, floored at zero.
 
 **GemService**
 
 Responsibilities:
 
-- Calculate gem rewards from XP when rules are finalized.
-- Record gem transactions.
-- Validate purchases.
+- Grant gems for levels reached and for streak periods that reached their target, each exactly once.
+- Report the gem balance: the ledger sum.
+- Validate purchases, once there is something to buy.
 
-**StreakFreezeService**
+**ProgressionService**
 
 Responsibilities:
 
-- Purchase freezes with gems.
-- Find available freezes.
-- Consume a freeze when a streak period is missed.
-- Record the relationship between a freeze and the protected streak period.
+- Be the single entry point for rewards: `SessionService` reports a completed session and `StreakService` a streak period that reached its target, and nothing else touches the ledgers except the override penalty.
+- After every XP award, grant the gems for any level it earned, in the same transaction as the event.
+- Report the user's standing: XP, level and its bounds, and gems.
 
 **ExportService**
 
@@ -1196,6 +1233,13 @@ Responsibilities:
 
 - Export all local data as JSON.
 - Support a full local backup.
+
+**DataDeletionService**
+
+Responsibilities:
+
+- Refuse deletion while website blocking is being enforced.
+- Delete every row the user owns, in foreign-key order (contributions, pauses, periods, sessions, configurations, XP transactions, rules), and then the account, in one transaction.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -1406,7 +1450,7 @@ Later use Playwright to test:
 - Implement override penalties.
 - Implement XP display.
 - Define gem economy.
-- Implement gems and streak freezes.
+- Implement gems (streak freezes are not planned).
 
 **Phase 6: Hardening**
 
@@ -1497,3 +1541,61 @@ Begin with the secure application foundation:
 6. Verify that both the frontend and extension can call a protected backend endpoint with a valid bearer token.
 
 After security works end to end, implement the focus-session domain and its unit tests before connecting detailed UI behavior.
+
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
+
+**19\. XP and gem economy**
+
+The economy rewards effort and consistency, in the manner of Duolingo: XP for the work itself, a bonus for hitting the daily goal, levels that get slower to climb, a second currency (gems) for milestones, and a streak that a missed day ends. All amounts below are configuration in `application.yml` (`focusquest.xp` and `focusquest.gems`) except the level curve, which is a fixed rule of the game.
+
+**Principles**
+
+- **Focus is the unit of value.** One XP is one planned minute of a completed session, so the numbers are easy to reason about.
+- **Finishing what you planned matters more than showing up.** Only a completed session earns session XP. An abandoned session earns none, though its time still counts toward the streak and can still earn the streak reward.
+- **Consistency is rewarded on top of effort.** Reaching a daily or weekly target pays a bonus, once per period.
+- **Nothing pays twice.** Every award is a ledger entry tied to what earned it (a session, a streak period, a level) under a unique index, so retries, and levels lost and regained, never pay again.
+- **Overtime is not farmed.** Time beyond the plan or the target earns nothing extra.
+
+**XP**
+
+| Event | XP | Setting | Once per |
+| ----- | -- | ------- | -------- |
+| Complete a session | 1 per planned focus minute | `xp.per-focus-minute` | session |
+| Daily streak target reached | +10 | `xp.daily-streak-bonus` | day |
+| Weekly streak target reached | +50 | `xp.weekly-streak-bonus` | week |
+| Override blocking on an abandoned session | -10 | `xp.manual-override-penalty` | session |
+
+The session award is for the planned length, and completing requires having focused the whole plan, so a 25 minute session is worth 25 XP whether it took 25 minutes or 30. The override penalty equals ten focused minutes. It is recorded in full, but the XP total shown is floored at zero, and because the level comes from that total a penalty can lower the level shown. Gems already earned are kept.
+
+**Levels**
+
+Reaching level 2 takes 100 XP and each later level takes 50 XP more than the one before (100, 150, 200, ...). The total XP at which level `n` is reached is `100(n-1) + 25(n-1)(n-2)`.
+
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| ----- | - | - | - | - | - | - | - | - | - | -- |
+| Total XP | 0 | 100 | 250 | 450 | 700 | 1000 | 1350 | 1750 | 2200 | 2700 |
+
+Early levels arrive within days, which gives the new user a quick first reward; later ones take weeks. A user who reaches a 30 minute daily target earns about 40 XP a day (30 for the session, 10 for the bonus): level 2 in three days, level 5 in about two and a half weeks, level 10 in about ten weeks.
+
+**Gems**
+
+| Event | Gems | Setting | Once per |
+| ----- | ---- | ------- | -------- |
+| Reach a level (from level 2) | 5 | `gems.per-level` | level |
+| Daily streak target reached | 1 | `gems.daily-streak` | day |
+| Weekly streak target reached | 5 | `gems.weekly-streak` | week |
+
+Gems are earned only. There is nothing to spend them on yet (streak freezes are deliberately not part of the game), so the balance is a running total until a use for gems is designed. Spending would be a negative ledger entry, and a balance may never go below zero.
+
+**Streaks**
+
+- A **daily streak** counts consecutive local calendar days on which the daily target was reached; a **weekly streak** counts consecutive Monday-to-Sunday weeks. A user with both configured has both.
+- The current period counts as soon as it reaches its target. Until then the streak is the run that ended with the previous period, so today's streak is not lost while today is still open.
+- A period with nothing qualifying recorded, or with the target missed, is a missed period, and it ends the streak: the count goes back to zero. There are no freezes and nothing bridges a gap.
+- Only periods that reached their target count, under the configuration each was created with, so changing the target later does not rewrite history.
+
+**Worked example.** A user with a 30 minute daily target completes a 30 minute session. The backend credits 30 minutes to today's period, which reaches its target, so it pays the streak rewards first (+10 XP, +1 gem). Completing the session then pays +30 XP. Total 40 XP, which is level 1 (the first level ends at 100), with 1 gem, and the daily streak is 1 day. Tomorrow they do the same: 80 XP, 2 gems, a 2 day streak. On the third day the 120 XP total crosses level 2, which also pays +5 gems.
+
+**Where it lives.** `SessionService` calls `ProgressionService.awardSessionCompletion` when a session completes, after crediting the streak. `StreakService` calls `ProgressionService.awardStreakCompletion` when a period first reaches its target. `ProgressionService` pays the XP and gems, and then the gems for any level the award crossed, in the same transaction. The streak length is `StreakService.getCurrentStreakLength`.
+
+**Not built.** Spending gems; XP and gem history endpoints; milestone bonuses for long streaks (for example 7 days); a "longest streak" record; showing the XP earned on the session summary.

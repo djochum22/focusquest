@@ -91,8 +91,8 @@ Potential future directions include:
 - Immutable completed sessions.
 - XP for completed sessions.
 - A daily XP penalty for manual overrides.
-- Gems as a future reward based on XP.
-- Streak freezes as a future gem purchase.
+- Levels, and gems earned from levels and streaks.
+- A current streak count: consecutive daily or weekly periods that reached their target. A missed period ends the streak.
 - Local session history and progress data.
 
 ### Explicitly outside the initial MVP
@@ -259,11 +259,11 @@ An explicit action that releases website blocking before the normal release cond
 
 ### Streak freeze
 
-A consumable reward that preserves a streak when the target is not reached by the end of its period. Streak freezes are automatically consumed immediately when a period ends without being extended, if an available freeze exists.
+Removed from scope. There are no streak freezes: a period that ends without its target being reached ends the streak.
 
 ### Gem
 
-An in-app reward currency. Exact gem earning and spending values will be defined later based on the XP system. The initial intended purchase is streak freezes.
+An in-app reward currency earned from levels and streak targets. See the technical architecture, section 19. Nothing can be bought with gems yet.
 
 ## 8\. Focus-session requirements
 
@@ -655,41 +655,15 @@ Once the current streak target has been reached:
 
 The product should use the term Total Focus Time for cumulative time rather than overall streak where possible.
 
-## 13\. Streak freezes and gems
+## 13\. Gems and streak loss
 
 ### Gems
 
-Gems are an in-app reward currency. Gem earning and spending values will be defined later based on the XP system.
+Gems are an in-app reward currency. They are earned, not bought: 5 gems for each level reached (from level 2), 1 for reaching a daily streak target and 5 for a weekly one, each once. Every change is recorded as a `GemTransaction`. The amounts are configuration; see the technical architecture, section 19. Nothing can be bought with gems yet.
 
-The initial intended gem purchase is a streak freeze.
+### Streak loss
 
-### Streak freeze behavior
-
-- A streak freeze preserves a streak when the streak period ends without reaching its target.
-- A freeze is immediately consumed when the streak is not extended by the end of the streak period.
-- If no freeze is available, the streak is lost according to the final streak policy.
-- A completed streak period does not consume a freeze.
-- Freeze consumption must be recorded.
-
-### Suggested data model
-
-GemTransaction
-
-- id
-- userId
-- amount
-- transactionType
-- referenceId
-- createdAt
-
-Possible transaction types:
-
-- SESSION_REWARD
-- STREAK_REWARD
-- FREEZE_PURCHASE
-- ADMIN_CORRECTION
-
-The exact XP and gem economy remains an open design area.
+There are no streak freezes. The current streak is the number of consecutive periods, ending with the current one, that reached their target. The current period counts once it reaches its target; until then the streak is the run up to the previous period. A period that ends without reaching its target, including one in which nothing qualifying was done, ends the streak, and the count returns to zero.
 
 ## 14\. Manual override and XP penalty
 
@@ -742,15 +716,15 @@ The initial product concept includes XP and levels inspired by gamified applicat
 - Overtime does not automatically generate additional XP.
 - Duplicate XP awards must be prevented.
 
-### Potential initial XP events
+### XP events
 
-The exact values remain undecided, but the system may later support:
+The economy is defined in the technical architecture (section 19). The implemented events are:
 
-- SESSION_COMPLETION
-- STREAK_COMPLETION
-- WEEKLY_GOAL_COMPLETION
-- CHALLENGE_COMPLETION
-- MANUAL_OVERRIDE_PENALTY
+- SESSION_COMPLETION: 1 XP per planned focus minute, once per completed session.
+- STREAK_COMPLETION: +10 XP for a daily target, +50 XP for a weekly target, once per period.
+- MANUAL_OVERRIDE_PENALTY: -10 XP, once per overridden session.
+
+Levels follow a rising curve (level 2 at 100 XP, then 50 more XP per level). Challenge events are not implemented.
 
 ### XP history
 
@@ -964,7 +938,7 @@ PUT /api/streak-configurations/{id}
 
 GET /api/streak-periods/current
 
-None of the streak endpoints are implemented yet; every user has the default daily configuration until they are.
+`GET /api/streaks/current`, `GET` and `POST /api/streak-configurations` and `PUT /api/streak-configurations/{id}` are implemented; see the technical architecture (section 10) for their shapes and rules. `GET /api/streaks/history` and `GET /api/streak-periods/current` are not implemented yet.
 
 ### Chrome extension
 
@@ -994,6 +968,16 @@ GET /api/me/streak-freezes
 
 POST /api/me/streak-freezes/purchase
 
+Only `GET /api/me/progression` is implemented (the XP total). The gem, freeze and history endpoints wait for the gem economy and Phase 5.
+
+### Settings
+
+GET /api/export
+
+DELETE /api/me/data
+
+`GET /api/export` returns all of the caller's data as JSON. `DELETE /api/me/data` deletes all of it, including the account, and is refused while website blocking is active. See the technical architecture (section 10).
+
 ## 18\. Acceptance-criteria themes
 
 Detailed user stories and acceptance criteria will be created next. They should cover at least:
@@ -1020,7 +1004,7 @@ Detailed user stories and acceptance criteria will be created next. They should 
 20. Accumulating weekly qualifying minutes.
 21. Handling overtime.
 22. Completing a streak period.
-23. Automatically consuming a streak freeze.
+23. Ending the streak when a period is missed.
 24. Preserving an immutable completed session.
 25. Recovering after application or browser restart.
 26. Preventing duplicate XP, gem, or streak contributions.
@@ -1176,7 +1160,7 @@ The following decisions remain open or need more precision:
 1. Exact XP values for completing sessions.
 2. Exact daily XP penalty for manual overrides. (A placeholder of 10 XP is implemented.)
 3. Exact gem rewards derived from XP.
-4. Exact cost of a streak freeze.
+4. What gems can be spent on.
 5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Provisionally decided: they remain blocked until the daily target is reached, a session is completed, or the user overrides.)
 6. The exact behavior when a session crosses midnight or the end of a weekly period.
 7. Whether weekly progress includes time that also completed a daily streak.
