@@ -278,6 +278,7 @@ Authorization, Content-Type
 - Password-change endpoint.
 - Token refresh or short-lived access tokens.
 - Local device registration for the extension.
+- An extension sign-in flow and an extension credential that outlives a 60-minute session (see the extension follow-up work in section 9).
 - Rate limiting.
 - Audit logging for sensitive actions.
 - Role-based authorization if multiple users are introduced.
@@ -675,6 +676,7 @@ extension/
       sessionStateSynchronizer.ts
       dynamicRulesManager.ts
       blockingStateStore.ts
+      navigationGuard.ts      (added in the foundation build; see "Extension implementation status")
 
     blocking/
       urlMatcher.ts
@@ -695,6 +697,8 @@ extension/
     utils/
       chromeStorage.ts
       logger.ts
+      config.ts               (backend and frontend URLs, sync period)
+      blockedPage.ts          (how the blocked URL is passed to the blocked page)
 
   assets/
     icons/
@@ -787,6 +791,33 @@ If the Vue frontend is closed but the backend remains available:
 - The extension should continue blocking an active or paused session.
 - The extension should use backend state to determine whether blocking remains required.
 - The user should be able to reopen the frontend and continue managing the session.
+
+**Extension implementation status**
+
+The extension foundation is built (see `extension/README.md` for how to load and test it). It follows the structure above, with these decisions:
+
+- **Two layers of enforcement.** declarativeNetRequest dynamic rules redirect blocked page navigations to the blocked page; the browser applies them even while the service worker is asleep. A `webNavigation` listener (`navigationGuard.ts`) applies the exact matcher and precedence from `urlMatcher.ts` and `rulePrecedence.ts` behind them, to catch single-page-app navigations that make no page request (for example clicking into YouTube Shorts) and equivalent URL spellings a regex cannot express (percent-encoding, repeated slashes).
+- **Permissions.** `declarativeNetRequest`, `storage`, `alarms`, `webNavigation`, and `<all_urls>` host access. Chrome only allows a redirect rule on sites the extension can access. Only the blocked page is web-accessible, and the extension registers no content scripts, so the token is never reachable from website code.
+- **Only top-level page navigations are blocked.** Embedded frames and sub-resources are left alone.
+- **Fail closed.** If the backend is unreachable or rejects the token, the last known rules stay in force and the blocked page explains why. Only a successful synchronization that reports enforcement has ended removes blocking. This stops an expired token or a stopped backend being a way out of a session.
+- **Synchronization.** A heartbeat every 30 seconds (the Chrome alarm minimum), on service worker start, browser start, install, and whenever the stored token changes. The full state is re-fetched only when `stateVersion` changes.
+
+**Extension follow-up work**
+
+Required before the extension is usable day to day. Until then the extension works, but the token has to be pasted in by hand:
+
+1. **Extension sign-in.** There is no login screen. The JWT must currently be written to `chrome.storage.local` under the key `token` by hand. Either add a login form to the extension (a popup or options page calling `POST /api/auth/login`), or have the Vue app hand its token to the extension (for example with `externally_connectable`, restricted to the app's origin). The token must never be exposed to website content scripts.
+2. **Sessions longer than the token.** The JWT lasts 60 minutes (`focusquest.jwt.expiration-minutes`). Because of fail-closed behavior, a longer session keeps blocking, but the extension can no longer see the session end, so sites stay blocked until it is signed in again. Fix with refresh tokens, or a separate, longer-lived credential scoped to the three `/api/extension` endpoints (this is the "local device registration" item above).
+3. **Signed-out and expired states.** Show that the extension needs signing in somewhere visible (a toolbar badge or popup), not only on the blocked page, so an expired sign-in is noticed before it matters.
+4. **Block and allowlist management in the Vue app.** The backend endpoints exist (`/api/blocked-targets`, `/api/allowlist-targets`, with validation and the configuration lock during enforcement), but the frontend has no screen for them, so rules can only be added through the API today. Add a rules section to Settings with add, edit, activate/deactivate and delete.
+
+Improvements:
+
+5. **Faster synchronization.** Changes reach the browser within about 30 seconds. Have the Vue app notify the extension when a session starts, pauses, resumes, completes, abandons or is overridden (the same channel as item 1 can carry this), as the synchronization rules above call for.
+6. **Extension icons** (`assets/icons/`) and the toolbar action.
+7. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
+8. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
+9. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
