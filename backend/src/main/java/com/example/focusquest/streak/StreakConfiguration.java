@@ -82,6 +82,15 @@ public class StreakConfiguration {
                 null, Instant.EPOCH, createdAt);
     }
 
+    // Package-private: only StreakService may change a configuration, so its validation stays in
+    // one place. Periods copy these fields when they are created, so an edit never rewrites a
+    // period that has already started.
+    void update(int targetMinutes, TaskMode requiredTaskMode, TaskCategory requiredCategory) {
+        this.targetMinutes = targetMinutes;
+        this.requiredTaskMode = requiredTaskMode;
+        this.requiredCategory = requiredCategory;
+    }
+
     public Long getId() {
         return id;
     }

@@ -38,9 +38,21 @@ focusquest:
     # environment variable (FOCUSQUEST_JWT_SECRET) — never commit a real secret.
     secret: "${FOCUSQUEST_JWT_SECRET:CHANGE_ME_local_dev_placeholder_secret_not_for_prod_use}"
     expiration-minutes: 60
+  # The XP and gem economy; see docs/technical_architecture.md, section 19 (XP and gem economy).
   xp:
-    # Placeholder. The exact daily XP penalty for a manual override is still an open product decision.
+    # XP for completing a session, per planned focus minute. Only completed sessions earn it.
+    per-focus-minute: 1
+    # XP the first time a streak period reaches its target.
+    daily-streak-bonus: 10
+    weekly-streak-bonus: 50
+    # Deducted once for overriding blocking on an abandoned session. Equal to 10 focused minutes.
     manual-override-penalty: 10
+  gems:
+    # Gems granted for each level reached (from level 2).
+    per-level: 5
+    # Gems the first time a streak period reaches its target.
+    daily-streak: 1
+    weekly-streak: 5
   cors:
     allowed-origins:
       - http://localhost:5173

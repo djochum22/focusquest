@@ -8,10 +8,12 @@ import com.example.focusquest.blocking.BlockingSnapshot;
 import com.example.focusquest.progression.ExperienceTransaction;
 import com.example.focusquest.progression.ExperienceTransactionRepository;
 import com.example.focusquest.progression.ExperienceTransactionType;
+import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfiguration;
+import com.example.focusquest.streak.StreakConfigurationService;
 import com.example.focusquest.streak.StreakContribution;
 import com.example.focusquest.streak.StreakContributionRepository;
 import com.example.focusquest.streak.StreakConfigurationRepository;
@@ -70,6 +72,12 @@ class SessionLifecycleIntegrationTest {
 
     @Autowired
     private ClockProvider clockProvider;
+
+    @Autowired
+    private ProgressionService progressionService;
+
+    @Autowired
+    private StreakConfigurationService streakConfigurationService;
 
     private User user;
     private Clock originalClock;
@@ -203,7 +211,7 @@ class SessionLifecycleIntegrationTest {
                 .isInstanceOf(InvalidSessionStateException.class);
         assertThat(reload(session).getStatus()).isEqualTo(SessionStatus.PAUSED);
         assertThat(reload(session).isOverrideUsed()).isFalse();
-        assertThat(experienceTransactionRepository.findAll()).isEmpty();
+        assertThat(experienceTransactionRepository.findByUserOrderByIdAsc(user)).isEmpty();
 
         sessionService.abandonSession(session.getId(), user.getUsername());
         assertThat(reload(session).getBlockingState()).isEqualTo(BlockingState.ACTIVE);
@@ -219,7 +227,7 @@ class SessionLifecycleIntegrationTest {
         assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
         assertThat(enforcing()).isFalse();
 
-        List<ExperienceTransaction> penalties = experienceTransactionRepository.findAll().stream()
+        List<ExperienceTransaction> penalties = experienceTransactionRepository.findByUserOrderByIdAsc(user).stream()
                 .filter(t -> t.getReferenceId().equals(session.getId()))
                 .toList();
         assertThat(penalties).hasSize(1);
@@ -229,6 +237,119 @@ class SessionLifecycleIntegrationTest {
         assertThatThrownBy(() -> sessionService.overrideSession(session.getId(), user.getUsername()))
                 .isInstanceOf(InvalidSessionStateException.class);
         assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
+    }
+
+    @Test
+    void completingASessionPaysXpForItsPlannedLengthAndTheStreakBonusOnce() {
+        configureDailyTarget(30);
+        FocusSession first = newStartedSession(30);
+        advance(30 * 60);
+
+        sessionService.completeSession(first.getId(), user.getUsername());
+
+        // 30 XP for the session and 10 for reaching the daily target; 1 gem for the streak.
+        ProgressionService.ProgressionSummary afterFirst = progressionService.getSummary(user);
+        assertThat(afterFirst.totalXp()).isEqualTo(40);
+        assertThat(afterFirst.level()).isEqualTo(1);
+        assertThat(afterFirst.gems()).isEqualTo(1);
+
+        advance(60);
+        FocusSession second = newStartedSession(10);
+        advance(10 * 60 + 300);
+        sessionService.completeSession(second.getId(), user.getUsername());
+
+        // Only the 10 planned minutes pay, not the 5 minutes of overtime, and the streak pays no second bonus.
+        assertThat(progressionService.getSummary(user).totalXp()).isEqualTo(50);
+        assertThat(progressionService.getSummary(user).gems()).isEqualTo(1);
+    }
+
+    @Test
+    void anAbandonedSessionEarnsNoCompletionXpButItsTimeStillReachesTheStreakBonus() {
+        configureDailyTarget(5);
+        FocusSession session = newStartedSession(10);
+        advance(5 * 60);
+
+        sessionService.abandonSession(session.getId(), user.getUsername());
+
+        ProgressionService.ProgressionSummary summary = progressionService.getSummary(user);
+        assertThat(summary.totalXp()).isEqualTo(10);   // the daily streak bonus only
+        assertThat(summary.gems()).isEqualTo(1);
+        assertThat(experienceTransactionRepository.findByUserOrderByIdAsc(user))
+                .extracting(ExperienceTransaction::getType)
+                .containsExactly(ExperienceTransactionType.STREAK_COMPLETION);
+    }
+
+    @Test
+    void crossingALevelGrantsItsGemsOnceEvenIfTheCompletionIsReportedAgain() {
+        configureDailyTarget(30);
+        FocusSession session = newStartedSession(100);
+        advance(100 * 60);
+
+        sessionService.completeSession(session.getId(), user.getUsername());
+
+        // 100 + 10 XP crosses level 2 (at 100): 5 level gems and 1 streak gem.
+        ProgressionService.ProgressionSummary summary = progressionService.getSummary(user);
+        assertThat(summary.totalXp()).isEqualTo(110);
+        assertThat(summary.level()).isEqualTo(2);
+        assertThat(summary.levelStartXp()).isEqualTo(100);
+        assertThat(summary.nextLevelXp()).isEqualTo(250);
+        assertThat(summary.gems()).isEqualTo(6);
+
+        // Reporting the same completion again (a retry) pays nothing more.
+        progressionService.awardSessionCompletion(user, session.getId(), 100);
+        assertThat(progressionService.getSummary(user).totalXp()).isEqualTo(110);
+        assertThat(progressionService.getSummary(user).gems()).isEqualTo(6);
+    }
+
+    @Test
+    void streakSettingsCanBeChangedOnlyWhenBlockingIsNotBeingEnforced() {
+        configureDailyTarget(30);
+        Long configurationId = streakConfigurationService.list(user).get(0).getId();
+        streakConfigurationService.update(user, configurationId, 40, TaskMode.TASK_REQUIRED, null);
+
+        FocusSession session = newStartedSession(10);
+        assertThatThrownBy(() -> streakConfigurationService.update(
+                user, configurationId, 5, TaskMode.TASK_REQUIRED, null))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode().value()).isEqualTo(409));
+        assertThatThrownBy(() -> streakConfigurationService.create(
+                user, StreakPeriodType.WEEKLY, 60, TaskMode.TASK_REQUIRED, null))
+                .isInstanceOf(ResponseStatusException.class);
+
+        // Abandoned below the target: still enforcing, so still locked.
+        advance(60);
+        sessionService.abandonSession(session.getId(), user.getUsername());
+        assertThat(enforcing()).isTrue();
+        assertThatThrownBy(() -> streakConfigurationService.update(
+                user, configurationId, 5, TaskMode.TASK_REQUIRED, null))
+                .isInstanceOf(ResponseStatusException.class);
+
+        // Overriding releases blocking, which unlocks the settings again.
+        sessionService.overrideSession(session.getId(), user.getUsername());
+        assertThat(streakConfigurationService.update(user, configurationId, 25, TaskMode.TASK_REQUIRED, null)
+                .getTargetMinutes()).isEqualTo(25);
+    }
+
+    @Test
+    void theStreakLengthGrowsWithEachDayReachedAndIsLostByAMissedDay() {
+        configureDailyTarget(5);
+        for (int day = 0; day < 3; day++) {
+            FocusSession session = newStartedSession(5);
+            advance(5 * 60);
+            sessionService.completeSession(session.getId(), user.getUsername());
+            if (day < 2) {
+                advance(24 * 3600 - 5 * 60);   // the same time the next day
+            }
+        }
+        assertThat(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).isEqualTo(3);
+
+        // A whole day passes with nothing done; today is not over, so the streak is still 3 until it ends.
+        advance(24 * 3600 - 5 * 60);
+        assertThat(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).isEqualTo(3);
+
+        // Nothing is done that day either, so the day has been missed and the streak is gone.
+        advance(24 * 3600);
+        assertThat(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).isZero();
     }
 
     @Test

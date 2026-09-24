@@ -1,7 +1,10 @@
 package com.example.focusquest.streak;
 
+import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.session.FocusSession;
+import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
+import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.user.User;
 import org.springframework.http.HttpStatus;
@@ -18,21 +21,28 @@ import java.util.Optional;
 @Service
 public class StreakService {
 
+    public static final int MIN_TARGET_MINUTES = 5;
+    public static final int MAX_DAILY_TARGET_MINUTES = 24 * 60;
+    public static final int MAX_WEEKLY_TARGET_MINUTES = 7 * 24 * 60;
+
     private final StreakConfigurationRepository streakConfigurationRepository;
     private final StreakPeriodRepository streakPeriodRepository;
     private final StreakContributionRepository streakContributionRepository;
     private final StreakPeriodCalculator periodCalculator;
+    private final ProgressionService progressionService;
     private final ClockProvider clockProvider;
 
     public StreakService(StreakConfigurationRepository streakConfigurationRepository,
                           StreakPeriodRepository streakPeriodRepository,
                           StreakContributionRepository streakContributionRepository,
                           StreakPeriodCalculator periodCalculator,
+                          ProgressionService progressionService,
                           ClockProvider clockProvider) {
         this.streakConfigurationRepository = streakConfigurationRepository;
         this.streakPeriodRepository = streakPeriodRepository;
         this.streakContributionRepository = streakContributionRepository;
         this.periodCalculator = periodCalculator;
+        this.progressionService = progressionService;
         this.clockProvider = clockProvider;
     }
 
@@ -81,6 +91,100 @@ public class StreakService {
         return streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
     }
 
+    /**
+     * What the user sees for the current period of a type: the stored period once time has been
+     * credited to it, otherwise an unsaved, zero-progress period built from the active
+     * configuration, so a fresh day still shows its target. Empty only for a type the user never
+     * configured (weekly). The returned entity must not be saved.
+     */
+    @Transactional
+    public Optional<StreakPeriod> getCurrentProgress(User user, StreakPeriodType periodType) {
+        Instant now = clockProvider.now();
+        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, now);
+        Optional<StreakPeriod> existing =
+                streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
+        if (existing.isPresent()) {
+            return existing;
+        }
+        return findActiveConfiguration(user, periodType, now)
+                .map(configuration -> buildPeriod(user, periodType, configuration, window));
+    }
+
+    /**
+     * The user's current streak for a period type: how many periods in a row reached their target.
+     * The current period counts once it has reached its target; until then the streak is the run
+     * that ended with the previous period, so it is not lost until a period ends unfinished. A
+     * period with no record, because nothing qualifying was done in it, is a missed one, and a
+     * missed period ends the run. There are no freezes, so nothing can bridge a gap.
+     */
+    @Transactional(readOnly = true)
+    public int getCurrentStreakLength(User user, StreakPeriodType periodType) {
+        ZoneId zone = ZoneId.of(user.getTimezone());
+        Instant currentStart = periodCalculator.windowContaining(periodType, clockProvider.now(), zone).start();
+        List<StreakPeriod> completed = streakPeriodRepository.findByUserAndPeriodTypeAndStatusOrderByStartTimeDesc(
+                user, periodType, StreakPeriodStatus.COMPLETED);
+
+        Instant expectedStart = currentStart;
+        if (completed.isEmpty() || !completed.get(0).getStartTime().equals(currentStart)) {
+            expectedStart = previousStart(periodType, currentStart, zone);
+        }
+        int length = 0;
+        for (StreakPeriod period : completed) {
+            if (!period.getStartTime().equals(expectedStart)) {
+                break;
+            }
+            length++;
+            expectedStart = previousStart(periodType, expectedStart, zone);
+        }
+        return length;
+    }
+
+    private Instant previousStart(StreakPeriodType periodType, Instant start, ZoneId zone) {
+        return periodCalculator.windowContaining(periodType, start.minusSeconds(1), zone).start();
+    }
+
+    /** The configuration in force for each period type the user has: always daily, weekly if configured. */
+    @Transactional
+    public List<StreakConfiguration> listActiveConfigurations(User user) {
+        Instant now = clockProvider.now();
+        List<StreakConfiguration> configurations = new ArrayList<>();
+        for (StreakPeriodType periodType : StreakPeriodType.values()) {
+            findActiveConfiguration(user, periodType, now).ifPresent(configurations::add);
+        }
+        return configurations;
+    }
+
+    /**
+     * Configures a period type that has no configuration yet. Only weekly can be missing, since
+     * daily always exists; changing an existing configuration is {@link #updateConfiguration}.
+     */
+    @Transactional
+    public StreakConfiguration createConfiguration(User user, StreakPeriodType periodType, int targetMinutes,
+                                                    TaskMode requiredTaskMode, TaskCategory requiredCategory) {
+        validateConfiguration(periodType, targetMinutes, requiredTaskMode, requiredCategory);
+        Instant now = clockProvider.now();
+        if (findActiveConfiguration(user, periodType, now).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A " + periodType + " streak is already configured; update it instead");
+        }
+        return streakConfigurationRepository.save(new StreakConfiguration(
+                user, periodType, targetMinutes, requiredTaskMode, requiredCategory, now, now));
+    }
+
+    /**
+     * Changes a configuration. It governs periods that have not started yet: a period already in
+     * progress keeps the snapshot it was created with (see {@link StreakPeriod}).
+     */
+    @Transactional
+    public StreakConfiguration updateConfiguration(User user, Long id, int targetMinutes,
+                                                    TaskMode requiredTaskMode, TaskCategory requiredCategory) {
+        StreakConfiguration configuration = streakConfigurationRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Streak configuration not found"));
+        validateConfiguration(configuration.getPeriodType(), targetMinutes, requiredTaskMode, requiredCategory);
+        configuration.update(targetMinutes, requiredTaskMode, requiredCategory);
+        return streakConfigurationRepository.save(configuration);
+    }
+
     /** True when today's daily streak period exists and has reached its target. */
     @Transactional(readOnly = true)
     public boolean isDailyTargetReached(User user) {
@@ -124,7 +228,9 @@ public class StreakService {
     public StreakPeriod completePeriod(StreakPeriod period) {
         requireActive(period);
         period.markCompleted(clockProvider.now());
-        return streakPeriodRepository.save(period);
+        StreakPeriod saved = streakPeriodRepository.save(period);
+        progressionService.awardStreakCompletion(saved.getUser(), saved.getPeriodType(), saved.getId());
+        return saved;
     }
 
     @Transactional
@@ -172,10 +278,14 @@ public class StreakService {
                 new StreakContribution(period, session, activeSeconds, pausedSeconds, now));
 
         period.recordQualifyingSeconds(activeSeconds + pausedSeconds);
-        if (period.getStatus() == StreakPeriodStatus.ACTIVE && period.hasReachedTarget()) {
+        boolean reachedTarget = period.getStatus() == StreakPeriodStatus.ACTIVE && period.hasReachedTarget();
+        if (reachedTarget) {
             period.markCompleted(now);
         }
         streakPeriodRepository.save(period);
+        if (reachedTarget) {
+            progressionService.awardStreakCompletion(period.getUser(), period.getPeriodType(), period.getId());
+        }
 
         return Optional.of(contribution);
     }
@@ -222,6 +332,26 @@ public class StreakService {
         }
         return Optional.of(streakConfigurationRepository.save(
                 StreakConfiguration.defaultFor(user, clockProvider.now())));
+    }
+
+    private void validateConfiguration(StreakPeriodType periodType, int targetMinutes,
+                                        TaskMode requiredTaskMode, TaskCategory requiredCategory) {
+        int maxMinutes = periodType == StreakPeriodType.DAILY ? MAX_DAILY_TARGET_MINUTES : MAX_WEEKLY_TARGET_MINUTES;
+        if (targetMinutes < MIN_TARGET_MINUTES || targetMinutes > maxMinutes) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "targetMinutes must be between " + MIN_TARGET_MINUTES + " and " + maxMinutes
+                            + " for a " + periodType + " streak");
+        }
+        // Only sessions of the required mode count, and a category narrows task-based sessions only.
+        // A category on a task-free streak (or TASK_FREE on a task-based one) could never match.
+        if (requiredTaskMode == TaskMode.TASK_FREE && requiredCategory != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A task-free streak cannot require a task category");
+        }
+        if (requiredCategory == TaskCategory.TASK_FREE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A required category must be a real task category");
+        }
     }
 
     private void requireActive(StreakPeriod period) {

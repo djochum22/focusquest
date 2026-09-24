@@ -1,37 +1,37 @@
 package com.example.focusquest.export;
 
-import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.support.WithRealSecurityConfig;
 import com.example.focusquest.user.User;
-import com.example.focusquest.user.UserDto;
 import com.example.focusquest.user.UserService;
-import java.time.Instant;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
-/** Slice test for ExportController under the real security configuration. */
+/** Slice test for DataDeletionController under the real security configuration. */
 @WithRealSecurityConfig
-@WebMvcTest(ExportController.class)
-class ExportControllerTest {
+@WebMvcTest(DataDeletionController.class)
+class DataDeletionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ExportService exportService;
+    private DataDeletionService dataDeletionService;
 
     @MockitoBean
     private UserService userService;
@@ -52,24 +52,25 @@ class ExportControllerTest {
 
     @Test
     @WithMockUser(username = "doug")
-    void exportReturnsTheCallersDataAsJson() throws Exception {
-        Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        when(exportService.exportLocalData(user)).thenReturn(new LocalDataExportDto(now, "1.2",
-                UserDto.from(user), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
+    void deletesTheCallersDataAndReturns204() throws Exception {
+        mockMvc.perform(delete("/api/me/data")).andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/export"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.exportedAt", notNullValue()))
-                .andExpect(jsonPath("$.schemaVersion").value("1.2"))
-                .andExpect(jsonPath("$.user.username").value("doug"))
-                .andExpect(jsonPath("$.focusSessions").isArray())
-                .andExpect(jsonPath("$.experienceTransactions").isArray())
-                .andExpect(jsonPath("$.gemTransactions").isArray());
+        verify(dataDeletionService).deleteAllData(user);
+    }
+
+    @Test
+    @WithMockUser(username = "doug")
+    void reportsAConflictWhileBlockingIsActive() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Data cannot be deleted while website blocking is active"))
+                .when(dataDeletionService).deleteAllData(user);
+
+        mockMvc.perform(delete("/api/me/data"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
     }
 
     @Test
     void unauthenticatedRequestIsRejected() throws Exception {
-        mockMvc.perform(get("/api/export"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/me/data")).andExpect(status().isUnauthorized());
     }
 }

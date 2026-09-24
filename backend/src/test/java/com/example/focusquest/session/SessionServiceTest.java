@@ -1,6 +1,7 @@
 package com.example.focusquest.session;
 
 import com.example.focusquest.progression.ExperienceService;
+import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
@@ -53,6 +54,9 @@ class SessionServiceTest {
     @Mock
     private ExperienceService experienceService;
 
+    @Mock
+    private ProgressionService progressionService;
+
     private ClockProvider clockProvider;
     private SessionService sessionService;
     private User user;
@@ -60,7 +64,7 @@ class SessionServiceTest {
     @BeforeEach
     void setUp() {
         clockProvider = new ClockProvider(Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
-        sessionService = new SessionService(focusSessionRepository, sessionPauseRepository, streakService, experienceService, clockProvider);
+        sessionService = new SessionService(focusSessionRepository, sessionPauseRepository, streakService, experienceService, progressionService, clockProvider);
         user = new User("doug", "hash", "Doug", "UTC");
 
         lenient().when(focusSessionRepository.save(any(FocusSession.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -275,6 +279,36 @@ class SessionServiceTest {
     }
 
     @Test
+    void completeSessionAwardsCompletionXpForThePlannedLength() {
+        createAndStartSession(25);
+        advanceClockBy(25 * 60);
+
+        sessionService.completeSession(SESSION_ID);
+
+        verify(progressionService).awardSessionCompletion(user, SESSION_ID, 25);
+    }
+
+    @Test
+    void completeSessionDoesNotAwardMoreXpForOvertime() {
+        createAndStartSession(5);
+        advanceClockBy(5 * 60 + 600);
+
+        sessionService.completeSession(SESSION_ID);
+
+        verify(progressionService).awardSessionCompletion(user, SESSION_ID, 5);
+    }
+
+    @Test
+    void abandonedSessionsEarnNoCompletionXp() {
+        createAndStartSession(10);
+        advanceClockBy(120);
+
+        sessionService.abandonSession(SESSION_ID);
+
+        verify(progressionService, never()).awardSessionCompletion(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
     void completeSessionRecordsOvertimeBeyondPlannedDuration() {
         FocusSession session = createAndStartSession(5);
         advanceClockBy(5 * 60 + 90);
@@ -477,6 +511,7 @@ class SessionServiceTest {
                 .isInstanceOf(ResponseStatusException.class);
 
         verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(progressionService, never()).awardSessionCompletion(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
     }
 

@@ -1,0 +1,85 @@
+package com.example.focusquest.export;
+
+import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedTargetRepository;
+import com.example.focusquest.blocking.BlockingService;
+import com.example.focusquest.progression.ExperienceTransactionRepository;
+import com.example.focusquest.progression.GemTransactionRepository;
+import com.example.focusquest.session.FocusSessionRepository;
+import com.example.focusquest.session.SessionPauseRepository;
+import com.example.focusquest.streak.StreakConfigurationRepository;
+import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakPeriodRepository;
+import com.example.focusquest.user.User;
+import com.example.focusquest.user.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+/**
+ * Deletes everything the application holds for a user, including the account, so the next launch
+ * starts at first-time setup.
+ *
+ * <p>Deletion is refused while website blocking is being enforced. Otherwise it would be a free
+ * way to release blocking, sidestepping the abandon-then-override path and its XP penalty.
+ */
+@Service
+public class DataDeletionService {
+
+    private final BlockingService blockingService;
+    private final StreakContributionRepository streakContributionRepository;
+    private final SessionPauseRepository sessionPauseRepository;
+    private final StreakPeriodRepository streakPeriodRepository;
+    private final FocusSessionRepository focusSessionRepository;
+    private final StreakConfigurationRepository streakConfigurationRepository;
+    private final ExperienceTransactionRepository experienceTransactionRepository;
+    private final GemTransactionRepository gemTransactionRepository;
+    private final BlockedTargetRepository blockedTargetRepository;
+    private final AllowlistTargetRepository allowlistTargetRepository;
+    private final UserRepository userRepository;
+
+    public DataDeletionService(BlockingService blockingService,
+                                StreakContributionRepository streakContributionRepository,
+                                SessionPauseRepository sessionPauseRepository,
+                                StreakPeriodRepository streakPeriodRepository,
+                                FocusSessionRepository focusSessionRepository,
+                                StreakConfigurationRepository streakConfigurationRepository,
+                                ExperienceTransactionRepository experienceTransactionRepository,
+                                GemTransactionRepository gemTransactionRepository,
+                                BlockedTargetRepository blockedTargetRepository,
+                                AllowlistTargetRepository allowlistTargetRepository,
+                                UserRepository userRepository) {
+        this.blockingService = blockingService;
+        this.streakContributionRepository = streakContributionRepository;
+        this.sessionPauseRepository = sessionPauseRepository;
+        this.streakPeriodRepository = streakPeriodRepository;
+        this.focusSessionRepository = focusSessionRepository;
+        this.streakConfigurationRepository = streakConfigurationRepository;
+        this.experienceTransactionRepository = experienceTransactionRepository;
+        this.gemTransactionRepository = gemTransactionRepository;
+        this.blockedTargetRepository = blockedTargetRepository;
+        this.allowlistTargetRepository = allowlistTargetRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public void deleteAllData(User user) {
+        if (blockingService.findEnforcingSession(user).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Data cannot be deleted while website blocking is active");
+        }
+
+        // Children before parents, in foreign-key order.
+        streakContributionRepository.deleteAllByUser(user);
+        sessionPauseRepository.deleteAllByUser(user);
+        streakPeriodRepository.deleteAllByUser(user);
+        focusSessionRepository.deleteAllByUser(user);
+        streakConfigurationRepository.deleteAllByUser(user);
+        experienceTransactionRepository.deleteAllByUser(user);
+        gemTransactionRepository.deleteAllByUser(user);
+        blockedTargetRepository.deleteAllByUser(user);
+        allowlistTargetRepository.deleteAllByUser(user);
+        userRepository.deleteById(user.getId());
+    }
+}

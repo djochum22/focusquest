@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.streak.StreakPeriodType;
 import com.example.focusquest.user.User;
 import java.time.Clock;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,7 +39,7 @@ class ExperienceServiceTest {
     }
 
     private ExperienceService service(int penalty) {
-        return new ExperienceService(repository, clockProvider, penalty);
+        return new ExperienceService(repository, clockProvider, penalty, 1, 10, 50);
     }
 
     @Test
@@ -72,5 +74,82 @@ class ExperienceServiceTest {
     @Test
     void rejectsANegativeConfiguredPenalty() {
         assertThatThrownBy(() -> service(-1)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsANegativeConfiguredReward() {
+        assertThatThrownBy(() -> new ExperienceService(repository, clockProvider, 10, -1, 10, 50))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void awardsSessionCompletionXpPerPlannedMinute() {
+        when(repository.findByUserAndTypeAndReferenceTypeAndReferenceId(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(repository.save(any(ExperienceTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        ExperienceService threePerMinute = new ExperienceService(repository, clockProvider, 10, 3, 10, 50);
+
+        assertThat(threePerMinute.awardSessionCompletion(user, 42L, 25)).isTrue();
+
+        ArgumentCaptor<ExperienceTransaction> saved = ArgumentCaptor.forClass(ExperienceTransaction.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getAmount()).isEqualTo(75);
+        assertThat(saved.getValue().getType()).isEqualTo(ExperienceTransactionType.SESSION_COMPLETION);
+        assertThat(saved.getValue().getReferenceType()).isEqualTo(ExperienceService.FOCUS_SESSION_REFERENCE);
+        assertThat(saved.getValue().getReferenceId()).isEqualTo(42L);
+    }
+
+    @Test
+    void doesNotAwardSessionCompletionTwice() {
+        when(repository.findByUserAndTypeAndReferenceTypeAndReferenceId(
+                user, ExperienceTransactionType.SESSION_COMPLETION, ExperienceService.FOCUS_SESSION_REFERENCE, 42L))
+                .thenReturn(Optional.of(new ExperienceTransaction(user, 25,
+                        ExperienceTransactionType.SESSION_COMPLETION, ExperienceService.FOCUS_SESSION_REFERENCE, 42L, NOW)));
+
+        assertThat(service(10).awardSessionCompletion(user, 42L, 25)).isFalse();
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void awardsADifferentStreakBonusForDailyAndWeeklyPeriods() {
+        when(repository.findByUserAndTypeAndReferenceTypeAndReferenceId(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(repository.save(any(ExperienceTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service(10).awardStreakCompletion(user, StreakPeriodType.DAILY, 1L);
+        service(10).awardStreakCompletion(user, StreakPeriodType.WEEKLY, 2L);
+
+        ArgumentCaptor<ExperienceTransaction> saved = ArgumentCaptor.forClass(ExperienceTransaction.class);
+        verify(repository, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertThat(saved.getAllValues()).extracting(ExperienceTransaction::getAmount).containsExactly(10, 50);
+        assertThat(saved.getAllValues()).extracting(ExperienceTransaction::getType)
+                .containsOnly(ExperienceTransactionType.STREAK_COMPLETION);
+        assertThat(saved.getAllValues()).extracting(ExperienceTransaction::getReferenceType)
+                .containsOnly(ExperienceService.STREAK_PERIOD_REFERENCE);
+    }
+
+    @Test
+    void recordsNothingForAZeroAward() {
+        ExperienceService noXp = new ExperienceService(repository, clockProvider, 10, 0, 0, 0);
+
+        assertThat(noXp.awardSessionCompletion(user, 1L, 25)).isFalse();
+        assertThat(noXp.awardStreakCompletion(user, StreakPeriodType.DAILY, 1L)).isFalse();
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void totalXpIsTheLedgerSum() {
+        when(repository.sumAmountByUser(user)).thenReturn(85L);
+
+        assertThat(service(10).getTotalXp(user)).isEqualTo(85);
+    }
+
+    @Test
+    void totalXpNeverDropsBelowZeroEvenWhenPenaltiesExceedAwards() {
+        when(repository.sumAmountByUser(user)).thenReturn(-10L);
+
+        assertThat(service(10).getTotalXp(user)).isZero();
     }
 }

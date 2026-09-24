@@ -1,6 +1,7 @@
 package com.example.focusquest.session;
 
 import com.example.focusquest.progression.ExperienceService;
+import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
@@ -43,17 +44,20 @@ public class SessionService {
     private final SessionPauseRepository sessionPauseRepository;
     private final StreakService streakService;
     private final ExperienceService experienceService;
+    private final ProgressionService progressionService;
     private final ClockProvider clockProvider;
 
     public SessionService(FocusSessionRepository focusSessionRepository,
                            SessionPauseRepository sessionPauseRepository,
                            StreakService streakService,
                            ExperienceService experienceService,
+                           ProgressionService progressionService,
                            ClockProvider clockProvider) {
         this.focusSessionRepository = focusSessionRepository;
         this.sessionPauseRepository = sessionPauseRepository;
         this.streakService = streakService;
         this.experienceService = experienceService;
+        this.progressionService = progressionService;
         this.clockProvider = clockProvider;
     }
 
@@ -160,7 +164,10 @@ public class SessionService {
         return resumeSession(sessionId);
     }
 
-    /** Completing a session always releases website blocking. */
+    /**
+     * Completing a session always releases website blocking, and pays its completion XP once,
+     * after the streak has been credited so that a streak bonus it triggers is paid first.
+     */
     @Transactional
     public FocusSession completeSession(Long sessionId) {
         FocusSession session = getSessionOrThrow(sessionId);
@@ -179,7 +186,9 @@ public class SessionService {
         session.markCompleted(now);
         recordStreakContribution(session);
         session.updateBlockingState(BlockingState.RELEASED);
-        return focusSessionRepository.save(session);
+        FocusSession saved = focusSessionRepository.save(session);
+        progressionService.awardSessionCompletion(saved.getUser(), sessionId, saved.getPlannedFocusMinutes());
+        return saved;
     }
 
     @Transactional
