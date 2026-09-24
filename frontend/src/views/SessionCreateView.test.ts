@@ -12,7 +12,7 @@ vi.mock('../api/sessionApi')
 async function mountView() {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ['dashboard', 'session-create', 'history', 'streaks', 'settings', 'login'].map((name) => ({
+    routes: ['dashboard', 'session-create', 'history', 'streaks', 'blocking-rules', 'settings', 'login'].map((name) => ({
       path: name === 'dashboard' ? '/' : `/${name}`,
       name,
       component: { template: '<div />' },

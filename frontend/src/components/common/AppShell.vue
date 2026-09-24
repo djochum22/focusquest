@@ -21,6 +21,7 @@ async function onLogout() {
         <RouterLink :to="{ name: 'session-create' }">New session</RouterLink>
         <RouterLink :to="{ name: 'history' }">History</RouterLink>
         <RouterLink :to="{ name: 'streaks' }">Streaks</RouterLink>
+        <RouterLink :to="{ name: 'blocking-rules' }">Blocking</RouterLink>
         <RouterLink :to="{ name: 'settings' }">Settings</RouterLink>
       </nav>
       <span class="shell__user">{{ auth.user?.displayName }}</span>

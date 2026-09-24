@@ -112,8 +112,8 @@ Check the connection at any time from the same console:
 
 Use the web app (`npm run dev` in `frontend/`, http://localhost:5173) to create and start the session (step 2).
 
-1. **Add rules.** The web app has no screen for this yet (see "Follow-up work"), so use the backend
-   API. Put your token in a shell variable, then add block rules and allowlist rules:
+1. **Add rules.** Use the web app's **Blocking** page, or the backend API as below. Put your token in
+   a shell variable, then add block rules and allowlist rules:
 
    ```bash
    TOKEN='PASTE_TOKEN_HERE'

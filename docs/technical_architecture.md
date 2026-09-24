@@ -561,7 +561,9 @@ src/
     blocking/
       BlockRuleForm.vue
       AllowlistRuleForm.vue
+      RuleForm.vue
       RuleList.vue
+      RuleItem.vue
 
     progression/
       XpDisplay.vue
@@ -587,6 +589,7 @@ src/
     authStore.ts
     sessionStore.ts
     streakStore.ts
+    blockingStore.ts
     progressionStore.ts
     settingsStore.ts
 
@@ -642,6 +645,8 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 
 - `api/streakApi.ts`, `api/progressionApi.ts` and `api/settingsApi.ts` wrap the endpoints in section 10; `stores/streakStore.ts`, `stores/progressionStore.ts` and `stores/settingsStore.ts` hold the results. As with sessions, the frontend only displays what the backend reports: it never credits streak time, decides that a target is reached, or computes XP. The percentage bar and "time to go" figure in `StreakProgress` are display arithmetic on the backend's `qualifyingSeconds` and `targetMinutes`.
 - `StreaksView` shows the level and XP (`XpDisplay`), the gem balance (`GemDisplay`), the current progress of each configured streak (`StreakProgress`) and one `StreakConfigurationForm` per period type. `StreakProgress` leads with the current streak in the streak's own unit ("5 days in a row" for a daily streak, "3 weeks in a row" for a weekly one) and what the user must do to extend it, then states how much time is counted against the target, how much is left, which sessions count, when the period resets, and any overtime. A user with both streaks sees both counts. The bars are `progressbar`s and the status is also written out, so colour is never the only signal.
+- `api/blockingApi.ts` wraps the six block and allowlist endpoints and `stores/blockingStore.ts` holds both lists. `BlockingRulesView` (route `/blocking-rules`, "Blocking" in the navigation) shows the blocked and allowed sites as two `RuleList`s of `RuleItem`s, an add form under each (`BlockRuleForm`, `AllowlistRuleForm`, both thin wrappers over the shared `RuleForm`), and edit (a dialog around the same form) and delete (a confirmation) for every rule. A rule can also be deactivated: it is kept but the extension never receives it. `utils/blockingRules.ts` reproduces the backend's rule syntax so mistakes are caught before a request: protocols, query strings, fragments, ports, spaces, single-label hosts and malformed paths each get their own message, and a rule that normalizes to the same value as one already in the same list is rejected as a duplicate. This is a convenience only; the backend re-validates and remains the authority, and its message is shown when it refuses. The same site may appear in both lists (the allowlist wins a tie).
+- The view greys out what the configuration lock (section 10) would refuse while a session is running or paused, or an abandoned one still holds blocking: blocked sites can be added but not edited or deleted, and allowed sites can be deleted but not added or edited. As with streak settings this is only a hint, worked out from the session store; the backend's 409 is what enforces it, and its message is displayed if the two ever disagree.
 - The streak count comes from the backend (`dailyStreak`, `weeklyStreak`); the frontend never counts periods. `XpDisplay` shows the level, the XP total and the share of the current level completed, from the level bounds the backend reports, so the frontend does not know the level curve either.
 - While website blocking is being enforced the settings forms are disabled and a notice says why. The page infers this from the session store (a running or paused session, or an abandoned one still holding blocking); the backend refuses the change with `409` regardless, and its message is shown if the page guessed wrong.
 - The daily streak always exists, so its form always edits; the weekly form creates the streak the first time and edits it afterwards. The store picks create or update from whether a configuration for that period type is loaded, and re-loads the configurations when a save fails, so a weekly streak added from another tab does not send the next save down the wrong path. The view tells the user that a change applies only to periods that have not started.
@@ -821,15 +826,14 @@ Required before the extension is usable day to day. Until then the extension wor
 1. **Extension sign-in.** There is no login screen. The JWT must currently be written to `chrome.storage.local` under the key `token` by hand. Either add a login form to the extension (a popup or options page calling `POST /api/auth/login`), or have the Vue app hand its token to the extension (for example with `externally_connectable`, restricted to the app's origin). The token must never be exposed to website content scripts.
 2. **Sessions longer than the token.** The JWT lasts 60 minutes (`focusquest.jwt.expiration-minutes`). Because of fail-closed behavior, a longer session keeps blocking, but the extension can no longer see the session end, so sites stay blocked until it is signed in again. Fix with refresh tokens, or a separate, longer-lived credential scoped to the three `/api/extension` endpoints (this is the "local device registration" item above).
 3. **Signed-out and expired states.** Show that the extension needs signing in somewhere visible (a toolbar badge or popup), not only on the blocked page, so an expired sign-in is noticed before it matters.
-4. **Block and allowlist management in the Vue app.** The backend endpoints exist (`/api/blocked-targets`, `/api/allowlist-targets`, with validation and the configuration lock during enforcement), but the frontend has no screen for them, so rules can only be added through the API today. Add a rules section to Settings with add, edit, activate/deactivate and delete.
 
-Improvements:
+Improvements (block and allowlist management is done: see the Vue app's Blocking rules screen in section 8):
 
-5. **Faster synchronization.** Changes reach the browser within about 30 seconds. Have the Vue app notify the extension when a session starts, pauses, resumes, completes, abandons or is overridden (the same channel as item 1 can carry this), as the synchronization rules above call for.
-6. **Extension icons** (`assets/icons/`) and the toolbar action.
-7. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
-8. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
-9. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
+4. **Faster synchronization.** Changes reach the browser within about 30 seconds. Have the Vue app notify the extension when a session starts, pauses, resumes, completes, abandons or is overridden (the same channel as item 1 can carry this), as the synchronization rules above call for.
+5. **Extension icons** (`assets/icons/`) and the toolbar action.
+6. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
+7. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
+8. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
