@@ -20,6 +20,8 @@ async function onLogout() {
         <RouterLink :to="{ name: 'dashboard' }">Dashboard</RouterLink>
         <RouterLink :to="{ name: 'session-create' }">New session</RouterLink>
         <RouterLink :to="{ name: 'history' }">History</RouterLink>
+        <RouterLink :to="{ name: 'streaks' }">Streaks</RouterLink>
+        <RouterLink :to="{ name: 'settings' }">Settings</RouterLink>
       </nav>
       <span class="shell__user">{{ auth.user?.displayName }}</span>
       <AppButton variant="secondary" @click="onLogout">Sign out</AppButton>

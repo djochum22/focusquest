@@ -4,6 +4,7 @@
  */
 
 import type { TaskCategory, TaskMode } from '../types/session'
+import type { StreakPeriodType } from '../types/streak'
 
 export const USERNAME_MIN = 3
 export const USERNAME_MAX = 100
@@ -13,6 +14,11 @@ export const DISPLAY_NAME_MAX = 100
 export const TIMEZONE_MAX = 50
 export const MIN_PLANNED_FOCUS_MINUTES = 5
 export const TASK_DESCRIPTION_MAX = 500
+export const MIN_STREAK_TARGET_MINUTES = 5
+export const MAX_STREAK_TARGET_MINUTES: Record<StreakPeriodType, number> = {
+  DAILY: 24 * 60,
+  WEEKLY: 7 * 24 * 60,
+}
 
 export type FieldErrors<T> = Partial<Record<keyof T, string>>
 
@@ -102,6 +108,34 @@ export function validateSession(form: SessionForm): FieldErrors<SessionForm> {
     errors.plannedFocusMinutes = 'Enter a whole number of minutes.'
   } else if (minutes < MIN_PLANNED_FOCUS_MINUTES) {
     errors.plannedFocusMinutes = `Sessions must be at least ${MIN_PLANNED_FOCUS_MINUTES} minutes.`
+  }
+
+  return errors
+}
+
+export interface StreakConfigurationForm {
+  /** Empty while the field is blank (a cleared number input yields ''). */
+  targetMinutes: number | ''
+  taskMode: TaskMode
+  /** Empty means "any category"; ignored for task-free streaks. */
+  requiredCategory: TaskCategory | ''
+}
+
+/** Mirrors the backend's target limits, which depend on the period type. */
+export function validateStreakConfiguration(
+  form: StreakConfigurationForm,
+  periodType: StreakPeriodType,
+): FieldErrors<StreakConfigurationForm> {
+  const errors: FieldErrors<StreakConfigurationForm> = {}
+  const minutes = form.targetMinutes
+  const max = MAX_STREAK_TARGET_MINUTES[periodType]
+
+  if (minutes === '' || !Number.isFinite(minutes)) {
+    errors.targetMinutes = 'Enter a target in minutes.'
+  } else if (!Number.isInteger(minutes)) {
+    errors.targetMinutes = 'Enter a whole number of minutes.'
+  } else if (minutes < MIN_STREAK_TARGET_MINUTES || minutes > max) {
+    errors.targetMinutes = `Target must be ${MIN_STREAK_TARGET_MINUTES}–${max} minutes.`
   }
 
   return errors

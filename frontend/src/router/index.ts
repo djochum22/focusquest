@@ -38,6 +38,16 @@ const router = createRouter({
       name: 'history',
       component: () => import('../views/HistoryView.vue'),
     },
+    {
+      path: '/streaks',
+      name: 'streaks',
+      component: () => import('../views/StreaksView.vue'),
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: { name: 'dashboard' } },
   ],
 })

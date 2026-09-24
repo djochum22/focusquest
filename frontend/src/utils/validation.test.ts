@@ -4,6 +4,7 @@ import {
   validateLogin,
   validateSession,
   validateSetup,
+  validateStreakConfiguration,
   type SessionForm,
   type SetupForm,
 } from './validation'
@@ -80,5 +81,37 @@ describe('validateSession', () => {
 
   it('rejects an over-long task description', () => {
     expect(validateSession({ ...valid, taskDescription: 'x'.repeat(501) }).taskDescription).toBeDefined()
+  })
+})
+
+describe('validateStreakConfiguration', () => {
+  const form = (targetMinutes: number | '') => ({
+    targetMinutes,
+    taskMode: 'TASK_REQUIRED' as const,
+    requiredCategory: '' as const,
+  })
+
+  it('accepts a target inside the limits', () => {
+    expect(validateStreakConfiguration(form(30), 'DAILY')).toEqual({})
+    expect(validateStreakConfiguration(form(5), 'DAILY')).toEqual({})
+    expect(validateStreakConfiguration(form(10080), 'WEEKLY')).toEqual({})
+  })
+
+  it('requires a target', () => {
+    expect(validateStreakConfiguration(form(''), 'DAILY').targetMinutes).toMatch(/enter a target/i)
+  })
+
+  it('requires whole minutes', () => {
+    expect(validateStreakConfiguration(form(30.5), 'DAILY').targetMinutes).toMatch(/whole number/i)
+  })
+
+  it('enforces the 5 minute minimum', () => {
+    expect(validateStreakConfiguration(form(4), 'DAILY').targetMinutes).toMatch(/5–1440/)
+  })
+
+  it('uses a different maximum for each period type', () => {
+    expect(validateStreakConfiguration(form(1441), 'DAILY').targetMinutes).toMatch(/5–1440/)
+    expect(validateStreakConfiguration(form(1441), 'WEEKLY')).toEqual({})
+    expect(validateStreakConfiguration(form(10081), 'WEEKLY').targetMinutes).toMatch(/5–10080/)
   })
 })
