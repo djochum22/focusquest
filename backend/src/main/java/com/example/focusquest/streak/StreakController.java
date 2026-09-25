@@ -59,7 +59,7 @@ public class StreakController {
 
     @PutMapping("/api/streak-configurations/{id}")
     public StreakConfigurationResponse updateConfiguration(@AuthenticationPrincipal UserDetails principal,
-                                                            @PathVariable Long id,
+                                                            @PathVariable("id") Long id,
                                                             @Valid @RequestBody UpdateStreakConfigurationRequest request) {
         return StreakConfigurationResponse.from(streakConfigurationService.update(
                 currentUser(principal), id, request.targetMinutes(),

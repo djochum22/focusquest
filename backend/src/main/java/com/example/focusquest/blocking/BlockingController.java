@@ -44,7 +44,7 @@ public class BlockingController {
 
     @PutMapping("/api/blocked-targets/{id}")
     public RuleTargetResponse updateBlockedTarget(@AuthenticationPrincipal UserDetails principal,
-                                                   @PathVariable Long id,
+                                                   @PathVariable("id") Long id,
                                                    @Valid @RequestBody RuleTargetRequest request) {
         return RuleTargetResponse.from(blockingService.updateBlockedTarget(
                 currentUser(principal), id, request.targetValue(), request.displayName(), request.active()));
@@ -52,7 +52,7 @@ public class BlockingController {
 
     @DeleteMapping("/api/blocked-targets/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteBlockedTarget(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public void deleteBlockedTarget(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         blockingService.deleteBlockedTarget(currentUser(principal), id);
     }
 
@@ -72,7 +72,7 @@ public class BlockingController {
 
     @PutMapping("/api/allowlist-targets/{id}")
     public RuleTargetResponse updateAllowlistTarget(@AuthenticationPrincipal UserDetails principal,
-                                                     @PathVariable Long id,
+                                                     @PathVariable("id") Long id,
                                                      @Valid @RequestBody RuleTargetRequest request) {
         return RuleTargetResponse.from(blockingService.updateAllowlistTarget(
                 currentUser(principal), id, request.targetValue(), request.displayName(), request.active()));
@@ -80,7 +80,7 @@ public class BlockingController {
 
     @DeleteMapping("/api/allowlist-targets/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAllowlistTarget(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public void deleteAllowlistTarget(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         blockingService.deleteAllowlistTarget(currentUser(principal), id);
     }
 

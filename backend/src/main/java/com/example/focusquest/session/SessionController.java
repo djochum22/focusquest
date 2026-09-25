@@ -55,39 +55,39 @@ public class SessionController {
     /** Completed, abandoned and interrupted sessions, most recently started first. */
     @GetMapping("/history")
     public List<FocusSessionDto> history(@AuthenticationPrincipal UserDetails principal,
-                                          @RequestParam(defaultValue = "" + SessionService.DEFAULT_HISTORY_LIMIT) int limit) {
+                                          @RequestParam(name = "limit", defaultValue = "" + SessionService.DEFAULT_HISTORY_LIMIT) int limit) {
         return sessionService.findHistory(userService.getByUsername(principal.getUsername()), limit).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @PostMapping("/{id}/start")
-    public FocusSessionDto start(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto start(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.startSession(id, principal.getUsername()));
     }
 
     @PostMapping("/{id}/pause")
-    public FocusSessionDto pause(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto pause(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.pauseSession(id, principal.getUsername()));
     }
 
     @PostMapping("/{id}/resume")
-    public FocusSessionDto resume(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto resume(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.resumeSession(id, principal.getUsername()));
     }
 
     @PostMapping("/{id}/complete")
-    public FocusSessionDto complete(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto complete(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.completeSession(id, principal.getUsername()));
     }
 
     @PostMapping("/{id}/abandon")
-    public FocusSessionDto abandon(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto abandon(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.abandonSession(id, principal.getUsername()));
     }
 
     @PostMapping("/{id}/override")
-    public FocusSessionDto override(@AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+    public FocusSessionDto override(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
         return toDto(sessionService.overrideSession(id, principal.getUsername()));
     }
 

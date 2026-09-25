@@ -2,6 +2,7 @@ package com.example.focusquest.config;
 
 import com.example.focusquest.security.AuthEntryPoint;
 import com.example.focusquest.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +27,7 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                            AuthEntryPoint authEntryPoint,
-                           CorsConfigurationSource corsConfigurationSource,
+                           @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource,
                            @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.authEntryPoint = authEntryPoint;

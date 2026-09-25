@@ -136,9 +136,11 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
         String wrongKey = tokenFor("doug", future, Keys.hmacShaKeyFor(new byte[32]));
         String unknownUser = tokenFor("nobody", future, secretKey());
         String unsigned = Jwts.builder().subject("doug").expiration(future).compact();
-        // Flip the last character of the signature so the payload is genuine but the signature is not.
-        char last = valid.charAt(valid.length() - 1);
-        String tampered = valid.substring(0, valid.length() - 1) + (last == 'A' ? 'B' : 'A');
+        // Flip a character in the middle of the signature so the payload is genuine but the signature is not.
+        // (Not the last one: it carries padding bits, so some flips decode to the same signature bytes.)
+        int flipAt = valid.length() - 10;
+        char flipped = valid.charAt(flipAt);
+        String tampered = valid.substring(0, flipAt) + (flipped == 'A' ? 'B' : 'A') + valid.substring(flipAt + 1);
         // Swap in another user's name while keeping the original signature.
         String[] parts = valid.split("\\.");
         String forgedPayload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
