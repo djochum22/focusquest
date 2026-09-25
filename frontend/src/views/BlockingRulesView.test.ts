@@ -210,7 +210,7 @@ describe('BlockingRulesView', () => {
       await flushPromises()
 
       expect(blockingApi.updateAllowlistTarget).toHaveBeenCalledWith(2, expect.objectContaining({ active: false }))
-      expect(section(wrapper, 'Allowed sites').text()).toContain('Inactive')
+      expect(section(wrapper, 'Allowed sites').text()).toContain('Paused')
       wrapper.unmount()
     })
 

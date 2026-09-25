@@ -21,7 +21,7 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
       <span v-if="rule.displayName !== rule.targetValue" class="rule-item__value">{{ rule.targetValue }}</span>
     </div>
     <span class="rule-item__badge">{{ rule.targetType === 'DOMAIN' ? 'Domain' : 'Path' }}</span>
-    <span v-if="!rule.active" class="rule-item__badge rule-item__badge--inactive">Inactive</span>
+    <span v-if="!rule.active" class="rule-item__badge rule-item__badge--inactive">Paused</span>
     <div class="rule-item__actions">
       <AppButton variant="secondary" :disabled="!canEdit" :aria-label="`Edit ${rule.targetValue}`" @click="emit('edit')">
         Edit

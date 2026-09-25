@@ -20,6 +20,8 @@ const emit = defineEmits<{ submit: [request: RuleTargetRequest] }>()
     :locked="locked"
     label="Site to allow"
     hint="An exception to your blocked sites. Allowing example.com/docs keeps that section reachable while example.com is blocked."
+    active-label="Allow this site during focus sessions"
+    active-hint="Uncheck to keep it in your list without allowing it."
     :submit-label="rule ? 'Save changes' : 'Add allowed site'"
     :form-name="rule ? 'Edit allowed site' : 'Add allowed site'"
     @submit="(request) => emit('submit', request)"

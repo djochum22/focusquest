@@ -31,7 +31,7 @@ const SECTIONS = [
   {
     kind: 'allow',
     title: 'Allowed sites',
-    description: 'Exceptions to your blocked sites. The most specific matching rule wins, and on a tie the allowed site wins.',
+    description: 'Exceptions to your blocked sites. If two entries match a page, the more specific address wins, and on a tie the allowed site wins.',
     empty: 'No allowed sites. Nothing is exempt from blocking.',
     listLabel: 'Allowed sites',
     form: AllowlistRuleForm,
@@ -133,7 +133,7 @@ onMounted(load)
 
 <template>
   <AppShell>
-    <h1 class="page-title">Blocking rules</h1>
+    <h1 class="page-title">Blocked and allowed sites</h1>
 
     <LoadingIndicator v-if="!ready" />
 

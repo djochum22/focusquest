@@ -21,6 +21,10 @@ const props = defineProps<{
   locked?: boolean
   label: string
   hint: string
+  /** The checkbox that switches the site on or off, worded for this list ("Block this site…"). */
+  activeLabel: string
+  /** What unchecking it does. */
+  activeHint: string
   submitLabel: string
   formName: string
 }>()
@@ -30,7 +34,7 @@ function initialForm(): RuleForm {
   const rule = props.rule
   return {
     targetValue: rule?.targetValue ?? '',
-    // A label equal to the rule is just the default; leave it blank so it keeps following the rule.
+    // A label equal to the address is just the default; leave it blank so it keeps following the address.
     displayName: rule && rule.displayName !== rule.targetValue ? rule.displayName : '',
     active: rule?.active ?? true,
   }
@@ -75,15 +79,18 @@ function onSubmit() {
         v-model="form.displayName"
         type="text"
         autocomplete="off"
-        placeholder="Defaults to the rule"
+        placeholder="Defaults to the address"
         :aria-invalid="invalid"
       />
     </FormField>
 
-    <label class="rule-form__active">
-      <input v-model="form.active" type="checkbox" />
-      Active (inactive rules are kept but never applied)
-    </label>
+    <div class="rule-form__active">
+      <label class="rule-form__active-label">
+        <input v-model="form.active" type="checkbox" />
+        {{ activeLabel }}
+      </label>
+      <p class="rule-form__hint">{{ activeHint }}</p>
+    </div>
 
     <div>
       <AppButton type="submit" :loading="submitting" :disabled="locked">
@@ -106,11 +113,16 @@ function onSubmit() {
 }
 .rule-form__active {
   display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rule-form__active-label {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
 }
-.rule-form__active input {
+.rule-form__active-label input {
   width: auto;
 }
 </style>

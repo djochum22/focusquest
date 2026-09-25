@@ -10,9 +10,9 @@ const domainInput = (wrapper: { get: (selector: string) => { element: Element; s
   wrapper.get('input[type="text"]')
 
 describe.each([
-  ['BlockRuleForm', BlockRuleForm, 'Site to block', 'Add blocked site'],
-  ['AllowlistRuleForm', AllowlistRuleForm, 'Site to allow', 'Add allowed site'],
-] as const)('%s', (_name, Form, label, addLabel) => {
+  ['BlockRuleForm', BlockRuleForm, 'Site to block', 'Add blocked site', 'Block this site during focus sessions', 'without blocking it'],
+  ['AllowlistRuleForm', AllowlistRuleForm, 'Site to allow', 'Add allowed site', 'Allow this site during focus sessions', 'without allowing it'],
+] as const)('%s', (_name, Form, label, addLabel, activeLabel, activeHint) => {
   function mountForm(props: Record<string, unknown> = {}) {
     return mount(Form, { props: { existing: [], submitting: false, ...props } })
   }
@@ -23,6 +23,15 @@ describe.each([
     expect(wrapper.text()).toContain(label)
     expect(wrapper.get('form').attributes('aria-label')).toBe(addLabel)
     expect(wrapper.get('button[type="submit"]').text()).toBe(addLabel)
+  })
+
+  it('words the on/off checkbox as what the site does, and says what unchecking does', () => {
+    const wrapper = mountForm()
+
+    expect(wrapper.get('input[type="checkbox"]').element.parentElement?.textContent).toContain(activeLabel)
+    expect(wrapper.text()).toContain(activeHint)
+    expect(wrapper.text()).not.toContain('Active')
+    expect(wrapper.text()).not.toContain('rule')
   })
 
   it('submits the trimmed rule, label and active flag', async () => {
@@ -117,7 +126,7 @@ describe('RuleItem', () => {
     expect(wrapper.text()).toContain('Shorts')
     expect(wrapper.text()).toContain('youtube.com/shorts')
     expect(wrapper.text()).toContain('Path')
-    expect(wrapper.text()).not.toContain('Inactive')
+    expect(wrapper.text()).not.toContain('Paused')
   })
 
   it('does not repeat the rule when the label is just the rule', () => {
@@ -130,7 +139,7 @@ describe('RuleItem', () => {
   it('marks an inactive rule', () => {
     const wrapper = mount(RuleItem, { props: { rule: makeRule({ active: false }) } })
 
-    expect(wrapper.text()).toContain('Inactive')
+    expect(wrapper.text()).toContain('Paused')
   })
 
   it('emits edit and delete from buttons named after the rule', async () => {
