@@ -91,9 +91,26 @@ public class SessionService {
                     "A task-required session must select a real task category");
         }
 
+        // A user has at most one planned session: a new one replaces any that was never started.
+        // A planned session has no pauses, streak credit or XP, so nothing else refers to it.
+        focusSessionRepository.deleteAll(focusSessionRepository.findByUserAndStatus(user, SessionStatus.PLANNED));
         FocusSession session = new FocusSession(
                 user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, clockProvider.now());
         return focusSessionRepository.save(session);
+    }
+
+    /** The user's planned session (created but not started), if any. There is at most one. */
+    @Transactional(readOnly = true)
+    public Optional<FocusSession> findPlannedSession(User user) {
+        return focusSessionRepository.findByUserAndStatus(user, SessionStatus.PLANNED).stream().findFirst();
+    }
+
+    /** Deletes a planned session the user no longer wants. Only a session that never started can be deleted. */
+    @Transactional
+    public void discardPlannedSession(Long sessionId, String username) {
+        FocusSession session = getOwnedSessionOrThrow(sessionId, username);
+        requireStatus(session, SessionStatus.PLANNED);
+        focusSessionRepository.delete(session);
     }
 
     /**

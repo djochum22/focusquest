@@ -23,8 +23,8 @@ export const useSessionStore = defineStore('session', () => {
   const receivedAt = ref(0)
   const currentLoaded = ref(false)
   /**
-   * A session that has been created (PLANNED) but not started. The backend cannot list PLANNED
-   * sessions, so it is only remembered here and is lost on a page reload.
+   * A session that has been created (PLANNED) but not started. The backend keeps at most one, so
+   * after a reload it is fetched again rather than lost.
    */
   const planned = ref<FocusSession | null>(null)
   /** The session the user just finished, kept so the dashboard can show how it ended. */
@@ -60,6 +60,19 @@ export const useSessionStore = defineStore('session', () => {
     const running = await sessionApi.fetchCurrentSession()
     applyCurrent(running)
     if (!running && !lastEnded.value) await restoreOverridableSession()
+    if (!running && !planned.value) await restorePlannedSession()
+  }
+
+  /**
+   * After a reload the planned session is no longer in memory. It is only looked up when there is
+   * none here already, so polling does not repeat the request. A failed lookup just shows the form.
+   */
+  async function restorePlannedSession() {
+    try {
+      planned.value = (await sessionApi.fetchPlannedSession()) ?? null
+    } catch {
+      // ignore
+    }
   }
 
   /**
@@ -95,9 +108,16 @@ export const useSessionStore = defineStore('session', () => {
     await run(() => sessionApi.startSession(id))
   }
 
-  /** Forgets the planned session locally. It stays on the server, where it blocks nothing. */
-  function discardPlanned() {
+  /**
+   * Drops the planned session so the user can enter new details. It is deleted on the server too,
+   * so a reload does not bring it back; if that fails it does no harm, since it blocks nothing and
+   * the next session created replaces it.
+   */
+  async function discardPlanned() {
+    const id = planned.value?.id
     planned.value = null
+    if (id === undefined) return
+    await sessionApi.deletePlannedSession(id).catch(() => {})
   }
 
   const pause = (id: number) => run(() => sessionApi.pauseSession(id))

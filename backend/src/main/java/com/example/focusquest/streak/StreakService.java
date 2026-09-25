@@ -116,7 +116,7 @@ public class StreakService {
      * The current period counts once it has reached its target; until then the streak is the run
      * that ended with the previous period, so it is not lost until a period ends unfinished. A
      * period with no record, because nothing qualifying was done in it, is a missed one, and a
-     * missed period ends the run. Freezes are not built yet, so nothing can bridge a gap.
+     * missed period ends the run. There are no freezes, so nothing can bridge a gap.
      *
      * <p>Periods are chained by their stored boundaries (each ends where the next begins) rather
      * than recomputed from the time zone, so a run survives a change of time zone.

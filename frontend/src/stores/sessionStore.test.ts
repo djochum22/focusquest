@@ -157,6 +157,61 @@ describe('sessionStore', () => {
     expect(store.current?.id).toBe(2)
   })
 
+  it('brings back the planned session after a reload', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(sessionApi.fetchPlannedSession).mockResolvedValue(makeSession({ id: 7, status: 'PLANNED' }))
+    const store = useSessionStore()
+
+    await store.fetchCurrent()
+
+    expect(store.planned?.id).toBe(7)
+    expect(store.current).toBeNull()
+  })
+
+  it('does not look for a planned session while one is running or one is already known', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    const store = useSessionStore()
+    await store.fetchCurrent()
+
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    store.planned = makeSession({ status: 'PLANNED', blockingState: null })
+    await store.fetchCurrent()
+
+    expect(sessionApi.fetchPlannedSession).not.toHaveBeenCalled()
+  })
+
+  it('still loads the current session when the planned lookup fails', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(sessionApi.fetchPlannedSession).mockRejectedValue(new Error('offline'))
+    const store = useSessionStore()
+
+    await store.fetchCurrent()
+
+    expect(store.currentLoaded).toBe(true)
+    expect(store.planned).toBeNull()
+  })
+
+  it('discards the planned session here and on the server', async () => {
+    vi.mocked(sessionApi.deletePlannedSession).mockResolvedValue()
+    const store = useSessionStore()
+    store.planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null })
+
+    await store.discardPlanned()
+
+    expect(store.planned).toBeNull()
+    expect(sessionApi.deletePlannedSession).toHaveBeenCalledWith(7)
+  })
+
+  it('still discards the planned session locally when the server cannot be reached', async () => {
+    vi.mocked(sessionApi.deletePlannedSession).mockRejectedValue(new Error('offline'))
+    const store = useSessionStore()
+    store.planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null })
+
+    await store.discardPlanned()
+
+    expect(store.planned).toBeNull()
+  })
+
   it('does nothing when there is no planned session to start', async () => {
     await useSessionStore().startPlanned()
     expect(sessionApi.startSession).not.toHaveBeenCalled()

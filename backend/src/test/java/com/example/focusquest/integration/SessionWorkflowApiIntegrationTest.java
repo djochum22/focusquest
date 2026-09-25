@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -246,7 +247,7 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         getAs(token, "/api/does-not-exist").andExpect(status().isNotFound());
-        perform(token, delete(SESSIONS + "/current")).andExpect(status().isMethodNotAllowed());
+        perform(token, put(SESSIONS + "/current")).andExpect(status().isMethodNotAllowed());
         // A non-numeric id is a client error, not a 500.
         postAs(token, SESSIONS + "/abc/start")
                 .andExpect(status().isBadRequest())
@@ -265,7 +266,40 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
+        perform(token, delete(SESSIONS + "/" + theirs.getId())).andExpect(status().isNotFound());
         getAs(token, SESSIONS + "/history").andExpect(jsonPath("$", hasSize(0)));
+        getAs(token, SESSIONS + "/planned").andExpect(status().isNoContent());
+    }
+
+    @Test
+    void aPlannedSessionCanBeFetchedAgainReplacedAndDiscardedButNotOnceStarted() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+        getAs(token, SESSIONS + "/planned").andExpect(status().isNoContent());
+
+        // A reload finds the planned session again; it is not "current", since nothing runs yet.
+        long first = createSession(token, 25);
+        getAs(token, SESSIONS + "/planned")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(first))
+                .andExpect(jsonPath("$.status").value("PLANNED"))
+                .andExpect(jsonPath("$.plannedFocusMinutes").value(25));
+        getAs(token, SESSIONS + "/current").andExpect(status().isNoContent());
+        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
+
+        // Creating another replaces it, so there is only ever one.
+        long second = createSession(token, 30);
+        getAs(token, SESSIONS + "/planned").andExpect(jsonPath("$.id").value(second));
+        postAs(token, SESSIONS + "/" + first + "/start").andExpect(status().isNotFound());
+
+        perform(token, delete(SESSIONS + "/" + second)).andExpect(status().isNoContent());
+        getAs(token, SESSIONS + "/planned").andExpect(status().isNoContent());
+
+        // Once started, a session is no longer planned and cannot be deleted.
+        long started = createAndStartSession(token, 25);
+        getAs(token, SESSIONS + "/planned").andExpect(status().isNoContent());
+        perform(token, delete(SESSIONS + "/" + started))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_SESSION_STATE"));
     }
 
     @Test

@@ -15,6 +15,17 @@ export async function fetchCurrentSession(): Promise<FocusSession | null> {
   return response.status === 204 || !response.data ? null : response.data
 }
 
+/** The session created but not started yet, or null when there is none (the backend answers 204). */
+export async function fetchPlannedSession(): Promise<FocusSession | null> {
+  const response = await apiClient.get<FocusSession | ''>(`${BASE}/planned`)
+  return response.status === 204 || !response.data ? null : response.data
+}
+
+/** Deletes a planned session. The backend refuses one that has been started. */
+export async function deletePlannedSession(id: number): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`)
+}
+
 /** Ended sessions (completed, abandoned, interrupted), most recently started first. */
 export async function fetchHistory(limit?: number): Promise<FocusSession[]> {
   const { data } = await apiClient.get<FocusSession[]>(`${BASE}/history`, {

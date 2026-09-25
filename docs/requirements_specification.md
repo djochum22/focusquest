@@ -911,9 +911,13 @@ POST /api/focus-sessions/{id}/override
 
 GET /api/focus-sessions/current
 
+GET /api/focus-sessions/planned
+
 GET /api/focus-sessions/history
 
-`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or the latest started session if it is INTERRUPTED, or 204 No Content. `GET /api/focus-sessions/history` returns the ended sessions (completed, abandoned, interrupted), most recently started first, with an optional `limit` (default 50, at most 200). `GET /api/focus-sessions/{id}` is not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
+DELETE /api/focus-sessions/{id}
+
+`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or the latest started session if it is INTERRUPTED, or 204 No Content. `GET /api/focus-sessions/planned` returns the session created but not started yet, or 204; there is at most one, since creating a session replaces an earlier unstarted one. `DELETE /api/focus-sessions/{id}` deletes a planned session and is refused for any other. `GET /api/focus-sessions/history` returns the ended sessions (completed, abandoned, interrupted), most recently started first, with an optional `limit` (default 50, at most 200). `GET /api/focus-sessions/{id}` is not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
 
 ### Blocked targets
 
@@ -979,7 +983,7 @@ GET /api/me/streak-freezes
 
 POST /api/me/streak-freezes/purchase
 
-Only `GET /api/me/progression` is implemented (the XP total). The gem, freeze and history endpoints wait for the gem economy and Phase 5.
+Only `GET /api/me/progression` is implemented (XP total, level, progress through the level, and gem balance). The gem, freeze and history endpoints wait for the gem economy and Phase 5.
 
 ### Settings
 
@@ -1115,14 +1119,13 @@ Detailed user stories and acceptance criteria will be created next. They should 
 - Implement manual-override penalties.
 - Add progress display.
 - Define and implement gem rewards.
-- Implement streak-freeze purchases and automatic consumption.
 
 ### Phase 7: History and dashboard
 
 - Display session history.
 - Display daily and weekly progress.
 - Display total focus time.
-- Display XP, levels, gems, and freezes.
+- Display XP, levels, and gems.
 - Add clear explanations of streak contributions.
 
 ### Phase 8: Testing and hardening
@@ -1194,6 +1197,6 @@ Daily and weekly streaks measure accumulated qualifying work. Daily periods use 
 
 A completed session rewards continued focused work. Completion XP is awarded only when the required active focus duration has been reached and the session is completed. Completed sessions are immutable. Overtime is recorded but does not increase current streak progress, carry into another period, or automatically generate additional XP.
 
-If an abandoned session occurs after the daily streak has already been reached, websites unblock immediately. If the daily streak has not been reached, blocking remains active. A manual override can release blocking but applies a daily XP penalty and is permanently recorded. Gems will later be based on the XP system and can be used to purchase streak freezes. A streak freeze is automatically consumed when a streak period ends without reaching its target.
+If an abandoned session occurs after the daily streak has already been reached, websites unblock immediately. If the daily streak has not been reached, blocking remains active. A manual override can release blocking but applies a daily XP penalty and is permanently recorded. Gems are earned from levels and streak targets; nothing can be bought with them yet. There are no streak freezes: a period that ends without reaching its target ends the streak.
 
 The next project step is to transform this preliminary specification into user stories and detailed acceptance criteria.

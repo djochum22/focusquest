@@ -56,6 +56,8 @@ anything already listening on those ports (on CI it always starts its own).
 - Abandoning below the daily target keeps the site blocked until a manual override, which is
   recorded with its XP penalty.
 - Rules cannot be loosened while a session runs, but can be tightened.
+- A planned session survives a reload and blocks nothing until it is started; changing its details
+  deletes it, so a reload shows the empty form.
 
 Each blocking check allows 10 seconds, less than the extension's 30-second check-in, so the tests
 also show that the web app tells the extension about changes straight away.

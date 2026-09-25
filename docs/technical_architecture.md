@@ -634,7 +634,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 
 - `api/sessionApi.ts` wraps every `/api/focus-sessions` endpoint the UI uses; `stores/sessionStore.ts` holds the current session, the last ended session and the history.
 - Every state change (create, start, pause, resume, complete, abandon, override) is a backend call, and the returned `FocusSessionDto` replaces the local copy. The UI never computes session state, completion eligibility, XP or streak progress. When a call fails, the store re-fetches the current session so the screen reflects what the server actually holds, and the backend's error message is shown.
-- Creating a session only creates it as `PLANNED`; the user starts it with a separate action, which is when the timer and blocking begin. The backend cannot list `PLANNED` sessions, so the store remembers the planned one locally and it is lost on a page reload. A `PLANNED` session that is never started, or is replaced by editing the details, stays on the server and blocks nothing.
+- Creating a session only creates it as `PLANNED`; the user starts it with a separate action, which is when the timer and blocking begin. After a reload, `fetchCurrent` fetches the planned session back when nothing is running and none is held locally (so polling does not repeat the request). "Change details" deletes it on the server as well, so a reload does not bring it back; if that request fails nothing is lost, since a planned session blocks nothing and the next one created replaces it.
 - `SessionTimer` counts locally between server responses, from the moment each response arrived (`Date.now()` at receipt) rather than from the server's `generatedAt`, so browser clock skew cannot distort it. When the countdown reaches zero the dashboard re-fetches the session, and the Complete button is enabled from the server's `remainingFocusSeconds`, not the local countdown. The dashboard also re-fetches when the tab becomes visible again.
 - Abandon asks for confirmation. Manual override is offered only after a session has been abandoned with blocking still held: the session summary on the dashboard shows an "Override blocking" button, and the running and paused views have none. It opens `ManualOverrideDialog`, which warns that an XP penalty will be applied without stating an amount (the penalty is a server-side, configurable placeholder), and calls the override endpoint only after the user confirms. Because the abandoned session is otherwise lost on a reload, the store looks at the latest history entry when there is no running session and restores it if it is `ABANDONED` with blocking `ACTIVE`; that summary has no dismiss button while the override is available.
 - The session views are `DashboardView` and `HistoryView`. The dashboard shows the current session (running, paused, or interrupted with Resume and Abandon in `InterruptedSessionView`); the summary of the one that just ended; or, when neither applies, `SessionPlanner` (the new-session form, then a "ready" step that starts it in place). The form appears only after the summary is dismissed. `/sessions/new` redirects to the dashboard.
@@ -862,10 +862,12 @@ POST /api/auth/change-password
 **Session lifecycle**
 
 ```
-POST /api/focus-sessions
-GET  /api/focus-sessions/current
-GET  /api/focus-sessions/{id}
-GET  /api/focus-sessions/history
+POST   /api/focus-sessions
+GET    /api/focus-sessions/current
+GET    /api/focus-sessions/planned
+GET    /api/focus-sessions/{id}
+GET    /api/focus-sessions/history
+DELETE /api/focus-sessions/{id}
 
 POST /api/focus-sessions/{id}/start
 POST /api/focus-sessions/{id}/pause
@@ -877,7 +879,9 @@ POST /api/focus-sessions/{id}/override
 
 Notes:
 
-- `POST /api/focus-sessions` returns 201 with the planned session. The session body is `FocusSessionDto`; `activeFocusSeconds` and `remainingFocusSeconds` are live (they include the segment still running as of `generatedAt`).
+- `POST /api/focus-sessions` returns 201 with the planned session. A user has at most one `PLANNED` session: creating one deletes any earlier one that was never started. A planned session has no pauses, streak credit or XP, so nothing else refers to it.
+- `GET /api/focus-sessions/planned` returns the `PLANNED` session, or 204 No Content. It is separate from `current`, which only ever holds a running or interrupted session, so a session that has not started never counts as enforcing blocking.
+- `DELETE /api/focus-sessions/{id}` deletes a `PLANNED` session and returns 204. Any other status is refused with `INVALID_SESSION_STATE`. The session body is `FocusSessionDto`; `activeFocusSeconds` and `remainingFocusSeconds` are live (they include the segment still running as of `generatedAt`).
 - `GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or the latest started session if it is INTERRUPTED (waiting to be resumed or abandoned), or 204 No Content. It first interrupts a running session whose heartbeat has lapsed (section 13).
 - `GET /api/focus-sessions/history` returns the caller's ended sessions (`COMPLETED`, `ABANDONED`, `INTERRUPTED`) as a JSON array of `FocusSessionDto`, most recently started first. The optional `limit` parameter defaults to 50 and is clamped to 1-200. There is no paging yet.
 - `GET /api/focus-sessions/{id}` is not implemented yet.
@@ -1406,7 +1410,7 @@ Use:
 - H2 for simple integration tests.
 - A full session-lifecycle integration test with no mocks (real services and an in-memory database), covering streak crediting, release decisions, override and rule locking.
 - HTTP-level integration tests (`integration/`, built on `support/ApiIntegrationTest`) that drive the running application through MockMvc with the real security filter chain, controllers, services and an in-memory database, and a controllable clock:
-  - `SessionWorkflowApiIntegrationTest`: first-launch setup through a full session (start, pause, resume, complete), abandon and override, rule locking, error shapes, isolation between users, and export and deletion.
+  - `SessionWorkflowApiIntegrationTest`: first-launch setup through a full session (start, pause, resume, complete), abandon and override, planned sessions (fetched again, replaced, discarded), rule locking, error shapes, isolation between users, and export and deletion.
   - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, sessions and pauses split across midnight and the start of the week, overtime, and configuration validation.
   - `ProfileApiIntegrationTest`: editing the display name and time zone, validation, the time-zone lock while blocking is enforced, and a new time zone taking effect from the next day and week without breaking the streak.
   - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, password and time zone limits, CORS, response headers, and secrets in the logs.

@@ -69,3 +69,31 @@ test('blocking rules cannot be loosened while a session runs', async ({ page }) 
   await page.getByRole('button', { name: 'Add blocked site' }).click()   // tightening is still allowed
   await expect(page.getByRole('listitem').filter({ hasText: 'another.example' })).toBeVisible()
 })
+
+test('a planned session survives a reload, blocks nothing until started, and can be changed', async ({ context, page }) => {
+  await setUpAccount(page)
+  await expectExtensionConnected(page)
+  await addBlockedSite(page)
+  const site = await openSite(context)
+
+  await page.goto(FRONTEND_URL)
+  await page.getByLabel('Category').selectOption('WRITING')
+  await page.getByLabel('Duration (minutes)').fill('5')
+  await page.getByRole('button', { name: 'Create session' }).click()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Start session' })).toBeVisible()
+  await expectSiteOpen(site)   // planned is not started
+
+  // Changing the details deletes it, so a reload shows the empty form.
+  await page.getByRole('button', { name: 'Change details' }).click()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Create session' })).toBeVisible()
+
+  await page.getByLabel('Category').selectOption('WRITING')
+  await page.getByLabel('Duration (minutes)').fill('5')
+  await page.getByRole('button', { name: 'Create session' }).click()
+  await page.reload()
+  await page.getByRole('button', { name: 'Start session' }).click()
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+  await expectSiteBlocked(site)
+})
