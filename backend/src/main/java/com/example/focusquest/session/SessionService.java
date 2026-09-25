@@ -214,7 +214,7 @@ public class SessionService {
             finalizeOpenPause(session, now);
             session.resumeFromPause(now);
         }
-        recordStreakContribution(session);
+        recordStreakContribution(session, now);
         return focusSessionRepository.save(session);
     }
 
@@ -245,7 +245,7 @@ public class SessionService {
 
         session.addActiveSeconds(elapsedInCurrentSegment);
         session.markCompleted(now);
-        recordStreakContribution(session);
+        recordStreakContribution(session, now);
         session.updateBlockingState(BlockingState.RELEASED);
         FocusSession saved = focusSessionRepository.save(session);
         progressionService.awardSessionCompletion(saved.getUser(), sessionId, saved.getPlannedFocusMinutes());
@@ -278,7 +278,7 @@ public class SessionService {
 
         settleOpenInterval(session, now);
         session.markAbandoned(now);
-        recordStreakContribution(session);
+        recordStreakContribution(session, now);
         session.updateBlockingState(streakService.isDailyTargetReached(session.getUser())
                 ? BlockingState.RELEASED
                 : BlockingState.ACTIVE);
@@ -358,7 +358,7 @@ public class SessionService {
         }
         settleOpenInterval(session, lastHeartbeat);
         session.markInterrupted();
-        recordStreakContribution(session);
+        recordStreakContribution(session, lastHeartbeat);
         session.updateBlockingState(BlockingState.TECHNICAL_RELEASE);
         return true;
     }
@@ -370,14 +370,19 @@ public class SessionService {
      * abandon), crediting the remainder. The session remembers what it has already credited, so a
      * moment of time is never counted twice. An unresolved pause contributes nothing until then.
      * An interruption credits the time up to the last heartbeat and drops the rest.
+     *
+     * <p>The time not yet credited is one unbroken stretch ending at {@code creditedUntil}: the
+     * active time since the previous credit, then the pause just finalized, if any. The streak
+     * splits it at midnight and at the start of the week, so time before a boundary counts toward
+     * the period that was then current.
      */
-    private void recordStreakContribution(FocusSession session) {
+    private void recordStreakContribution(FocusSession session, Instant creditedUntil) {
         long activeSeconds = session.uncreditedActiveSeconds();
         long pausedSeconds = session.uncreditedPausedSeconds();
         if (activeSeconds + pausedSeconds <= 0) {
             return;
         }
-        streakService.recordContribution(session, activeSeconds, pausedSeconds);
+        streakService.recordContribution(session, activeSeconds, pausedSeconds, creditedUntil);
         session.markStreakCredited();
     }
 

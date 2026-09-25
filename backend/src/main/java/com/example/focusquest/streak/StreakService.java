@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -206,20 +207,41 @@ public class StreakService {
     }
 
     /**
-     * Records a session's active and finalized-paused seconds as streak progress, once per
-     * period type (daily, weekly) that the user has configured and whose current period the
-     * session qualifies for. A period type the user has never configured is silently skipped
-     * rather than treated as an error, since a session is free to contribute to only one of the
-     * two. Progress beyond a period's target is recorded as overtime rather than rejected, and a
-     * period that reaches its target while still open is marked COMPLETED.
+     * Records a stretch of a session's time as streak progress: {@code activeSeconds} of focus
+     * followed by {@code pausedSeconds} of a finalized pause, ending at {@code creditedUntil}. The
+     * stretch is split at period boundaries (midnight, and Monday for weekly) in the user's time
+     * zone, so each part counts toward the period it was spent in, even one that has already ended.
+     * Each part is credited once per period type (daily, weekly) that the user had configured at
+     * the time and whose period the session qualifies for; a period type the user has never
+     * configured is silently skipped, since a session is free to contribute to only one of the two.
+     * Progress beyond a period's target is recorded as overtime rather than rejected, and a period
+     * that reaches its target is marked COMPLETED and pays its streak rewards.
      */
     @Transactional
-    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds) {
+    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
+                                                       Instant creditedUntil) {
+        User user = session.getUser();
+        ZoneId zone = ZoneId.of(user.getTimezone());
+        Instant creditedFrom = creditedUntil.minusSeconds(activeSeconds + pausedSeconds);
         List<StreakContribution> contributions = new ArrayList<>();
         for (StreakPeriodType periodType : StreakPeriodType.values()) {
-            findOrCreateCurrentPeriodIfConfigured(session.getUser(), periodType)
-                    .flatMap(period -> applyContribution(period, session, activeSeconds, pausedSeconds))
-                    .ifPresent(contributions::add);
+            Instant cursor = creditedFrom;
+            long activeLeft = activeSeconds;
+            long pausedLeft = pausedSeconds;
+            while (activeLeft + pausedLeft > 0) {
+                StreakPeriodCalculator.PeriodWindow window = periodCalculator.windowContaining(periodType, cursor, zone);
+                long inWindow = Math.min(activeLeft + pausedLeft, secondsUntil(cursor, window.end()));
+                // The active time came first and the pause after it, so the active time fills the earlier windows.
+                long active = Math.min(activeLeft, inWindow);
+                long paused = inWindow - active;
+                Instant partEnd = cursor.plusSeconds(inWindow);
+                findOrCreatePeriodIfConfigured(user, periodType, window, partEnd)
+                        .flatMap(period -> applyContribution(period, session, active, paused))
+                        .ifPresent(contributions::add);
+                activeLeft -= active;
+                pausedLeft -= paused;
+                cursor = partEnd;
+            }
         }
         return contributions;
     }
@@ -248,20 +270,33 @@ public class StreakService {
     }
 
     /**
-     * Looks up the current period for this user and period type without requiring one to exist:
-     * if none is on record yet, it is created from the active configuration, or left absent
-     * (rather than raising an error) if the user has never configured this period type.
+     * Looks up the period for this window without requiring one to exist. If none is on record yet
+     * it is created from the configuration in force when the credited time was spent ({@code asOf}),
+     * or left absent (rather than raising an error) if the user had not configured this period type
+     * then. For the current period that is the active configuration, which for daily always exists.
      */
-    private Optional<StreakPeriod> findOrCreateCurrentPeriodIfConfigured(User user, StreakPeriodType periodType) {
-        Instant now = clockProvider.now();
-        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, now);
+    private Optional<StreakPeriod> findOrCreatePeriodIfConfigured(User user, StreakPeriodType periodType,
+                                                                   StreakPeriodCalculator.PeriodWindow window,
+                                                                   Instant asOf) {
         Optional<StreakPeriod> existing =
                 streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
         if (existing.isPresent()) {
             return existing;
         }
-        return findActiveConfiguration(user, periodType, now)
-                .map(configuration -> streakPeriodRepository.save(buildPeriod(user, periodType, configuration, window)));
+        Instant now = clockProvider.now();
+        Optional<StreakConfiguration> configuration = window.end().isAfter(now)
+                ? findActiveConfiguration(user, periodType, now)
+                : streakConfigurationRepository
+                        .findFirstByUserAndPeriodTypeAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                                user, periodType, asOf);
+        return configuration
+                .map(active -> streakPeriodRepository.save(buildPeriod(user, periodType, active, window)));
+    }
+
+    /** Whole seconds from {@code from} to {@code to}, rounded up so that a part always reaches the boundary. */
+    private static long secondsUntil(Instant from, Instant to) {
+        Duration duration = Duration.between(from, to);
+        return duration.getSeconds() + (duration.getNano() > 0 ? 1 : 0);
     }
 
     private Optional<StreakContribution> applyContribution(

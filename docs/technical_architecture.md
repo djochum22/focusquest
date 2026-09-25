@@ -1335,7 +1335,9 @@ Streak progress is credited at two moments:
 1. **On resume:** the total time already passed in the session (the active time before the pause plus the pause just finalized) is credited to the current daily and weekly periods at once, so the day's total is up to date while the session continues.
 2. **When the session ends** (complete, abandon, override): only the time since the last credit is credited.
 
-The session records what it has already credited, so no time is counted twice. An unresolved pause contributes nothing. An interruption credits the time up to the last heartbeat and drops the time after it. Each credit goes to the period current at the moment it is made.
+The session records what it has already credited, so no time is counted twice. An unresolved pause contributes nothing. An interruption credits the time up to the last heartbeat and drops the time after it.
+
+Each credit covers one unbroken stretch of time: the active time since the previous credit, then the pause just finalized, if any. It ends when the credit is made, or at the last heartbeat for an interruption. `StreakService.recordContribution` splits that stretch at period boundaries (midnight, and Monday 00:00 for weekly) in the user's time zone, and credits each part to the period it was spent in, with one `StreakContribution` per period. A session from 23:40 to 00:20 gives 20 minutes to each day, and a pause that spans midnight is split the same way. A period that has already ended still takes its share: if that brings it to its target it is marked `COMPLETED` then and pays its streak rewards, once. A past period with no record yet is created from the configuration in force when the time was spent; if the user had not configured that period type then, the part is not credited to it.
 
 **Session completion rule**
 

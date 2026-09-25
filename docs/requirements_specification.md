@@ -1173,9 +1173,9 @@ The following decisions remain open or need more precision:
 3. Exact gem rewards derived from XP.
 4. What gems can be spent on.
 5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Provisionally decided: they remain blocked until the daily target is reached, a session is completed, or the user overrides.)
-6. The exact behavior when a session crosses midnight or the end of a weekly period.
+6. The exact behavior when a session crosses midnight or the end of a weekly period. (Decided: its time is split at the boundary, and each part counts toward the period it was spent in.)
 7. Whether weekly progress includes time that also completed a daily streak.
-8. Whether a paused interval spanning midnight is split across periods when finalized.
+8. Whether a paused interval spanning midnight is split across periods when finalized. (Decided: yes, the same way as active time.)
 9. Whether completion requires active focus time only, as currently recommended, or elapsed session time.
 10. Whether the user can manually end a completed-period session without a penalty.
 11. Whether the MVP supports an emergency release distinct from a manual override.

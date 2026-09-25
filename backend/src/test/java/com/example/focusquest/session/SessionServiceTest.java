@@ -389,7 +389,8 @@ class SessionServiceTest {
         assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
         assertThat(session.getQualifyingSeconds()).isEqualTo(60);
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
-        verify(streakService).recordContribution(session, 60L, 0L);
+        // The credited time ends at the last heartbeat, not at the moment the gap was noticed.
+        verify(streakService).recordContribution(session, 60L, 0L, BASE_INSTANT.plusSeconds(60));
     }
 
     @Test
@@ -454,9 +455,9 @@ class SessionServiceTest {
         advanceClockBy(3600);
         heartbeat(session);
 
-        verify(streakService).recordContribution(session, 100L, 20L);
-        verify(streakService).recordContribution(session, 60L, 0L);
-        verify(streakService, org.mockito.Mockito.times(2)).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService).recordContribution(eq(session), eq(100L), eq(20L), any());
+        verify(streakService).recordContribution(eq(session), eq(60L), eq(0L), any());
+        verify(streakService, org.mockito.Mockito.times(2)).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -592,8 +593,8 @@ class SessionServiceTest {
 
         // 60s active + 30s paused credited at resume; the remaining 300s active at completion.
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(streakService);
-        order.verify(streakService).recordContribution(session, 60L, 30L);
-        order.verify(streakService).recordContribution(session, 300L, 0L);
+        order.verify(streakService).recordContribution(eq(session), eq(60L), eq(30L), any());
+        order.verify(streakService).recordContribution(eq(session), eq(300L), eq(0L), any());
         order.verifyNoMoreInteractions();
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.RELEASED);
     }
@@ -609,7 +610,7 @@ class SessionServiceTest {
 
         sessionService.resumeSession(SESSION_ID);
 
-        verify(streakService).recordContribution(session, 100L, 20L);
+        verify(streakService).recordContribution(eq(session), eq(100L), eq(20L), any());
     }
 
     @Test
@@ -619,7 +620,7 @@ class SessionServiceTest {
         pauseAndCaptureOpenPause(session);
         advanceClockBy(500);
 
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -639,10 +640,10 @@ class SessionServiceTest {
         sessionService.abandonSession(SESSION_ID);    // credits only the final 40 active
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(streakService);
-        order.verify(streakService).recordContribution(session, 100L, 20L);
-        order.verify(streakService).recordContribution(session, 50L, 10L);
-        order.verify(streakService).recordContribution(session, 40L, 0L);
-        verify(streakService, org.mockito.Mockito.times(3)).recordContribution(any(), anyLong(), anyLong());
+        order.verify(streakService).recordContribution(eq(session), eq(100L), eq(20L), any());
+        order.verify(streakService).recordContribution(eq(session), eq(50L), eq(10L), any());
+        order.verify(streakService).recordContribution(eq(session), eq(40L), eq(0L), any());
+        verify(streakService, org.mockito.Mockito.times(3)).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -655,7 +656,7 @@ class SessionServiceTest {
 
         sessionService.abandonSession(SESSION_ID);    // no time has passed since the resume
 
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -666,7 +667,7 @@ class SessionServiceTest {
         assertThatThrownBy(() -> sessionService.resumeSession(SESSION_ID))
                 .isInstanceOf(InvalidSessionStateException.class);
 
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -677,7 +678,7 @@ class SessionServiceTest {
         assertThatThrownBy(() -> sessionService.completeSession(SESSION_ID))
                 .isInstanceOf(ResponseStatusException.class);
 
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong(), any());
         verify(progressionService, never()).awardSessionCompletion(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
     }
@@ -690,7 +691,7 @@ class SessionServiceTest {
 
         sessionService.abandonSession(SESSION_ID);
 
-        verify(streakService).recordContribution(session, 120L, 0L);
+        verify(streakService).recordContribution(eq(session), eq(120L), eq(0L), any());
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
     }
 
@@ -713,7 +714,7 @@ class SessionServiceTest {
         sessionService.abandonSession(SESSION_ID);
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(streakService);
-        order.verify(streakService).recordContribution(any(), anyLong(), anyLong());
+        order.verify(streakService).recordContribution(any(), anyLong(), anyLong(), any());
         order.verify(streakService).isDailyTargetReached(user);
     }
 
@@ -726,7 +727,7 @@ class SessionServiceTest {
 
         sessionService.abandonSession(SESSION_ID);
 
-        verify(streakService).recordContribution(session, 60L, 45L);
+        verify(streakService).recordContribution(session, 60L, 45L, BASE_INSTANT.plusSeconds(105));
     }
 
     @Test
@@ -735,7 +736,7 @@ class SessionServiceTest {
 
         sessionService.abandonSession(SESSION_ID);
 
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong(), any());
         assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
     }
@@ -772,12 +773,12 @@ class SessionServiceTest {
     @Test
     void overrideAppliesTheXpPenaltyButDoesNotCreditTheStreakAgain() {
         FocusSession session = abandonWithBlockingStillActive();
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(session, 120L, 0L);
+        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(eq(session), eq(120L), eq(0L), any());
 
         sessionService.overrideSession(SESSION_ID, "doug");
 
         verify(experienceService).applyManualOverridePenalty(eq(user), any());
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -797,7 +798,7 @@ class SessionServiceTest {
         assertThat(session.getStatus()).isEqualTo(SessionStatus.PAUSED);
         assertThat(session.isOverrideUsed()).isFalse();
         verify(experienceService, never()).applyManualOverridePenalty(any(), any());
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
+        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong(), any());
     }
 
     @Test
