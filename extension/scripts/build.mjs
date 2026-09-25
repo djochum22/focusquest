@@ -14,6 +14,7 @@ const options = {
   entryPoints: {
     'background/serviceWorker': path.join(root, 'src/background/serviceWorker.ts'),
     'pages/blocked/blocked': path.join(root, 'src/pages/blocked/blocked.ts'),
+    'pages/popup/popup': path.join(root, 'src/pages/popup/popup.ts'),
   },
   outdir: dist,
   bundle: true,
@@ -24,10 +25,15 @@ const options = {
 }
 
 async function copyStatic() {
-  await mkdir(path.join(dist, 'pages/blocked'), { recursive: true })
   await cp(path.join(root, 'manifest.json'), path.join(dist, 'manifest.json'))
-  for (const file of ['blocked.html', 'blocked.css']) {
-    await cp(path.join(root, 'src/pages/blocked', file), path.join(dist, 'pages/blocked', file))
+  for (const [page, files] of [
+    ['blocked', ['blocked.html', 'blocked.css']],
+    ['popup', ['popup.html', 'popup.css']],
+  ]) {
+    await mkdir(path.join(dist, 'pages', page), { recursive: true })
+    for (const file of files) {
+      await cp(path.join(root, 'src/pages', page, file), path.join(dist, 'pages', page, file))
+    }
   }
 }
 

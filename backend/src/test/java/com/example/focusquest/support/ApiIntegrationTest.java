@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.focusquest.auth.ExtensionCredentialRepository;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.progression.ExperienceTransactionRepository;
@@ -74,6 +75,8 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private AllowlistTargetRepository allowlistTargetRepository;
     @Autowired
+    private ExtensionCredentialRepository extensionCredentialRepository;
+    @Autowired
     protected UserRepository userRepository;
 
     private Clock originalClock;
@@ -91,6 +94,7 @@ public abstract class ApiIntegrationTest {
         gemTransactionRepository.deleteAllInBatch();
         blockedTargetRepository.deleteAllInBatch();
         allowlistTargetRepository.deleteAllInBatch();
+        extensionCredentialRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 
         originalClock = clockProvider.getClock();

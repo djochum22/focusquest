@@ -1,5 +1,6 @@
 package com.example.focusquest.export;
 
+import com.example.focusquest.auth.ExtensionCredentialRepository;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.blocking.BlockingService;
@@ -37,6 +38,7 @@ public class DataDeletionService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final ExtensionCredentialRepository extensionCredentialRepository;
     private final UserRepository userRepository;
 
     public DataDeletionService(BlockingService blockingService,
@@ -49,6 +51,7 @@ public class DataDeletionService {
                                 GemTransactionRepository gemTransactionRepository,
                                 BlockedTargetRepository blockedTargetRepository,
                                 AllowlistTargetRepository allowlistTargetRepository,
+                                ExtensionCredentialRepository extensionCredentialRepository,
                                 UserRepository userRepository) {
         this.blockingService = blockingService;
         this.streakContributionRepository = streakContributionRepository;
@@ -60,6 +63,7 @@ public class DataDeletionService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.extensionCredentialRepository = extensionCredentialRepository;
         this.userRepository = userRepository;
     }
 
@@ -80,6 +84,7 @@ public class DataDeletionService {
         gemTransactionRepository.deleteAllByUser(user);
         blockedTargetRepository.deleteAllByUser(user);
         allowlistTargetRepository.deleteAllByUser(user);
+        extensionCredentialRepository.deleteAllByUser(user);
         userRepository.deleteById(user.getId());
     }
 }

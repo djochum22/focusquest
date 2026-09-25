@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.focusquest.auth.ExtensionCredentialService;
 import com.example.focusquest.blocking.BlockingController;
 import com.example.focusquest.blocking.BlockingService;
 import com.example.focusquest.security.JwtService;
@@ -55,6 +56,9 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private ExtensionCredentialService extensionCredentialService;
 
     @BeforeEach
     void setUp() {

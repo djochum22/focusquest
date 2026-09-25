@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { apiClient } from './client'
+import * as extensionApi from './extensionApi'
 import * as progressionApi from './progressionApi'
 import * as settingsApi from './settingsApi'
 
@@ -45,5 +46,26 @@ describe('settingsApi', () => {
     const config = adapter.mock.calls[0]![0]
     expect(config.method).toBe('delete')
     expect(config.url).toBe('/api/me/data')
+  })
+})
+
+describe('extensionApi', () => {
+  it('issues a token with a POST and returns it', async () => {
+    const adapter = stubAdapter(200, { token: 'fqx_abc', createdAt: '2026-01-01T00:00:00Z' })
+
+    const issued = await extensionApi.issueExtensionToken()
+
+    expect(adapter.mock.calls[0]![0].method).toBe('post')
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/auth/extension-token')
+    expect(issued.token).toBe('fqx_abc')
+  })
+
+  it('revokes the token with a DELETE', async () => {
+    const adapter = stubAdapter(204)
+
+    await extensionApi.revokeExtensionToken()
+
+    expect(adapter.mock.calls[0]![0].method).toBe('delete')
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/auth/extension-token')
   })
 })

@@ -59,7 +59,9 @@ public class SecurityConfig {
                         // it gives full read and write access to the database, password hash included.
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
-                    auth.anyRequest().authenticated();
+                    // The extension's own token (ROLE_EXTENSION) reaches only the endpoints it synchronizes with.
+                    auth.requestMatchers("/api/extension/**").hasAnyRole("USER", "EXTENSION");
+                    auth.anyRequest().hasRole("USER");
                 })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

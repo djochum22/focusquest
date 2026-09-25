@@ -74,6 +74,8 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
                 new String[] {"PUT", "/api/blocked-targets/1"},
                 new String[] {"DELETE", "/api/blocked-targets/1"},
                 new String[] {"GET", "/api/allowlist-targets"},
+                new String[] {"POST", "/api/auth/extension-token"},
+                new String[] {"DELETE", "/api/auth/extension-token"},
                 new String[] {"GET", "/api/extension/blocking-state"},
                 new String[] {"GET", "/api/extension/current-session"},
                 new String[] {"POST", "/api/extension/heartbeat"},

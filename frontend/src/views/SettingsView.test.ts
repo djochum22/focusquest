@@ -3,13 +3,18 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import * as authApi from '../api/authApi'
+import * as extensionApi from '../api/extensionApi'
 import * as settingsApi from '../api/settingsApi'
 import { useAuthStore } from '../stores/authStore'
 import { downloadJson } from '../utils/download'
+import * as bridge from '../utils/extensionBridge'
+import { setAutoConnectOff } from '../utils/extensionOptOut'
 import SettingsView from './SettingsView.vue'
 
 vi.mock('../api/settingsApi')
 vi.mock('../api/authApi')
+vi.mock('../api/extensionApi')
+vi.mock('../utils/extensionBridge')
 vi.mock('../utils/download')
 
 async function mountView() {
@@ -36,6 +41,7 @@ const dialogButton = (label: string) =>
 
 beforeEach(async () => {
   sessionStorage.clear()
+  localStorage.clear()
   vi.resetAllMocks()
   setActivePinia(createPinia())
   document.body.innerHTML = ''
@@ -46,6 +52,9 @@ beforeEach(async () => {
     user: { id: 1, username: 'doug', displayName: 'Doug', timezone: 'America/New_York', createdAt: '' },
   })
   await useAuthStore().login({ username: 'doug', password: 'pw' })
+  vi.mocked(bridge.getExtensionState).mockResolvedValue({ hasToken: false, status: 'signed-out' })
+  vi.mocked(extensionApi.issueExtensionToken).mockResolvedValue({ token: 'fqx_new', createdAt: '' })
+  vi.mocked(extensionApi.revokeExtensionToken).mockResolvedValue()
 })
 
 describe('SettingsView', () => {
@@ -141,5 +150,68 @@ describe('SettingsView', () => {
     expect(router.currentRoute.value.name).toBe('settings')
     expect(document.querySelector('dialog')?.hasAttribute('open')).toBe(false)
     wrapper.unmount()
+  })
+
+  describe('Chrome extension', () => {
+    // The app shell connects an unconnected extension by itself; these tests are about the buttons.
+    beforeEach(() => setAutoConnectOff(true))
+
+    it('connects an installed extension by itself, with no click', async () => {
+      setAutoConnectOff(false)
+      vi.mocked(bridge.sendTokenToExtension).mockResolvedValue({ hasToken: true, status: 'ok' })
+      const { wrapper } = await mountView()
+
+      expect(bridge.sendTokenToExtension).toHaveBeenCalledWith('fqx_new')
+      expect(wrapper.text()).toContain('Connected.')
+      wrapper.unmount()
+    })
+
+    it('offers to connect an extension that is not signed in, and connects it', async () => {
+      vi.mocked(bridge.sendTokenToExtension).mockResolvedValue({ hasToken: true, status: 'ok' })
+      const { wrapper } = await mountView()
+      expect(wrapper.text()).toContain('Not connected')
+
+      await button(wrapper, 'Connect extension')!.trigger('click')
+      await flushPromises()
+
+      expect(bridge.sendTokenToExtension).toHaveBeenCalledWith('fqx_new')
+      expect(wrapper.text()).toContain('Connected.')
+      expect(button(wrapper, 'Connect extension')).toBeUndefined()
+      wrapper.unmount()
+    })
+
+    it('says so when the extension cannot be found', async () => {
+      vi.mocked(bridge.getExtensionState).mockResolvedValue(null)
+      const { wrapper } = await mountView()
+
+      expect(wrapper.text()).toContain('The extension was not found')
+      expect(button(wrapper, 'Check again')).toBeDefined()
+      wrapper.unmount()
+    })
+
+    it('disconnects a connected extension', async () => {
+      vi.mocked(bridge.getExtensionState).mockResolvedValue({ hasToken: true, status: 'ok' })
+      vi.mocked(bridge.disconnectExtension).mockResolvedValue({ hasToken: false, status: 'signed-out' })
+      const { wrapper } = await mountView()
+      expect(wrapper.text()).toContain('Connected.')
+
+      await button(wrapper, 'Disconnect')!.trigger('click')
+      await flushPromises()
+
+      expect(extensionApi.revokeExtensionToken).toHaveBeenCalledTimes(1)
+      expect(button(wrapper, 'Connect extension')).toBeDefined()
+      wrapper.unmount()
+    })
+
+    it('shows why connecting failed', async () => {
+      vi.mocked(extensionApi.issueExtensionToken).mockRejectedValue(new Error('offline'))
+      const { wrapper } = await mountView()
+
+      await button(wrapper, 'Connect extension')!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('[role="alert"]').text()).toContain('offline')
+      wrapper.unmount()
+    })
   })
 })

@@ -6,7 +6,7 @@
 import type { BlockingSnapshot, SyncHealth } from '../types/blocking'
 
 interface StorageSchema {
-  /** The backend's JWT bearer token. */
+  /** The extension token the web app handed over (a long-lived bearer token limited to /api/extension). */
   token: string
   /** The last enforcement state synchronized from the backend. */
   blockingSnapshot: BlockingSnapshot

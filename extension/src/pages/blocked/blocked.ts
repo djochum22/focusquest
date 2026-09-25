@@ -39,9 +39,9 @@ function formatClock(totalSeconds: number): string {
 function healthNotice(health: SyncHealth): string | null {
   switch (health.status) {
     case 'signed-out':
-      return 'The FocusQuest extension is not signed in, so it cannot check on your session. Blocking stays on until it can.'
+      return 'The FocusQuest extension is not connected, so it cannot check on your session. Blocking stays on until it is. Open FocusQuest and connect it in Settings.'
     case 'unauthorized':
-      return 'The extension\'s sign-in has expired, so it cannot check on your session. Blocking stays on until it is signed in again.'
+      return 'The extension\'s connection was rejected, so it cannot check on your session. Blocking stays on until it is reconnected. Open FocusQuest and connect it in Settings.'
     case 'offline':
       return 'Can\'t reach the FocusQuest backend. Showing the last known state; blocking stays on.'
     case 'error':

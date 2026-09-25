@@ -1,12 +1,15 @@
 // Service worker entry point. Event listeners are registered synchronously at the top level, as
 // Manifest V3 requires, so that Chrome can wake the worker for them.
 
-import { SYNC_PERIOD_MINUTES } from '../utils/config'
-import { onItemChanged } from '../utils/chromeStorage'
+import { FRONTEND_URL, SYNC_PERIOD_MINUTES } from '../utils/config'
+import { getItem, onItemChanged, removeItem, setItem } from '../utils/chromeStorage'
 import { logger } from '../utils/logger'
 import { createBackendClient } from './backendClient'
+import { loadSyncHealth } from './blockingStateStore'
+import { handleExternalMessage } from './externalMessages'
 import { registerNavigationGuard } from './navigationGuard'
 import { createDefaultSynchronizer } from './sessionStateSynchronizer'
+import { showBadge } from './statusBadge'
 
 const SYNC_ALARM = 'focusquest-sync'
 
@@ -40,8 +43,30 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // Signing the extension in (or out) by writing the token to storage triggers a sync right away.
 onItemChanged('token', () => void synchronizer.sync('token-changed'))
 
+// The web app connects the extension by sending it a token (see externalMessages.ts).
+chrome.runtime.onMessageExternal.addListener((message: unknown, sender, sendResponse) => {
+  void handleExternalMessage(message, sender.origin, {
+    allowedOrigin: new URL(FRONTEND_URL).origin,
+    getToken: () => getItem('token'),
+    setToken: (token) => setItem('token', token),
+    removeToken: () => removeItem('token'),
+    sync: (reason) => synchronizer.sync(reason),
+    getStatus: async () => (await loadSyncHealth()).status,
+  })
+    .then(sendResponse)
+    .catch(() => sendResponse({ ok: false, error: 'The extension could not handle that request' }))
+  return true // the response is sent asynchronously
+})
+
+// Keep the toolbar badge in step with the connection: a red "!" when the extension is not signed in.
+async function refreshBadge(): Promise<void> {
+  await showBadge((await loadSyncHealth()).status)
+}
+onItemChanged('syncHealth', () => void refreshBadge())
+
 registerNavigationGuard()
 
 // Runs each time the worker starts, whatever woke it.
 void ensureSyncAlarm()
 void synchronizer.sync('worker-wake')
+void refreshBadge()

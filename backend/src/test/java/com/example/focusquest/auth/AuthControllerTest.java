@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.focusquest.auth.ExtensionCredentialService;
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.support.WithRealSecurityConfig;
 import com.example.focusquest.user.UserService;
@@ -33,6 +34,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private ExtensionCredentialService extensionCredentialService;
 
     @Test
     void setupStatusReportsSetupRequiredWhileNoUserExistsWithoutAuthentication() throws Exception {

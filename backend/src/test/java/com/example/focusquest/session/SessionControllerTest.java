@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.focusquest.auth.ExtensionCredentialService;
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
@@ -52,6 +53,9 @@ class SessionControllerTest {
 
     @MockitoBean
     private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private ExtensionCredentialService extensionCredentialService;
 
     private User user;
 

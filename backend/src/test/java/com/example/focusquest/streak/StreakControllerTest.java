@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.focusquest.auth.ExtensionCredentialService;
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
@@ -56,6 +57,9 @@ class StreakControllerTest {
 
     @MockitoBean
     private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private ExtensionCredentialService extensionCredentialService;
 
     private User user;
 

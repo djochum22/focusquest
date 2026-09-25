@@ -1,5 +1,6 @@
 package com.example.focusquest.security;
 
+import com.example.focusquest.auth.ExtensionCredentialService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -7,7 +8,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -16,16 +19,21 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final ExtensionCredentialService extensionCredentialService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+                                    UserDetailsService userDetailsService,
+                                    ExtensionCredentialService extensionCredentialService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.extensionCredentialService = extensionCredentialService;
     }
 
     @Override
@@ -40,6 +48,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+
+        if (token.startsWith(ExtensionCredentialService.TOKEN_PREFIX)) {
+            authenticateExtension(token, request);
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         try {
             String username = jwtService.extractUsername(token);
@@ -57,5 +71,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /** An extension token authenticates as its user but with ROLE_EXTENSION only, never ROLE_USER. */
+    private void authenticateExtension(String token, HttpServletRequest request) {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return;
+        }
+        extensionCredentialService.findUsername(token).ifPresent(username -> {
+            UserDetails principal = User.withUsername(username)
+                    .password("")
+                    .authorities(List.of(new SimpleGrantedAuthority("ROLE_EXTENSION")))
+                    .build();
+            UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+        });
     }
 }

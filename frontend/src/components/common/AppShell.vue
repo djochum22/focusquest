@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from './AppButton.vue'
 import { useAuthStore } from '../../stores/authStore'
+import { useExtensionStore } from '../../stores/extensionStore'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+// Every signed-in page uses the shell, so this is where an installed but unconnected extension is
+// connected without the user having to do anything.
+onMounted(() => void useExtensionStore().autoConnect())
 
 async function onLogout() {
   auth.logout()

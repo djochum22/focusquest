@@ -59,8 +59,9 @@ focusquest:
   cors:
     allowed-origins:
       - http://localhost:5173
-      # Replace with the extension's actual id from chrome://extensions after loading it unpacked.
-      - chrome-extension://REPLACE_WITH_EXTENSION_ID
+      # The extension's id, pinned by the `key` in extension/manifest.json. It talks to the backend through
+      # its host permissions, so this entry is not needed today; it is kept in case that changes.
+      - chrome-extension://heccfmagjlcnoaodleaclgbbdlpibphf
 
 logging:
   level:

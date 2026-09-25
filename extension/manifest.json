@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Blocks distracting websites during a FocusQuest focus session.",
   "minimum_chrome_version": "120",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1XEhKUIAGdsyQYDvAcMreRk/SJYXTis+4Avb/T+Bk5tV5AoxeTdIBf2+IWSZuUjhIREDTNfpvBRAqRcqmKfaI5sRNXUtduvHhgSek+CfonglLSB5IXAmMoTKiDrbiw+pFzhQZ0DB0UJP9sSfrRXKSwKM5JXEG/fm0stRLC4Z2/6rNp0XMmAbJ+vmSqpDyrO6wx/RRMOxppDgY/4N/P+P/3YmH72HiGLLk37AJpuzXjYKA1X7yCt/Ipwptkrt78x23iUZ1ym2hQQd7pd1omSvU6hKn4JakY0CfYLb9nARePA3kRg6NYJm4GR1WT2Rj+Nr06BhhYbNZbaIehadJZzhSwIDAQAB",
 
   "permissions": ["declarativeNetRequest", "storage", "alarms", "webNavigation"],
   "host_permissions": ["<all_urls>"],
@@ -11,6 +12,15 @@
   "background": {
     "service_worker": "background/serviceWorker.js",
     "type": "module"
+  },
+
+  "action": {
+    "default_title": "FocusQuest",
+    "default_popup": "pages/popup/popup.html"
+  },
+
+  "externally_connectable": {
+    "matches": ["http://localhost:5173/*"]
   },
 
   "web_accessible_resources": [

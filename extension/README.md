@@ -10,7 +10,8 @@ what the backend tells it (see section 9 of `docs/technical_architecture.md`).
  Spring Boot backend ──(bearer token)──►  service worker
    GET  /api/extension/blocking-state         │  every 30 s, on wake, on token change
    POST /api/extension/heartbeat              ▼
-   GET  /api/extension/current-session   chrome.storage.local  ◄── token, last state, sync health
+   GET  /api/extension/current-session   chrome.storage.local  ◄── token (handed over by the web app),
+                                              │                last state, sync health
                                               │
                           ┌───────────────────┴───────────────────┐
                           ▼                                       ▼
@@ -27,12 +28,15 @@ what the backend tells it (see section 9 of `docs/technical_architecture.md`).
 | `manifest.json` | Permissions, service worker, blocked-page exposure |
 | `src/background/serviceWorker.ts` | Entry point: registers listeners, alarm, first sync |
 | `src/background/backendClient.ts` | Bearer-token client for the three extension endpoints |
+| `src/background/externalMessages.ts` | Receives the token from the web app (origin-checked) |
+| `src/background/statusBadge.ts` | Toolbar badge: red `!` when not connected |
 | `src/background/sessionStateSynchronizer.ts` | Heartbeat, then re-fetch only when `stateVersion` changed |
 | `src/background/dynamicRulesManager.ts` | Turns rules into declarativeNetRequest rules |
 | `src/background/blockingStateStore.ts` | Persists state and sync health |
 | `src/background/navigationGuard.ts` | Backstop for what a URL regex cannot express |
 | `src/blocking/ruleNormalizer.ts`, `urlMatcher.ts`, `rulePrecedence.ts` | Port of the backend's reference implementation |
 | `src/pages/blocked/` | The page shown in place of a blocked site |
+| `src/pages/popup/` | Toolbar popup: connection state and a link to Settings |
 
 ### Rule semantics
 
@@ -42,12 +46,13 @@ Reproduces the backend (`RuleNormalizer`, `UrlRule`, `TargetUrl`, `RulePrecedenc
 - The most specific matching rule wins (more host labels, then more path segments). An allowlist rule wins a tie. So with block `example.com` and allow `example.com/docs`, `example.com/docs/setup` loads and `example.com/forum` is blocked.
 - Only top-level page navigations are blocked. Embedded frames and sub-resources are left alone.
 
-### When the backend is unreachable or the token has expired
+### When the backend is unreachable or the token is rejected
 
 Blocking **stays on**. The last known rules keep applying, and the blocked page says why it may be out of
-date. An expired token or a stopped backend is therefore not a way out of a session. The flip side: if
-the token expires *and* the session then ends, the extension cannot learn that until it is signed in
-again (see "Follow-up work").
+date. A revoked token or a stopped backend is therefore not a way out of a session. The flip side: if
+the token is revoked (say, by pressing **Disconnect**) and the session then ends, the extension cannot
+learn that until it is connected again. The extension token itself does not expire, so a long session
+never causes this on its own.
 
 ## Build and unit tests
 
@@ -75,48 +80,56 @@ the backend's CORS allow-list (`focusquest.cors.allowed-origins` in `application
 
 ## Sign the extension in
 
-There is no login screen in the extension yet. It needs the same JWT the web app uses, in
-`chrome.storage.local` under the key `token`.
+You do nothing beyond having the web app open once.
 
-1. Start the backend (`cd backend && ./gradlew bootRun`) and get a token:
+1. Start the backend (`cd backend && ./gradlew bootRun`) and the web app (`cd frontend && npm run dev`,
+   http://localhost:5173), and sign in to the web app. (First run? Create the account there.)
+2. That's it. When the web app loads and finds the extension installed but not connected, it asks the
+   backend for an extension token and hands it to the extension. The toolbar badge clears and the
+   popup says **Connected**.
 
-   ```bash
-   curl -s -X POST http://127.0.0.1:8080/api/auth/login \
-     -H 'Content-Type: application/json' \
-     -d '{"username":"YOUR_USER","password":"YOUR_PASSWORD"}'
-   ```
+The web app's **Settings** page shows the state and has **Connect extension**, **Reconnect** and
+**Disconnect** buttons. Disconnecting revokes the token, and the app then stops reconnecting on its
+own until you press **Connect extension** again.
 
-   Copy the `token` value from the response. (First run? Create the account in the web app.)
+How it works, and why it is safe to leave connected:
 
-2. On `chrome://extensions`, click **service worker** on the FocusQuest card. This opens DevTools for
-   the worker. In its **Console**, run:
+- The extension token is *not* the web app's login token. It is a separate random token that the
+  backend stores only as a hash. It never expires, survives backend restarts, and can only call the
+  three `/api/extension` endpoints: it cannot start sessions, read history or delete data.
+  Reconnecting replaces it, and disconnecting or deleting all data revokes it.
+- The web app reaches the extension through `externally_connectable` (see `manifest.json`), which is
+  limited to `http://localhost:5173`. The extension checks the sender's origin again and accepts only
+  tokens starting `fqx_`.
+- The manifest carries a public `key`, which makes the extension's id
+  `heccfmagjlcnoaodleaclgbbdlpibphf` on every machine, so the web app can find it. To use a different
+  id (for example a store build), set `VITE_EXTENSION_ID` for the web app.
 
-   ```js
-   chrome.storage.local.set({ token: 'PASTE_TOKEN_HERE' })
-   ```
+The toolbar badge shows the state at a glance: nothing when all is well, a red **!** when the
+extension is not connected (sites are not blocked until it is), and a grey **?** when it cannot reach
+the backend. Clicking the icon explains and links to Settings.
 
-Writing the token triggers an immediate sync. The token expires after 60 minutes
-(`focusquest.jwt.expiration-minutes`); repeat both steps with a fresh one when it does. Unless
-`FOCUSQUEST_JWT_SECRET` is set, restarting the backend invalidates it too.
-
-Check the connection at any time from the same console:
+Check the connection from the service worker console (`chrome://extensions` → **service worker**):
 
 ```js
 (await chrome.storage.local.get('syncHealth')).syncHealth   // { status: 'ok', ... }
 ```
 
-`status` is `ok`, `signed-out` (no token), `unauthorized` (token rejected or expired), `offline`
-(backend not reachable) or `error`.
+`status` is `ok`, `signed-out` (no token), `unauthorized` (token rejected, for example revoked),
+`offline` (backend not reachable) or `error`.
 
 ## Test the blocking behavior
 
 Use the web app (`npm run dev` in `frontend/`, http://localhost:5173) to create and start the session (step 2).
 
-1. **Add rules.** Use the web app's **Blocking** page, or the backend API as below. Put your token in
-   a shell variable, then add block rules and allowlist rules:
+1. **Add rules.** Use the web app's **Blocking** page, or the backend API as below. Log in
+   with curl to get a token (the same one the web app uses), put it in a shell variable, then add
+   block rules and allowlist rules:
 
    ```bash
-   TOKEN='PASTE_TOKEN_HERE'
+   TOKEN=$(curl -s -X POST http://127.0.0.1:8080/api/auth/login \
+     -H 'Content-Type: application/json' \
+     -d '{"username":"YOUR_USER","password":"YOUR_PASSWORD"}' | sed 's/.*"token":"\([^"]*\)".*/\1/')
    add() { curl -s -X POST "http://127.0.0.1:8080/api/$1" -H "Authorization: Bearer $TOKEN" \
              -H 'Content-Type: application/json' -d "{\"targetValue\":\"$2\"}"; echo; }
 
@@ -185,8 +198,11 @@ worker**). Tokens are never logged.
 | `declarativeNetRequest` | Block by redirecting page navigations to the blocked page |
 | `host_permissions: <all_urls>` | Chrome only allows a redirect rule on sites the extension has access to, and this also lets the worker call the local backend |
 | `webNavigation` | The navigation guard (single-page navigations, URL spellings) |
-| `storage` | Token, synchronized state, sync health |
+| `storage` | Extension token, synchronized state, sync health |
 | `alarms` | The 30-second sync, which survives the worker being shut down |
+
+`externally_connectable` lets only the web app's origin (`http://localhost:5173`) message the extension, which is
+how it hands over the token. The manifest's `action` adds the toolbar button, badge and popup.
 
 `web_accessible_resources` exposes only the blocked page, to http(s) pages, because a redirect from a
 website to an extension page requires it. The extension has no content scripts, so the token is never
@@ -197,15 +213,12 @@ reachable from website code.
 The full, numbered list lives in `docs/technical_architecture.md`, section 9 ("Extension follow-up
 work"). The ones that matter first:
 
-1. **No sign-in UI.** The token is pasted in by hand (see above). Needs a login form in the extension,
-   or a token handoff from the web app.
-2. **Token lifetime.** The JWT lasts 60 minutes, so a session longer than that outlives the
-   extension's sign-in: blocking stays on, but the extension can no longer see the session end. Needs
-   refresh tokens or a longer-lived extension credential.
-3. **Signed-out state is only visible on the blocked page.** Needs a toolbar badge or popup.
-4. **No screen for choosing blocked and allowed sites** in the web app. The backend endpoints exist
-   (`/api/blocked-targets`, `/api/allowlist-targets`); the Vue app has no UI for them yet.
+1. **Faster sync.** Changes reach the browser within about 30 seconds. The web app could tell the
+   extension about session changes over the same `externally_connectable` channel.
+2. **Extension icons.**
+3. **Token expiry.** The extension token never expires; consider expiry with silent renewal if the API
+   ever leaves localhost.
+4. **Login form in the popup**, so connecting does not need the web app to be running.
 
-Also open: sync latency of up to 30 seconds (no push from the web app), no extension icons, an
-end-to-end test suite, aligning the backend with the extension on malformed percent-escapes, and
-non-ASCII path rules being enforced only by the navigation guard.
+Also open: an end-to-end test suite, aligning the backend with the extension on malformed
+percent-escapes, and non-ASCII path rules being enforced only by the navigation guard.
