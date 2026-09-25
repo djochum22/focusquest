@@ -664,7 +664,11 @@ class StreakServiceTest {
     private static final Instant TODAY = Instant.parse("2026-01-15T00:00:00Z");
 
     private StreakPeriod completedDay(Instant start) {
-        StreakPeriod period = new StreakPeriod(user, 1L, StreakPeriodType.DAILY, start, start.plusSeconds(86400), 30,
+        return completedDay(start, start.plusSeconds(86400));
+    }
+
+    private StreakPeriod completedDay(Instant start, Instant end) {
+        StreakPeriod period = new StreakPeriod(user, 1L, StreakPeriodType.DAILY, start, end, 30,
                 TaskMode.TASK_REQUIRED, null);
         period.recordQualifyingSeconds(30 * 60);
         period.markCompleted(start.plusSeconds(3600));
@@ -739,7 +743,9 @@ class StreakServiceTest {
         Instant march9 = Instant.parse("2026-03-09T04:00:00Z");   // midnight EDT
         Instant march8 = Instant.parse("2026-03-08T05:00:00Z");   // midnight EST
         Instant march7 = Instant.parse("2026-03-07T05:00:00Z");
-        stubCompleted(StreakPeriodType.DAILY, completedDay(march9), completedDay(march8), completedDay(march7));
+        Instant march10 = Instant.parse("2026-03-10T04:00:00Z");
+        stubCompleted(StreakPeriodType.DAILY, completedDay(march9, march10), completedDay(march8, march9),
+                completedDay(march7, march8));
 
         assertThat(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).isEqualTo(3);
     }

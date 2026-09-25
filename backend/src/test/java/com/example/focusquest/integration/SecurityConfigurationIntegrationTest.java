@@ -67,6 +67,7 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
                 new String[] {"POST", "/api/streak-configurations"},
                 new String[] {"PUT", "/api/streak-configurations/1"},
                 new String[] {"GET", "/api/me/progression"},
+                new String[] {"PUT", "/api/me/profile"},
                 new String[] {"GET", "/api/export"},
                 new String[] {"DELETE", "/api/me/data"},
                 new String[] {"GET", "/api/blocked-targets"},

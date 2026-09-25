@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '../api/authApi'
-import type { LoginRequest, LoginResponse, SetupRequest, User } from '../types/auth'
+import type { LoginRequest, LoginResponse, SetupRequest, UpdateProfileRequest, User } from '../types/auth'
 import { clearStoredSession, loadStoredSession, saveStoredSession } from '../utils/tokenStorage'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -79,9 +79,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(request: UpdateProfileRequest) {
+    user.value = await authApi.updateProfile(request)
+  }
+
   function logout() {
     clearSession()
   }
 
-  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, logout }
+  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, updateProfile, logout }
 })

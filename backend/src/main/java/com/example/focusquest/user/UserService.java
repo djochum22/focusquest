@@ -32,12 +32,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Password must be at most " + MAX_PASSWORD_BYTES + " bytes long");
         }
-        // Every streak calculation resolves this zone, so an unknown one would fail all of them later.
-        try {
-            ZoneId.of(timezone);
-        } catch (DateTimeException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown time zone");
-        }
+        requireKnownTimezone(timezone);
         if (hasUser()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A local user account already exists");
         }
@@ -47,6 +42,15 @@ public class UserService {
 
         User user = new User(username, passwordEncoder.encode(rawPassword), displayName, timezone);
         return userRepository.save(user);
+    }
+
+    /** Every streak calculation resolves the user's zone, so an unknown one would fail all of them later. */
+    public static void requireKnownTimezone(String timezone) {
+        try {
+            ZoneId.of(timezone);
+        } catch (DateTimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown time zone");
+        }
     }
 
     /** True when the password is longer than the password encoder can handle, so it can never match. */

@@ -14,6 +14,9 @@ public interface StreakPeriodRepository extends JpaRepository<StreakPeriod, Long
 
     Optional<StreakPeriod> findByUserAndPeriodTypeAndStartTime(User user, StreakPeriodType periodType, Instant startTime);
 
+    Optional<StreakPeriod> findFirstByUserAndPeriodTypeAndStartTimeLessThanEqualOrderByStartTimeDesc(
+            User user, StreakPeriodType periodType, Instant instant);
+
     List<StreakPeriod> findByUserOrderByStartTimeAsc(User user);
 
     List<StreakPeriod> findByUserAndPeriodTypeAndStatusOrderByStartTimeDesc(

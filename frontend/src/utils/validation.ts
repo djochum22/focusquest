@@ -37,6 +37,24 @@ export interface SetupForm {
   timezone: string
 }
 
+export interface ProfileForm {
+  displayName: string
+  timezone: string
+}
+
+export function validateProfile(form: ProfileForm): FieldErrors<ProfileForm> {
+  const errors: FieldErrors<ProfileForm> = {}
+  const displayName = form.displayName.trim()
+  if (!displayName) {
+    errors.displayName = 'Enter a display name.'
+  } else if (displayName.length > DISPLAY_NAME_MAX) {
+    errors.displayName = `Display name must be at most ${DISPLAY_NAME_MAX} characters.`
+  }
+
+  if (!form.timezone) errors.timezone = 'Choose a time zone.'
+  return errors
+}
+
 export function validateLogin(form: LoginForm): FieldErrors<LoginForm> {
   const errors: FieldErrors<LoginForm> = {}
   if (!form.username.trim()) errors.username = 'Enter your username.'

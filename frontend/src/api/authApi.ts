@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { LoginRequest, LoginResponse, SetupRequest, SetupStatus, User } from '../types/auth'
+import type { LoginRequest, LoginResponse, SetupRequest, SetupStatus, UpdateProfileRequest, User } from '../types/auth'
 
 /** Public: tells the app whether to show first-launch setup or login. */
 export async function fetchSetupStatus(): Promise<SetupStatus> {
@@ -20,5 +20,11 @@ export async function setup(request: SetupRequest): Promise<LoginResponse> {
 
 export async function fetchCurrentUser(): Promise<User> {
   const { data } = await apiClient.get<User>('/api/auth/me')
+  return data
+}
+
+/** Saves the display name and time zone. A time-zone change is refused (409) while blocking is active. */
+export async function updateProfile(request: UpdateProfileRequest): Promise<User> {
+  const { data } = await apiClient.put<User>('/api/me/profile', request)
   return data
 }

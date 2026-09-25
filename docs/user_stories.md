@@ -47,6 +47,12 @@ so that I can change my display name and time zone.
 - Given the user changes the time zone,  
   when the change is saved,  
   then existing session timestamps remain unchanged, but future period calculations use the new time zone.
+- Given the user changes the time zone,  
+  when the change is saved,  
+  then the current day and week keep their start and end, the new time zone applies from the next day and week, and the streak is not broken by the change.
+- Given a session is active or paused, or an abandoned session is still holding blocking,  
+  when the user tries to change the time zone,  
+  then the application refuses and explains why, but still allows the display name to be changed.
 
 ## **US-003: Export local data**
 

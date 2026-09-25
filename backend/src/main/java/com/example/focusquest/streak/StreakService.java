@@ -54,7 +54,7 @@ public class StreakService {
     @Transactional
     public StreakPeriod getCurrentPeriod(User user, StreakPeriodType periodType) {
         Instant now = clockProvider.now();
-        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, now);
+        StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, now);
         return streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start())
                 .orElseGet(() -> createPeriod(user, periodType));
     }
@@ -88,7 +88,7 @@ public class StreakService {
      */
     @Transactional(readOnly = true)
     public Optional<StreakPeriod> findCurrentPeriod(User user, StreakPeriodType periodType) {
-        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, clockProvider.now());
+        StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, clockProvider.now());
         return streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
     }
 
@@ -101,7 +101,7 @@ public class StreakService {
     @Transactional
     public Optional<StreakPeriod> getCurrentProgress(User user, StreakPeriodType periodType) {
         Instant now = clockProvider.now();
-        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, now);
+        StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, now);
         Optional<StreakPeriod> existing =
                 streakPeriodRepository.findByUserAndPeriodTypeAndStartTime(user, periodType, window.start());
         if (existing.isPresent()) {
@@ -116,32 +116,43 @@ public class StreakService {
      * The current period counts once it has reached its target; until then the streak is the run
      * that ended with the previous period, so it is not lost until a period ends unfinished. A
      * period with no record, because nothing qualifying was done in it, is a missed one, and a
-     * missed period ends the run. There are no freezes, so nothing can bridge a gap.
+     * missed period ends the run. Freezes are not built yet, so nothing can bridge a gap.
+     *
+     * <p>Periods are chained by their stored boundaries (each ends where the next begins) rather
+     * than recomputed from the time zone, so a run survives a change of time zone.
      */
     @Transactional(readOnly = true)
     public int getCurrentStreakLength(User user, StreakPeriodType periodType) {
-        ZoneId zone = ZoneId.of(user.getTimezone());
-        Instant currentStart = periodCalculator.windowContaining(periodType, clockProvider.now(), zone).start();
+        Instant boundary = windowContaining(user, periodType, clockProvider.now()).start();
         List<StreakPeriod> completed = streakPeriodRepository.findByUserAndPeriodTypeAndStatusOrderByStartTimeDesc(
                 user, periodType, StreakPeriodStatus.COMPLETED);
 
-        Instant expectedStart = currentStart;
-        if (completed.isEmpty() || !completed.get(0).getStartTime().equals(currentStart)) {
-            expectedStart = previousStart(periodType, currentStart, zone);
-        }
         int length = 0;
         for (StreakPeriod period : completed) {
-            if (!period.getStartTime().equals(expectedStart)) {
+            if (length == 0 && period.getStartTime().equals(boundary)) {
+                length++;                                  // the current period, already at its target
+                continue;
+            }
+            if (!period.getEndTime().equals(boundary)) {
                 break;
             }
             length++;
-            expectedStart = previousStart(periodType, expectedStart, zone);
+            boundary = period.getStartTime();
         }
         return length;
     }
 
-    private Instant previousStart(StreakPeriodType periodType, Instant start, ZoneId zone) {
-        return periodCalculator.windowContaining(periodType, start.minusSeconds(1), zone).start();
+    /**
+     * Stores the current daily and weekly periods (those the user has configured) as they are now,
+     * so that a change of time zone takes effect from the next period rather than moving the
+     * boundaries of the one in progress. Call it before changing the user's time zone.
+     */
+    @Transactional
+    public void keepCurrentPeriods(User user) {
+        Instant now = clockProvider.now();
+        for (StreakPeriodType periodType : StreakPeriodType.values()) {
+            findOrCreatePeriodIfConfigured(user, periodType, windowContaining(user, periodType, now), now);
+        }
     }
 
     /** The configuration in force for each period type the user has: always daily, weekly if configured. */
@@ -202,15 +213,15 @@ public class StreakService {
     public StreakPeriod createPeriod(User user, StreakPeriodType periodType) {
         Instant now = clockProvider.now();
         StreakConfiguration configuration = getActiveConfiguration(user, periodType, now);
-        StreakPeriodCalculator.PeriodWindow window = currentWindow(user, periodType, now);
+        StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, now);
         return streakPeriodRepository.save(buildPeriod(user, periodType, configuration, window));
     }
 
     /**
      * Records a stretch of a session's time as streak progress: {@code activeSeconds} of focus
      * followed by {@code pausedSeconds} of a finalized pause, ending at {@code creditedUntil}. The
-     * stretch is split at period boundaries (midnight, and Monday for weekly) in the user's time
-     * zone, so each part counts toward the period it was spent in, even one that has already ended.
+     * stretch is split at period boundaries (midnight, and Monday for weekly; see
+     * {@link #windowContaining}), so each part counts toward the period it was spent in, even one that has already ended.
      * Each part is credited once per period type (daily, weekly) that the user had configured at
      * the time and whose period the session qualifies for; a period type the user has never
      * configured is silently skipped, since a session is free to contribute to only one of the two.
@@ -221,7 +232,6 @@ public class StreakService {
     public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
                                                        Instant creditedUntil) {
         User user = session.getUser();
-        ZoneId zone = ZoneId.of(user.getTimezone());
         Instant creditedFrom = creditedUntil.minusSeconds(activeSeconds + pausedSeconds);
         List<StreakContribution> contributions = new ArrayList<>();
         for (StreakPeriodType periodType : StreakPeriodType.values()) {
@@ -229,7 +239,7 @@ public class StreakService {
             long activeLeft = activeSeconds;
             long pausedLeft = pausedSeconds;
             while (activeLeft + pausedLeft > 0) {
-                StreakPeriodCalculator.PeriodWindow window = periodCalculator.windowContaining(periodType, cursor, zone);
+                StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, cursor);
                 long inWindow = Math.min(activeLeft + pausedLeft, secondsUntil(cursor, window.end()));
                 // The active time came first and the pause after it, so the active time fills the earlier windows.
                 long active = Math.min(activeLeft, inWindow);
@@ -344,8 +354,39 @@ public class StreakService {
         return true;
     }
 
-    private StreakPeriodCalculator.PeriodWindow currentWindow(User user, StreakPeriodType periodType, Instant now) {
-        return periodCalculator.windowContaining(periodType, now, ZoneId.of(user.getTimezone()));
+    /**
+     * The period window containing {@code instant}. Normally that is the day or week in the user's
+     * time zone. A stored period keeps the boundaries it was created with, though, so after the user
+     * changes time zone the period in progress runs to its end under the old zone
+     * ({@link #keepCurrentPeriods}). The first period under the new zone then starts exactly where the
+     * last stored one ended, with no gap or overlap, and runs to the new zone's next boundary. If that
+     * would make it less than half a normal period, it runs to the boundary after that instead.
+     */
+    private StreakPeriodCalculator.PeriodWindow windowContaining(User user, StreakPeriodType periodType,
+                                                                 Instant instant) {
+        ZoneId zone = ZoneId.of(user.getTimezone());
+        StreakPeriodCalculator.PeriodWindow computed = periodCalculator.windowContaining(periodType, instant, zone);
+        Optional<StreakPeriod> latest = streakPeriodRepository
+                .findFirstByUserAndPeriodTypeAndStartTimeLessThanEqualOrderByStartTimeDesc(user, periodType, instant);
+        if (latest.isEmpty()) {
+            return computed;
+        }
+        Instant lastEnd = latest.get().getEndTime();
+        if (instant.isBefore(lastEnd)) {
+            return new StreakPeriodCalculator.PeriodWindow(latest.get().getStartTime(), lastEnd);
+        }
+        StreakPeriodCalculator.PeriodWindow following = periodCalculator.windowContaining(periodType, lastEnd, zone);
+        if (following.start().equals(lastEnd)) {
+            return computed;                               // the stored period ended on one of this zone's boundaries
+        }
+        Instant transitionEnd = following.end();
+        Duration normalLength = Duration.between(following.start(), following.end());
+        if (Duration.between(lastEnd, transitionEnd).compareTo(normalLength.dividedBy(2)) < 0) {
+            transitionEnd = periodCalculator.windowContaining(periodType, transitionEnd, zone).end();
+        }
+        return instant.isBefore(transitionEnd)
+                ? new StreakPeriodCalculator.PeriodWindow(lastEnd, transitionEnd)
+                : computed;
     }
 
     private StreakConfiguration getActiveConfiguration(User user, StreakPeriodType periodType, Instant asOf) {

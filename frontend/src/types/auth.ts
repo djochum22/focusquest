@@ -21,6 +21,12 @@ export interface SetupRequest {
   timezone: string
 }
 
+/** Mirrors the backend `UpdateProfileRequest`. The username cannot be changed. */
+export interface UpdateProfileRequest {
+  displayName: string
+  timezone: string
+}
+
 /** Mirrors the backend `SetupStatusResponse`. */
 export interface SetupStatus {
   /** True until the first-launch account has been created. */

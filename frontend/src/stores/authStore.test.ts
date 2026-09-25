@@ -57,6 +57,29 @@ describe('authStore', () => {
     expect(auth.isAuthenticated).toBe(false)
   })
 
+  it('replaces the user with the saved profile', async () => {
+    vi.mocked(authApi.login).mockResolvedValue(response)
+    const saved = { ...user, displayName: 'Doug', timezone: 'Europe/Berlin' }
+    vi.mocked(authApi.updateProfile).mockResolvedValue(saved)
+    const auth = useAuthStore()
+    await auth.login({ username: 'douglas', password: 'pw' })
+
+    await auth.updateProfile({ displayName: 'Doug', timezone: 'Europe/Berlin' })
+
+    expect(auth.user).toEqual(saved)
+  })
+
+  it('keeps the current user when saving the profile fails', async () => {
+    vi.mocked(authApi.login).mockResolvedValue(response)
+    vi.mocked(authApi.updateProfile).mockRejectedValue(new Error('conflict'))
+    const auth = useAuthStore()
+    await auth.login({ username: 'douglas', password: 'pw' })
+
+    await expect(auth.updateProfile({ displayName: 'Doug', timezone: 'Asia/Tokyo' })).rejects.toThrow('conflict')
+
+    expect(auth.user).toEqual(user)
+  })
+
   it('clears everything on logout', async () => {
     vi.mocked(authApi.login).mockResolvedValue(response)
     const auth = useAuthStore()

@@ -4,6 +4,7 @@ import {
   PASSWORD_MAX,
   USERNAME_MAX,
   validateLogin,
+  validateProfile,
   validateSession,
   validateSetup,
   validateStreakConfiguration,
@@ -28,6 +29,18 @@ describe('validateLogin', () => {
     const errors = validateLogin({ username: '   ', password: '' })
     expect(errors.username).toBeDefined()
     expect(errors.password).toBeDefined()
+  })
+})
+
+describe('validateProfile', () => {
+  it('accepts a name and a time zone', () => {
+    expect(hasErrors(validateProfile({ displayName: 'Doug', timezone: 'UTC' }))).toBe(false)
+  })
+
+  it('requires a display name within the backend limit and a time zone', () => {
+    expect(validateProfile({ displayName: '  ', timezone: 'UTC' }).displayName).toBe('Enter a display name.')
+    expect(validateProfile({ displayName: 'x'.repeat(101), timezone: 'UTC' }).displayName).toMatch(/at most 100/)
+    expect(validateProfile({ displayName: 'Doug', timezone: '' }).timezone).toBe('Choose a time zone.')
   })
 })
 

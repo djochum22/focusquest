@@ -4,16 +4,19 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import * as authApi from '../api/authApi'
 import * as extensionApi from '../api/extensionApi'
+import * as sessionApi from '../api/sessionApi'
 import * as settingsApi from '../api/settingsApi'
 import { useAuthStore } from '../stores/authStore'
 import { downloadJson } from '../utils/download'
 import * as bridge from '../utils/extensionBridge'
 import { setAutoConnectOff } from '../utils/extensionOptOut'
+import { makeSession } from '../test-utils/sessions'
 import SettingsView from './SettingsView.vue'
 
 vi.mock('../api/settingsApi')
 vi.mock('../api/authApi')
 vi.mock('../api/extensionApi')
+vi.mock('../api/sessionApi')
 vi.mock('../utils/extensionBridge')
 vi.mock('../utils/download')
 
@@ -55,15 +58,69 @@ beforeEach(async () => {
   vi.mocked(bridge.getExtensionState).mockResolvedValue({ hasToken: false, status: 'signed-out' })
   vi.mocked(extensionApi.issueExtensionToken).mockResolvedValue({ token: 'fqx_new', createdAt: '' })
   vi.mocked(extensionApi.revokeExtensionToken).mockResolvedValue()
+  vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+  vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
 })
 
 describe('SettingsView', () => {
   it('shows the account details', async () => {
     const { wrapper } = await mountView()
 
-    expect(wrapper.text()).toContain('Doug')
     expect(wrapper.text()).toContain('doug')
-    expect(wrapper.text()).toContain('America/New_York')
+    expect((wrapper.get('input[autocomplete="name"]').element as HTMLInputElement).value).toBe('Doug')
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('America/New_York')
+    expect(button(wrapper, 'Save profile')!.attributes('disabled')).toBeDefined()   // nothing changed yet
+    wrapper.unmount()
+  })
+
+  it('saves the display name and time zone and shows the saved profile', async () => {
+    vi.mocked(authApi.updateProfile).mockResolvedValue({
+      id: 1, username: 'doug', displayName: 'Douglas', timezone: 'Europe/Berlin', createdAt: '',
+    })
+    const { wrapper } = await mountView()
+
+    await wrapper.get('input[autocomplete="name"]').setValue('  Douglas ')
+    await wrapper.get('select').setValue('Europe/Berlin')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(authApi.updateProfile).toHaveBeenCalledWith({ displayName: 'Douglas', timezone: 'Europe/Berlin' })
+    expect(useAuthStore().user?.timezone).toBe('Europe/Berlin')
+    expect(wrapper.get('[role="status"]').text()).toBe('Profile saved.')
+    wrapper.unmount()
+  })
+
+  it('does not send a blank display name', async () => {
+    const { wrapper } = await mountView()
+
+    await wrapper.get('input[autocomplete="name"]').setValue('   ')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(authApi.updateProfile).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Enter a display name.')
+    wrapper.unmount()
+  })
+
+  it('locks the time zone while a session is running and shows the backend refusal', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ status: 'ACTIVE' }))
+    vi.mocked(authApi.updateProfile).mockRejectedValue(Object.assign(new Error('conflict'), {
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { code: 'CONFLICT', message: 'The time zone cannot be changed while website blocking is active' },
+      },
+    }))
+    const { wrapper } = await mountView()
+
+    expect(wrapper.get('select').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('cannot be changed while website blocking is active')
+
+    // The name can still be saved; if the backend refuses anyway, its message is shown.
+    await wrapper.get('input[autocomplete="name"]').setValue('Douglas')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('The time zone cannot be changed')
     wrapper.unmount()
   })
 

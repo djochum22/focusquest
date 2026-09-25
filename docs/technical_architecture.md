@@ -441,7 +441,7 @@ com.example.focusquest
 Implementation notes on the structure above:
 
 - Request and response DTOs live next to their controller rather than in `dto/` subpackages, and are mapped with a static `from(...)` factory instead of a `SessionMapper`.
-- Not implemented yet: `UserController`, `WebConfig`, `TimeCalculationService`.
+- Not implemented yet: `WebConfig`, `TimeCalculationService`. `UserController` delegates to `ProfileService` (same package), which needs the streak and blocking modules and so is kept out of `UserService`.
 - The export and deletion services read and delete other modules' data through those modules' repositories (`deleteAllByUser` and `findByUser...` queries) rather than through their services, since they need every row, not the filtered views the services expose.
 
 **Layering rules**
@@ -649,7 +649,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - While website blocking is being enforced the settings forms are disabled and a notice says why. The page infers this from the session store (a running or paused session, or an abandoned one still holding blocking); the backend refuses the change with `409` regardless, and its message is shown if the page guessed wrong.
 - The daily streak always exists, so its form always edits; the weekly form creates the streak the first time and edits it afterwards. The store picks create or update from whether a configuration for that period type is loaded, and re-loads the configurations when a save fails, so a weekly streak added from another tab does not send the next save down the wrong path. The view tells the user that a change applies only to periods that have not started.
 - `GemDisplay` takes a `balance` and shows "Not available" for `null`, which is only the case before the progression request has finished, so the card never shows a made-up zero.
-- `SettingsView` shows the account, downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`), and deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
+- `SettingsView` edits the display name and time zone (the username is shown read-only). The time zone select is disabled, with a note, while blocking is enforced, inferred from the session store as on the streaks page; the backend's `409` is what enforces it. Otherwise a note says a new time zone takes effect from the next day and week. It downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`), and deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
 - Not built yet: `StreakHistory` and `XpHistory`. `FreezeInventory` will not be built, since there are no freezes.
 
 **Frontend security behavior**
@@ -941,9 +941,12 @@ Implemented: `GET /api/me/progression`, which returns `{ "totalXp", "level", "le
 **Settings**
 
 ```
+PUT    /api/me/profile
 GET    /api/export
 DELETE /api/me/data
 ```
+
+- **`PUT /api/me/profile`** takes `{ "displayName", "timezone" }` (both required, at most 100 and 50 characters; the username cannot be changed) and returns the updated `UserDto`. An unknown time zone is `400` ("Unknown time zone"). Changing the time zone is refused with `409 CONFLICT` while website blocking is being enforced (section 13), like streak settings, because moving midnight could end the day early and release blocking. The display name can always be changed. A new time zone takes effect from the next daily and weekly period (see "Daily and weekly boundaries" in section 13); session timestamps are instants and are not changed.
 
 - **`export`** returns everything held for the caller as one JSON document: `exportedAt`, `schemaVersion` (currently `1.2`), `user` (never the password hash), `focusSessions`, `streakConfigurations`, `streakPeriods`, `experienceTransactions`, `gemTransactions`, `blockedTargets` and `allowlistTargets`. New kinds of data get a new schema version.
 - **`DELETE /api/me/data`** deletes all of the caller's sessions, pauses, streak contributions, periods and configurations, XP and gem transactions, block and allowlist rules, and the account itself, and returns 204. The next launch is first-time setup, and the old token is rejected with 401. It is refused with `409 CONFLICT` while website blocking is being enforced (section 13); otherwise it would be a way to release blocking without the override penalty. The user must end the session, or abandon it and override, first.
@@ -1386,6 +1389,7 @@ When a session is abandoned, the blocking state is set to `RELEASED` if the dail
 
 - Daily periods use the local calendar day in the user's configured time zone.
 - Weekly periods run from Monday at 00:00 through Sunday at 23:59:59 in the user's configured time zone.
+- A stored period keeps the boundaries it was created with. Before the time zone changes, `StreakService.keepCurrentPeriods` stores the current daily and weekly periods, so they run to their end under the old zone. The first period under the new zone starts exactly where the last stored one ended and runs to the new zone's next boundary; if that would be less than half a normal period, it runs to the boundary after that instead. Moving from UTC to New York, the first New York day is 28 hours; moving from UTC to Tokyo, it is 15. There is never a gap or an overlap.
 - Timestamp calculations should use a configurable Clock abstraction to make tests deterministic.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
@@ -1403,7 +1407,8 @@ Use:
 - A full session-lifecycle integration test with no mocks (real services and an in-memory database), covering streak crediting, release decisions, override and rule locking.
 - HTTP-level integration tests (`integration/`, built on `support/ApiIntegrationTest`) that drive the running application through MockMvc with the real security filter chain, controllers, services and an in-memory database, and a controllable clock:
   - `SessionWorkflowApiIntegrationTest`: first-launch setup through a full session (start, pause, resume, complete), abandon and override, rule locking, error shapes, isolation between users, and export and deletion.
-  - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, overtime, and configuration validation.
+  - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, sessions and pauses split across midnight and the start of the week, overtime, and configuration validation.
+  - `ProfileApiIntegrationTest`: editing the display name and time zone, validation, the time-zone lock while blocking is enforced, and a new time zone taking effect from the next day and week without breaking the streak.
   - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, password and time zone limits, CORS, response headers, and secrets in the logs.
 - Controller slice tests that load the real security configuration (`@WithRealSecurityConfig`); without it a `@WebMvcTest` silently runs under Spring Boot's default security.
 - Testcontainers with PostgreSQL before migration or production deployment.
@@ -1659,6 +1664,7 @@ Gems are earned only. There is nothing to spend them on yet (streak freezes are 
 - A **daily streak** counts consecutive local calendar days on which the daily target was reached; a **weekly streak** counts consecutive Monday-to-Sunday weeks. A user with both configured has both.
 - The current period counts as soon as it reaches its target. Until then the streak is the run that ended with the previous period, so today's streak is not lost while today is still open.
 - A period with nothing qualifying recorded, or with the target missed, is a missed period, and it ends the streak: the count goes back to zero. There are no freezes and nothing bridges a gap.
+- Periods are chained by their stored boundaries (each ends where the next begins), not recomputed from the time zone, so a change of time zone does not break a run.
 - Only periods that reached their target count, under the configuration each was created with, so changing the target later does not rewrite history.
 
 **Worked example.** A user with a 30 minute daily target completes a 30 minute session. The backend credits 30 minutes to today's period, which reaches its target, so it pays the streak rewards first (+10 XP, +1 gem). Completing the session then pays +30 XP. Total 40 XP, which is level 1 (the first level ends at 100), with 1 gem, and the daily streak is 1 day. Tomorrow they do the same: 80 XP, 2 gems, a 2 day streak. On the third day the 120 XP total crosses level 2, which also pays +5 gems.

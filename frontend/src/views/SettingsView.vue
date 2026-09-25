@@ -1,19 +1,53 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getErrorMessage } from '../api/apiError'
 import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
 import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
+import FormField from '../components/common/FormField.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useExtensionStore } from '../stores/extensionStore'
+import { useSessionStore } from '../stores/sessionStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { isOverridable } from '../utils/sessionState'
+import { DISPLAY_NAME_MAX, hasErrors, validateProfile, type FieldErrors, type ProfileForm } from '../utils/validation'
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const extension = useExtensionStore()
+const session = useSessionStore()
 const router = useRouter()
+
+const profile = reactive<ProfileForm>({
+  displayName: auth.user?.displayName ?? '',
+  timezone: auth.user?.timezone ?? '',
+})
+const profileErrors = ref<FieldErrors<ProfileForm>>({})
+const profileError = ref<string | null>(null)
+const profileSaved = ref(false)
+const savingProfile = ref(false)
+
+// Every IANA zone the browser knows, plus the saved one in case the browser does not list it.
+const timezones = computed(() => {
+  const zones = Intl.supportedValuesOf('timeZone')
+  const saved = auth.user?.timezone
+  return saved && !zones.includes(saved) ? [saved, ...zones] : zones
+})
+
+const profileChanged = computed(
+  () => profile.displayName.trim() !== auth.user?.displayName || profile.timezone !== auth.user?.timezone,
+)
+
+/**
+ * The time zone is locked while website blocking is being enforced: a running or paused session,
+ * or an abandoned one still holding blocking. Moving midnight could otherwise end the day early.
+ * This only greys the field out; the backend refuses the change too.
+ */
+const timezoneLocked = computed(
+  () => session.current !== null || (session.lastEnded !== null && isOverridable(session.lastEnded)),
+)
 
 const exportError = ref<string | null>(null)
 const exportedFile = ref<string | null>(null)
@@ -21,7 +55,29 @@ const deleteError = ref<string | null>(null)
 const confirmingDelete = ref(false)
 const extensionError = ref<string | null>(null)
 
-onMounted(() => void extension.refresh())
+onMounted(() => {
+  void extension.refresh()
+  // Only needed to know whether the time zone is locked; the backend has the last word.
+  session.fetchCurrent().catch(() => {})
+})
+
+async function onSaveProfile() {
+  profileError.value = null
+  profileSaved.value = false
+  profileErrors.value = validateProfile(profile)
+  if (hasErrors(profileErrors.value)) return
+
+  savingProfile.value = true
+  try {
+    await auth.updateProfile({ displayName: profile.displayName.trim(), timezone: profile.timezone })
+    profile.displayName = auth.user?.displayName ?? profile.displayName
+    profileSaved.value = true
+  } catch (error) {
+    profileError.value = getErrorMessage(error)
+  } finally {
+    savingProfile.value = false
+  }
+}
 
 async function onConnectExtension() {
   extensionError.value = null
@@ -72,23 +128,46 @@ async function onConfirmDelete() {
     <h1 class="page-title">Settings</h1>
 
     <div class="settings">
-      <section class="card" aria-labelledby="account-heading">
+      <form class="card" aria-labelledby="account-heading" novalidate @submit.prevent="onSaveProfile">
         <h2 id="account-heading" class="settings__heading">Account</h2>
         <dl class="settings__details">
-          <div>
-            <dt>Display name</dt>
-            <dd>{{ auth.user?.displayName }}</dd>
-          </div>
           <div>
             <dt>Username</dt>
             <dd>{{ auth.user?.username }}</dd>
           </div>
-          <div>
-            <dt>Time zone</dt>
-            <dd>{{ auth.user?.timezone }}</dd>
-          </div>
         </dl>
-      </section>
+
+        <FormField v-slot="{ id, invalid }" label="Display name" :error="profileErrors.displayName">
+          <input
+            :id="id"
+            v-model="profile.displayName"
+            type="text"
+            autocomplete="name"
+            :maxlength="DISPLAY_NAME_MAX"
+            :aria-invalid="invalid"
+          />
+        </FormField>
+
+        <FormField v-slot="{ id, invalid }" label="Time zone" :error="profileErrors.timezone">
+          <select :id="id" v-model="profile.timezone" :disabled="timezoneLocked" :aria-invalid="invalid">
+            <option v-for="zone in timezones" :key="zone" :value="zone">{{ zone }}</option>
+          </select>
+        </FormField>
+        <p v-if="timezoneLocked" class="muted settings__text">
+          The time zone cannot be changed while website blocking is active. End your session, or override
+          it, first.
+        </p>
+        <p v-else class="muted settings__text">
+          A new time zone takes effect from your next day and week. Today and this week keep their
+          current start and end.
+        </p>
+
+        <ErrorMessage :message="profileError" />
+        <p v-if="profileSaved" class="settings__done" role="status">Profile saved.</p>
+        <div>
+          <AppButton type="submit" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
+        </div>
+      </form>
 
       <section class="card" aria-labelledby="extension-heading">
         <h2 id="extension-heading" class="settings__heading">Chrome extension</h2>

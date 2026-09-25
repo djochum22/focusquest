@@ -94,7 +94,10 @@ database, so they must not run in parallel.
 
 - `SessionWorkflowApiIntegrationTest`: setup, sessions from start to completion, abandon and
   override, error responses, export and deletion.
-- `StreakCalculationApiIntegrationTest`: daily and weekly streaks, missed periods, time zones.
+- `StreakCalculationApiIntegrationTest`: daily and weekly streaks, missed periods, time zones, time
+  split across midnight and the start of the week.
+- `ProfileApiIntegrationTest`: editing the profile, and a time-zone change taking effect from the
+  next day and week.
 - `SecurityConfigurationIntegrationTest`: authentication on every route, token attacks, CORS,
   headers, and that no secret reaches the logs.
 

@@ -983,11 +983,13 @@ Only `GET /api/me/progression` is implemented (the XP total). The gem, freeze an
 
 ### Settings
 
+PUT /api/me/profile
+
 GET /api/export
 
 DELETE /api/me/data
 
-`GET /api/export` returns all of the caller's data as JSON. `DELETE /api/me/data` deletes all of it, including the account, and is refused while website blocking is active. See the technical architecture (section 10).
+`PUT /api/me/profile` changes the display name and time zone. A new time zone takes effect from the next daily and weekly period, and changing it is refused while website blocking is active. `GET /api/export` returns all of the caller's data as JSON. `DELETE /api/me/data` deletes all of it, including the account, and is refused while website blocking is active. See the technical architecture (section 10).
 
 ## 18\. Acceptance-criteria themes
 

@@ -75,6 +75,14 @@ public class User {
         return lastExtensionHeartbeatAt;
     }
 
+    public void changeDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void changeTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
     public void recordExtensionHeartbeat(Instant now) {
         this.lastExtensionHeartbeatAt = now;
     }
