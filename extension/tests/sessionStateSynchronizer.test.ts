@@ -53,6 +53,7 @@ function setup(initial: { snapshot?: BlockingSnapshot | null; health?: SyncHealt
     getBlockingState: vi.fn().mockResolvedValue(blockingState()),
   }
   const applyRules = vi.fn().mockResolvedValue(undefined)
+  const sweepTabs = vi.fn().mockResolvedValue(undefined)
   const deps: SynchronizerDependencies = {
     client,
     loadSnapshot: async () => state.snapshot,
@@ -60,9 +61,10 @@ function setup(initial: { snapshot?: BlockingSnapshot | null; health?: SyncHealt
     loadSyncHealth: async () => state.health,
     saveSyncHealth: async (h) => void (state.health = h),
     applyRules,
+    sweepTabs,
     now: () => 1_000,
   }
-  return { state, client, applyRules, synchronizer: createSessionStateSynchronizer(deps) }
+  return { state, client, applyRules, sweepTabs, synchronizer: createSessionStateSynchronizer(deps) }
 }
 
 const storedSnapshot = (): BlockingSnapshot => toSnapshot(blockingState({ stateVersion: 'v1' }))
@@ -207,6 +209,66 @@ describe('sync', () => {
       await synchronizer.sync('two')
       expect(client.heartbeat).toHaveBeenCalledTimes(2)
     })
+  })
+})
+
+describe('sweeping already-open tabs', () => {
+  it('sweeps with the new snapshot once enforcement turns on, after installing and saving it', async () => {
+    const { synchronizer, client, applyRules, sweepTabs, state } = setup({
+      snapshot: toSnapshot(blockingState({ stateVersion: 'v1', enforcementActive: false, blockRules: [] })),
+    })
+    let savedWhenSwept: string | undefined
+    sweepTabs.mockImplementation(async () => void (savedWhenSwept = state.snapshot?.stateVersion))
+
+    await synchronizer.sync('test')
+
+    expect(client.getBlockingState).toHaveBeenCalledOnce()
+    expect(sweepTabs).toHaveBeenCalledWith(expect.objectContaining({ enforcementActive: true, stateVersion: 'v2' }))
+    expect(applyRules.mock.invocationCallOrder[0]!).toBeLessThan(sweepTabs.mock.invocationCallOrder[0]!)
+    expect(savedWhenSwept).toBe('v2')
+  })
+
+  it('sweeps on a sync that finds an enforcing snapshot already stored and unchanged', async () => {
+    const { synchronizer, client, sweepTabs } = setup({ snapshot: storedSnapshot() })
+    client.heartbeat.mockResolvedValue(heartbeat({ stateVersion: 'v1', refreshRequired: false }))
+
+    await synchronizer.sync('token-changed')
+
+    expect(client.getBlockingState).not.toHaveBeenCalled()
+    expect(sweepTabs).toHaveBeenCalledWith(storedSnapshot())
+  })
+
+  it('does not sweep when enforcement is off', async () => {
+    const { synchronizer, client, sweepTabs } = setup()
+    client.getBlockingState.mockResolvedValue(blockingState({ enforcementActive: false }))
+
+    await synchronizer.sync('test')
+
+    expect(sweepTabs).not.toHaveBeenCalled()
+  })
+
+  it('does not sweep when installing the rules fails', async () => {
+    const { synchronizer, applyRules, sweepTabs } = setup()
+    applyRules.mockRejectedValue(new Error('rule limit exceeded'))
+
+    await synchronizer.sync('test')
+
+    expect(sweepTabs).not.toHaveBeenCalled()
+  })
+
+  it('still reports a successful sync when the sweep fails', async () => {
+    const { synchronizer, sweepTabs } = setup()
+    sweepTabs.mockRejectedValue(new Error('tabs unavailable'))
+
+    expect((await synchronizer.sync('test')).status).toBe('ok')
+  })
+
+  it('sweeps on restore when the persisted snapshot is enforcing', async () => {
+    const { synchronizer, applyRules, sweepTabs } = setup({ snapshot: storedSnapshot() })
+    await synchronizer.restore()
+
+    expect(sweepTabs).toHaveBeenCalledWith(storedSnapshot())
+    expect(applyRules.mock.invocationCallOrder[0]!).toBeLessThan(sweepTabs.mock.invocationCallOrder[0]!)
   })
 })
 

@@ -13,6 +13,7 @@ import type { BlockingSnapshot, SyncHealth } from '../types/blocking'
 import { logger } from '../utils/logger'
 import { BackendError, type BackendClient } from './backendClient'
 import { applyBlockingRules } from './dynamicRulesManager'
+import { sweepOpenTabs } from './openTabGuard'
 import { loadSnapshot, loadSyncHealth, saveSnapshot, saveSyncHealth } from './blockingStateStore'
 
 export interface SynchronizerDependencies {
@@ -22,6 +23,8 @@ export interface SynchronizerDependencies {
   loadSyncHealth: () => Promise<SyncHealth>
   saveSyncHealth: (health: SyncHealth) => Promise<void>
   applyRules: (snapshot: BlockingSnapshot) => Promise<void>
+  /** Redirects already-open tabs that an enforcing snapshot blocks (the rules only see new loads). */
+  sweepTabs: (snapshot: BlockingSnapshot) => Promise<void>
   now: () => number
 }
 
@@ -72,6 +75,19 @@ function failureHealth(error: unknown, previous: SyncHealth): SyncHealth {
 }
 
 export function createSessionStateSynchronizer(deps: SynchronizerDependencies): SessionStateSynchronizer {
+  /**
+   * Runs after the rules are installed and the snapshot saved. A failed sweep is only logged: the
+   * rules are in force, and the tab listeners catch any tab it missed.
+   */
+  async function sweep(snapshot: BlockingSnapshot): Promise<void> {
+    if (!snapshot.enforcementActive) return
+    try {
+      await deps.sweepTabs(snapshot)
+    } catch (error) {
+      logger.warn('Could not check open tabs', error)
+    }
+  }
+
   let running: Promise<SyncHealth> | null = null
   let rerun = false
 
@@ -79,6 +95,7 @@ export function createSessionStateSynchronizer(deps: SynchronizerDependencies): 
     try {
       const stored = await deps.loadSnapshot()
       const heartbeat = await deps.client.heartbeat(stored?.stateVersion ?? null)
+      let current = stored
 
       if (heartbeat.refreshRequired || !stored) {
         const snapshot = toSnapshot(await deps.client.getBlockingState())
@@ -86,11 +103,16 @@ export function createSessionStateSynchronizer(deps: SynchronizerDependencies): 
         // next sync sees a difference and tries again.
         await deps.applyRules(snapshot)
         await deps.saveSnapshot(snapshot)
+        current = snapshot
         logger.info(
           `Synchronized (${reason}): enforcement ${snapshot.enforcementActive ? 'on' : 'off'}, ` +
             `${snapshot.blockRules.length} block / ${snapshot.allowRules.length} allow rules`,
         )
       }
+
+      // Sweep on every successful sync while enforcing, not only when the rules changed: the sync
+      // that follows sign-in often finds the session's snapshot already stored.
+      if (current) await sweep(current)
 
       const health: SyncHealth = { status: 'ok', lastSuccessAt: deps.now(), message: null }
       await deps.saveSyncHealth(health)
@@ -125,7 +147,9 @@ export function createSessionStateSynchronizer(deps: SynchronizerDependencies): 
 
     async restore() {
       const stored = await deps.loadSnapshot()
-      if (stored) await deps.applyRules(stored)
+      if (!stored) return
+      await deps.applyRules(stored)
+      await sweep(stored)
     },
   }
 }
@@ -139,6 +163,7 @@ export function createDefaultSynchronizer(client: BackendClient): SessionStateSy
     loadSyncHealth,
     saveSyncHealth,
     applyRules: applyBlockingRules,
+    sweepTabs: sweepOpenTabs,
     now: () => Date.now(),
   })
 }

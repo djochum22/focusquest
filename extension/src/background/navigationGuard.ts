@@ -7,11 +7,9 @@
 //
 // It reads the persisted state, so it works after the service worker has been shut down and woken.
 
-import { evaluate } from '../blocking/rulePrecedence'
 import { parseTargetUrl } from '../blocking/urlMatcher'
-import { blockedPageUrl } from '../utils/blockedPage'
-import { logger } from '../utils/logger'
 import { loadSnapshot } from './blockingStateStore'
+import { redirectIfBlocked } from './tabRedirect'
 
 interface NavigationDetails {
   tabId: number
@@ -21,18 +19,9 @@ interface NavigationDetails {
 
 async function guard(details: NavigationDetails): Promise<void> {
   if (details.frameId !== 0) return // top-level page only
-  const target = parseTargetUrl(details.url)
-  if (!target) return // not a web page (this also keeps the blocked page itself from looping)
-
-  const snapshot = await loadSnapshot()
-  if (!snapshot?.enforcementActive) return
-  if (!evaluate(target, snapshot.blockRules, snapshot.allowRules).isBlocked) return
-
-  try {
-    await chrome.tabs.update(details.tabId, { url: blockedPageUrl(details.url) })
-  } catch (error) {
-    logger.debug('Could not redirect tab to the blocked page (probably closed)', error)
-  }
+  // Not a web page (this also keeps the blocked page itself from looping); skip the storage read.
+  if (!parseTargetUrl(details.url)) return
+  await redirectIfBlocked(details.tabId, details.url, await loadSnapshot())
 }
 
 /** Must run synchronously when the service worker starts, so events can wake it. */

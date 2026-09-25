@@ -8,6 +8,7 @@ import { createBackendClient } from './backendClient'
 import { loadSyncHealth } from './blockingStateStore'
 import { handleExternalMessage } from './externalMessages'
 import { registerNavigationGuard } from './navigationGuard'
+import { registerOpenTabGuard } from './openTabGuard'
 import { createDefaultSynchronizer } from './sessionStateSynchronizer'
 import { showBadge } from './statusBadge'
 
@@ -65,6 +66,7 @@ async function refreshBadge(): Promise<void> {
 onItemChanged('syncHealth', () => void refreshBadge())
 
 registerNavigationGuard()
+registerOpenTabGuard()
 
 // Runs each time the worker starts, whatever woke it.
 void ensureSyncAlarm()
