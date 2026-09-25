@@ -318,6 +318,8 @@ The session shall support the following states:
 - PAUSED -> ABANDONED
 - ACTIVE -> INTERRUPTED
 - PAUSED -> INTERRUPTED
+- INTERRUPTED -> ACTIVE (resume)
+- INTERRUPTED -> ABANDONED
 
 Completed sessions are terminal and cannot be edited.
 
@@ -376,6 +378,15 @@ A technical interruption may occur because of:
 - Device shutdown.
 
 The system shall recover the session safely and shall not silently award time that cannot be verified. Unfinalized paused time shall not be added until the user resumes or finalizes the session.
+
+Decided detection: the Chrome extension checks in every 30 seconds, whether or not a session is running. A session is watched from the moment it starts or resumes if the extension checked in within the timeout before that, and otherwise from the extension's first check-in during the session. While a session is watched, a silence longer than a configurable timeout (3 minutes by default) interrupts it. The check is made on the next heartbeat, the next read of the current session, or the next session action, so a backend that was itself down is caught too. A session run without the extension is never interrupted, and neither is one started when the extension had not checked in recently (for example, after it was uninstalled).
+
+When a session is interrupted:
+
+- Time up to the extension's last check-in is kept, including a pause finalized at that moment, and is credited to the streak.
+- The time after the last check-in cannot be verified and is dropped.
+- Website blocking is released (`TECHNICAL_RELEASE`).
+- The user can resume the session, which enforces blocking again, or abandon it, which leaves blocking released. Only the user's latest started session can be resumed; starting a new session supersedes an interrupted one.
 
 ## 9\. Pause behavior
 
@@ -902,7 +913,7 @@ GET /api/focus-sessions/current
 
 GET /api/focus-sessions/history
 
-`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content. `GET /api/focus-sessions/history` returns the ended sessions (completed, abandoned, interrupted), most recently started first, with an optional `limit` (default 50, at most 200). `GET /api/focus-sessions/{id}` is not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
+`GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or the latest started session if it is INTERRUPTED, or 204 No Content. `GET /api/focus-sessions/history` returns the ended sessions (completed, abandoned, interrupted), most recently started first, with an optional `limit` (default 50, at most 200). `GET /api/focus-sessions/{id}` is not implemented yet. `POST /api/focus-sessions/{id}/override` takes no body.
 
 ### Blocked targets
 

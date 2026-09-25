@@ -45,7 +45,7 @@ public class ExtensionController {
     public HeartbeatResponse heartbeat(@AuthenticationPrincipal UserDetails principal,
                                         @RequestBody(required = false) HeartbeatRequest request) {
         String knownVersion = request == null ? null : request.stateVersion();
-        return HeartbeatResponse.from(blockingService.getBlockingSnapshot(currentUser(principal)), knownVersion);
+        return HeartbeatResponse.from(blockingService.heartbeat(currentUser(principal)), knownVersion);
     }
 
     private User currentUser(UserDetails principal) {

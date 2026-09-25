@@ -141,6 +141,17 @@ public class BlockingService {
                 fingerprint(true, session, blockRules, allowRules), now);
     }
 
+    /**
+     * Handles the extension's periodic check-in: records it against the running session (which may
+     * interrupt that session if the previous check-in was too long ago) and returns the resulting
+     * state, so an interruption reaches the extension in the same response.
+     */
+    @Transactional
+    public BlockingSnapshot heartbeat(User user) {
+        sessionService.recordHeartbeat(user);
+        return getBlockingSnapshot(user);
+    }
+
     /** The enforcing session with live progress, or empty when nothing is being enforced. */
     @Transactional(readOnly = true)
     public Optional<CurrentSessionSnapshot> getCurrentSession(User user) {

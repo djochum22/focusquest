@@ -141,6 +141,70 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
+    void aSilentExtensionInterruptsTheSessionDropsTheGapAndTheSessionCanBeResumed() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+        long id = createAndStartSession(token, 10);
+        advance(60);
+        postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
+
+        // The browser is closed for ten minutes; the next heartbeat reveals the gap.
+        advance(10 * 60);
+        postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
+        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
+        getAs(token, SESSIONS + "/current")
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("INTERRUPTED"))
+                .andExpect(jsonPath("$.blockingState").value("TECHNICAL_RELEASE"))
+                .andExpect(jsonPath("$.activeFocusSeconds").value(60));
+        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(60));
+        postAs(token, SESSIONS + "/" + id + "/complete")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_SESSION_STATE"));
+
+        postAs(token, SESSIONS + "/" + id + "/resume")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.blockingState").value("ACTIVE"));
+        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(true));
+        for (int i = 0; i < 9; i++) {
+            advance(60);
+            postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
+        }
+        postAs(token, SESSIONS + "/" + id + "/complete")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeFocusSeconds").value(10 * 60));
+    }
+
+    @Test
+    void quittingTheBrowserBeforeTheExtensionChecksInForANewSessionStillInterruptsIt() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+        postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());   // the extension is alive
+        advance(20);
+        long id = createAndStartSession(token, 10);
+
+        // Chrome is quit within seconds of the start, before the next 30-second check-in, and
+        // reopened five minutes later.
+        advance(5 * 60);
+        postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
+
+        getAs(token, SESSIONS + "/current")
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("INTERRUPTED"))
+                .andExpect(jsonPath("$.activeFocusSeconds").value(0));
+    }
+
+    @Test
+    void aSessionRunWithoutTheExtensionIsNeverInterrupted() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+        long id = createAndStartSession(token, 10);
+        advance(30 * 60);
+
+        getAs(token, SESSIONS + "/current")
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
     void ruleEditsThatWouldLoosenBlockingAreRefusedWhileASessionRunsAndTheBlockListReachesTheExtension()
             throws Exception {
         String token = setUpAccount("doug", "UTC");

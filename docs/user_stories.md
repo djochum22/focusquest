@@ -657,12 +657,21 @@ so that my session state is consistent.
 
 **Acceptance criteria:**
 
-- Given the application or browser restarts during an active session,  
-  when the application restarts,  
-  then the session is restored in the INTERRUPTED state unless the system can reliably determine that it remained enforced.
+- Given the browser extension had checked in recently when the session started or resumed, or has checked in during it,  
+  when it stays silent for longer than the heartbeat timeout (browser closed, extension failure, backend down),  
+  then the session becomes INTERRUPTED, the time up to its last check-in is kept and credited, the time after it is dropped, and website blocking is released.
+- Given the extension has never checked in during a session,  
+  when time passes,  
+  then the session is never interrupted.
+- Given the session is interrupted and is still the latest started session,  
+  when the user resumes it,  
+  then it becomes ACTIVE again and website blocking is enforced again.
 - Given the session is interrupted,  
-  when the user resumes or abandons it,  
-  then the application finalizes any open intervals and updates streak contributions accordingly.
+  when the user abandons it,  
+  then it becomes ABANDONED and website blocking stays released.
+- Given the session is interrupted,  
+  when the user tries to pause or complete it,  
+  then the application refuses and asks the user to resume or abandon it.
 
 ## **US-131: Preserve data across restarts**
 

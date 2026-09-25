@@ -11,7 +11,9 @@ import { useAuthStore } from './authStore'
  * or what a session is worth. Actions throw on failure so the calling view can show the message.
  */
 export const useSessionStore = defineStore('session', () => {
-  /** The ACTIVE or PAUSED session, or null. */
+  /**
+   * The ACTIVE or PAUSED session, or an INTERRUPTED one waiting to be resumed or abandoned, or null.
+   */
   const current = ref<FocusSession | null>(null)
   /**
    * `Date.now()` at the moment `current` arrived. The timer counts on from here rather than from
@@ -37,9 +39,12 @@ export const useSessionStore = defineStore('session', () => {
     currentLoaded.value = true
   }
 
-  /** Stores the outcome of a lifecycle call: still running, or ended and moved out of `current`. */
+  /**
+   * Stores the outcome of a lifecycle call: still running (or interrupted and resumable), or ended
+   * and moved out of `current`.
+   */
   function applyResult(session: FocusSession) {
-    if (session.status === 'ACTIVE' || session.status === 'PAUSED') {
+    if (session.status === 'ACTIVE' || session.status === 'PAUSED' || session.status === 'INTERRUPTED') {
       planned.value = null
       applyCurrent(session)
       lastEnded.value = null

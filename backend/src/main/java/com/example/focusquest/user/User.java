@@ -32,6 +32,10 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // When the Chrome extension last checked in for this user, session or not.
+    @Column(name = "last_extension_heartbeat_at")
+    private Instant lastExtensionHeartbeatAt;
+
     protected User() {
     }
 
@@ -65,5 +69,13 @@ public class User {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getLastExtensionHeartbeatAt() {
+        return lastExtensionHeartbeatAt;
+    }
+
+    public void recordExtensionHeartbeat(Instant now) {
+        this.lastExtensionHeartbeatAt = now;
     }
 }

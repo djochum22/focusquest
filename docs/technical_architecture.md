@@ -637,7 +637,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - Creating a session only creates it as `PLANNED`; the user starts it with a separate action, which is when the timer and blocking begin. The backend cannot list `PLANNED` sessions, so the store remembers the planned one locally and it is lost on a page reload. A `PLANNED` session that is never started, or is replaced by editing the details, stays on the server and blocks nothing.
 - `SessionTimer` counts locally between server responses, from the moment each response arrived (`Date.now()` at receipt) rather than from the server's `generatedAt`, so browser clock skew cannot distort it. When the countdown reaches zero the dashboard re-fetches the session, and the Complete button is enabled from the server's `remainingFocusSeconds`, not the local countdown. The dashboard also re-fetches when the tab becomes visible again.
 - Abandon asks for confirmation. Manual override is offered only after a session has been abandoned with blocking still held: the session summary on the dashboard shows an "Override blocking" button, and the running and paused views have none. It opens `ManualOverrideDialog`, which warns that an XP penalty will be applied without stating an amount (the penalty is a server-side, configurable placeholder), and calls the override endpoint only after the user confirms. Because the abandoned session is otherwise lost on a reload, the store looks at the latest history entry when there is no running session and restores it if it is `ABANDONED` with blocking `ACTIVE`; that summary has no dismiss button while the override is available.
-- The session views are `DashboardView` and `HistoryView`. The dashboard shows the current session; the summary of the one that just ended; or, when neither applies, `SessionPlanner` (the new-session form, then a "ready" step that starts it in place). The form appears only after the summary is dismissed. `/sessions/new` redirects to the dashboard.
+- The session views are `DashboardView` and `HistoryView`. The dashboard shows the current session (running, paused, or interrupted with Resume and Abandon in `InterruptedSessionView`); the summary of the one that just ended; or, when neither applies, `SessionPlanner` (the new-session form, then a "ready" step that starts it in place). The form appears only after the summary is dismissed. `/sessions/new` redirects to the dashboard.
 
 **Streaks, progression and settings in the frontend**
 
@@ -650,7 +650,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - The daily streak always exists, so its form always edits; the weekly form creates the streak the first time and edits it afterwards. The store picks create or update from whether a configuration for that period type is loaded, and re-loads the configurations when a save fails, so a weekly streak added from another tab does not send the next save down the wrong path. The view tells the user that a change applies only to periods that have not started.
 - `GemDisplay` takes a `balance` and shows "Not available" for `null`, which is only the case before the progression request has finished, so the card never shows a made-up zero.
 - `SettingsView` shows the account, downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`), and deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
-- Not built yet: `StreakHistory`, `XpHistory` and the blocking-rule views. `FreezeInventory` will not be built, since there are no freezes.
+- Not built yet: `StreakHistory` and `XpHistory`. `FreezeInventory` will not be built, since there are no freezes.
 
 **Frontend security behavior**
 
@@ -880,7 +880,7 @@ POST /api/focus-sessions/{id}/override
 Notes:
 
 - `POST /api/focus-sessions` returns 201 with the planned session. The session body is `FocusSessionDto`; `activeFocusSeconds` and `remainingFocusSeconds` are live (they include the segment still running as of `generatedAt`).
-- `GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or 204 No Content.
+- `GET /api/focus-sessions/current` returns the ACTIVE or PAUSED session, or the latest started session if it is INTERRUPTED (waiting to be resumed or abandoned), or 204 No Content. It first interrupts a running session whose heartbeat has lapsed (section 13).
 - `GET /api/focus-sessions/history` returns the caller's ended sessions (`COMPLETED`, `ABANDONED`, `INTERRUPTED`) as a JSON array of `FocusSessionDto`, most recently started first. The optional `limit` parameter defaults to 50 and is clamped to 1-200. There is no paging yet.
 - `GET /api/focus-sessions/{id}` is not implemented yet.
 - `POST .../override` takes no body and no override reason is collected yet. It is accepted only for an `ABANDONED` session whose blocking is still `ACTIVE`, that is still the user's latest started session, and while today's daily target is unmet. Calling it on an `ACTIVE` or `PAUSED` session is refused with `INVALID_SESSION_STATE` ("Abandon the session before overriding website blocking"), so a session is always ended and its time credited before anything is overridden.
@@ -962,7 +962,7 @@ POST /api/extension/heartbeat
 
 - **`blocking-state`** returns `enforcementActive`, `sessionId`, `blockingState`, `stateVersion`, `generatedAt`, and the active `blockRules` and `allowRules`. Each rule carries its `targetType`, canonical `targetValue`, pre-split `host` and `path` (null for a domain rule), and `displayName`. When enforcement is not active, both rule lists are empty and the extension should remove any blocking it has installed.
 - **`current-session`** returns what the blocked page shows: session id, status, blocking state, task description, planned/active/remaining seconds, start time, and today's daily streak progress (`qualifyingSeconds`, `targetSeconds`, `status`). It returns 204 No Content when nothing is being enforced. `dailyStreak` is null until time has first been credited that day.
-- **`heartbeat`** accepts an optional `{ "stateVersion": "..." }` and returns `serverTime`, `enforcementActive`, `sessionId`, the current `stateVersion` and `refreshRequired`. The extension calls it periodically and re-fetches `blocking-state` only when `refreshRequired` is true.
+- **`heartbeat`** accepts an optional `{ "stateVersion": "..." }` and returns `serverTime`, `enforcementActive`, `sessionId`, the current `stateVersion` and `refreshRequired`. The extension calls it periodically and re-fetches `blocking-state` only when `refreshRequired` is true. It also records the check-in on the user's running session (`lastHeartbeatAt`), after first checking the gap since the previous one, so a heartbeat that ends a long silence interrupts the session and returns the released state in the same response.
 - `stateVersion` is a fingerprint of the enforcement flag, the enforcing session and its blocking state, and the active rules. It changes exactly when the extension must re-synchronize, and is not affected by a pause or resume, which do not change blocking.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
@@ -1034,9 +1034,10 @@ FocusSession
 - activeSegmentStartedAt
 - streakCreditedActiveSeconds
 - streakCreditedPausedSeconds
+- lastHeartbeatAt
 ```
 
-The last three are internal bookkeeping. `activeSegmentStartedAt` marks when the current uninterrupted ACTIVE stretch began, so elapsed time can be added across pause/resume cycles. The two `streakCredited...` fields record how much of the session's time has already been credited to the streak, so each credit covers only the time since the previous one (see section 13).
+The last four are internal bookkeeping. `lastHeartbeatAt` is when the extension last checked in while the session was running; it is null until the first check-in, which leaves interruption detection disarmed (section 13). `activeSegmentStartedAt` marks when the current uninterrupted ACTIVE stretch began, so elapsed time can be added across pause/resume cycles. The two `streakCredited...` fields record how much of the session's time has already been credited to the streak, so each credit covers only the time since the previous one (see section 13).
 
 **SessionPause**
 
@@ -1305,9 +1306,19 @@ ACTIVE -> ABANDONED
 PAUSED -> ABANDONED
 ACTIVE -> INTERRUPTED
 PAUSED -> INTERRUPTED
+INTERRUPTED -> ACTIVE
+INTERRUPTED -> ABANDONED
 ```
 
-COMPLETED, ABANDONED, and INTERRUPTED are terminal session states for the MVP unless a future recovery design explicitly changes this.
+COMPLETED and ABANDONED are terminal. INTERRUPTED can be resumed or abandoned (see the interruption rule below).
+
+**Interruption rule**
+
+- A running session is interrupted when it is being watched and the extension has been silent for longer than `focusquest.session.heartbeat-timeout` (3 minutes; the extension checks in every 30 seconds, session or not). Every heartbeat also stamps `User.lastExtensionHeartbeatAt`. A session starting or resuming within the timeout of that stamp is watched from that moment (its `lastHeartbeatAt` is set to the start), so quitting the browser before the extension's first check-in for the session is caught. Otherwise it is watched from the extension's first check-in during it, so a session run without the extension is never interrupted.
+- Detection is lazy: `SessionService` checks the gap on every heartbeat (before recording it), on `GET /api/focus-sessions/current`, and before every transition. A backend that was down is therefore caught on the first request after it restarts.
+- The cutoff is the last heartbeat. The open ACTIVE segment is banked, or the open pause finalized, up to the cutoff (an interval that began after the cutoff contributes nothing), and that time is credited to the streak. Time after the cutoff is dropped. Blocking becomes `TECHNICAL_RELEASE`.
+- Pause and complete are refused while interrupted. Resume makes the session ACTIVE and enforces blocking again, watching it at once if the extension is alive (as at start); it is allowed only while the session is still the user's latest started session. Abandon ends the session and leaves blocking released.
+- Starting a new session is allowed while one is interrupted, and supersedes it.
 
 **Pause rule**
 
@@ -1315,7 +1326,7 @@ COMPLETED, ABANDONED, and INTERRUPTED are terminal session states for the MVP un
 - An unresolved pause contributes nothing to the streak yet.
 - Resuming, abandoning, interrupting, or finalizing closes the pause.
 - A finalized pause contributes to qualifying time if the session matches the streak configuration.
-- The pause is finalized, and credited, when the session is resumed, abandoned or overridden (an interrupted session discards it).
+- The pause is finalized, and credited, when the session is resumed or abandoned, or at the last heartbeat when the session is interrupted.
 - Paused time never counts toward the required active focus duration for session completion.
 - Website blocking remains active throughout the pause.
 
@@ -1326,7 +1337,7 @@ Streak progress is credited at two moments:
 1. **On resume:** the total time already passed in the session (the active time before the pause plus the pause just finalized) is credited to the current daily and weekly periods at once, so the day's total is up to date while the session continues.
 2. **When the session ends** (complete, abandon, override): only the time since the last credit is credited.
 
-The session records what it has already credited, so no time is counted twice. An unresolved pause contributes nothing. Time in an interrupted session that was not yet credited is discarded, but anything credited at an earlier resume stays. Each credit goes to the period current at the moment it is made.
+The session records what it has already credited, so no time is counted twice. An unresolved pause contributes nothing. An interruption credits the time up to the last heartbeat and drops the time after it. Each credit goes to the period current at the moment it is made.
 
 **Session completion rule**
 
@@ -1365,7 +1376,7 @@ Whether the extension must block is derived from the status of the user's most r
 | -------------- | ---------- |
 | ACTIVE or PAUSED | Yes |
 | COMPLETED | No; completing sets `RELEASED` |
-| INTERRUPTED | No; sets `TECHNICAL_RELEASE`, so a technical failure never locks the user out |
+| INTERRUPTED | No; sets `TECHNICAL_RELEASE`, so a technical failure never locks the user out. Resuming it enforces again |
 | ABANDONED | Yes, unless the blocking state is no longer `ACTIVE` (released or overridden) or today's daily target has been reached |
 | PLANNED / none | No |
 

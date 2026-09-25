@@ -153,6 +153,37 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
+  it('shows an interrupted session and resumes it through the API', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ status: 'INTERRUPTED', blockingState: 'TECHNICAL_RELEASE' }),
+    )
+    vi.mocked(sessionApi.resumeSession).mockResolvedValue(makeSession())
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.text()).toContain('Interrupted')
+    expect(wrapper.find('form').exists()).toBe(false)
+    await button(wrapper, 'Resume')!.trigger('click')
+    await flushPromises()
+
+    expect(sessionApi.resumeSession).toHaveBeenCalledWith(1)
+    expect(button(wrapper, 'Pause')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('tells the user an abandoned interrupted session leaves websites unblocked', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ status: 'INTERRUPTED', blockingState: 'TECHNICAL_RELEASE' }),
+    )
+    const wrapper = await mountDashboard()
+
+    await button(wrapper, 'Abandon')!.trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Websites stay unblocked.')
+    expect(document.body.textContent).not.toContain("unblocked only if today's daily streak")
+    wrapper.unmount()
+  })
+
   it('offers no override while the session is running or paused', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
     const wrapper = await mountDashboard()

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { makeSession } from '../../test-utils/sessions'
 import ActiveSessionView from './ActiveSessionView.vue'
+import InterruptedSessionView from './InterruptedSessionView.vue'
 import ManualOverrideDialog from './ManualOverrideDialog.vue'
 import PausedSessionView from './PausedSessionView.vue'
 
@@ -93,6 +94,42 @@ describe('PausedSessionView', () => {
     const wrapper = mountPaused({}, true)
 
     for (const button of wrapper.findAll('button')) {
+      expect(button.attributes('disabled')).toBeDefined()
+    }
+  })
+})
+
+describe('InterruptedSessionView', () => {
+  function mountInterrupted(busy = false) {
+    return mount(InterruptedSessionView, {
+      props: {
+        session: makeSession({ status: 'INTERRUPTED', blockingState: 'TECHNICAL_RELEASE' }),
+        receivedAt: Date.now(),
+        busy,
+      },
+    })
+  }
+
+  it('says the session was interrupted, why, and that websites are unblocked', () => {
+    const wrapper = mountInterrupted()
+
+    expect(wrapper.get('[role="status"]').text()).toBe('Interrupted')
+    expect(wrapper.text()).toContain('extension stopped checking in')
+    expect(wrapper.text()).toContain('Websites are unblocked until you resume')
+  })
+
+  it('reports resume and abandon', async () => {
+    const wrapper = mountInterrupted()
+
+    await labelled(wrapper, 'Resume').trigger('click')
+    await labelled(wrapper, 'Abandon').trigger('click')
+
+    expect(wrapper.emitted('resume')).toHaveLength(1)
+    expect(wrapper.emitted('abandon')).toHaveLength(1)
+  })
+
+  it('locks the controls while a request is in flight', () => {
+    for (const button of mountInterrupted(true).findAll('button')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
   })

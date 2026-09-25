@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
 import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import ActiveSessionView from '../components/session/ActiveSessionView.vue'
+import InterruptedSessionView from '../components/session/InterruptedSessionView.vue'
 import ManualOverrideDialog from '../components/session/ManualOverrideDialog.vue'
 import PausedSessionView from '../components/session/PausedSessionView.vue'
 import SessionPlanner from '../components/session/SessionPlanner.vue'
@@ -109,6 +110,14 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         @resume="perform(() => session.resume(session.current!.id))"
         @abandon="confirming = 'abandon'"
       />
+      <InterruptedSessionView
+        v-else-if="session.current?.status === 'INTERRUPTED'"
+        :session="session.current"
+        :received-at="session.receivedAt"
+        :busy="session.busy"
+        @resume="perform(() => session.resume(session.current!.id))"
+        @abandon="confirming = 'abandon'"
+      />
 
       <SessionPlanner v-else-if="!session.lastEnded" />
     </div>
@@ -124,7 +133,8 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
       @cancel="confirming = null"
     >
       <p>The session ends without completion XP. The time you have focused so far still counts toward your streak.</p>
-      <p>
+      <p v-if="session.current?.status === 'INTERRUPTED'">Websites stay unblocked.</p>
+      <p v-else>
         Websites are unblocked only if today's daily streak is already reached. Otherwise they stay
         blocked, and you can then choose to override the blocking at an XP penalty.
       </p>

@@ -93,6 +93,12 @@ public class FocusSession {
     @Column(name = "streak_credited_paused_seconds", nullable = false)
     private long streakCreditedPausedSeconds;
 
+    // Internal bookkeeping only: when the Chrome extension last checked in while this session was
+    // running (set at start or resume when the extension is alive). Null leaves interruption
+    // detection disarmed until the extension checks in.
+    @Column(name = "last_heartbeat_at")
+    private Instant lastHeartbeatAt;
+
     protected FocusSession() {
     }
 
@@ -164,6 +170,26 @@ public class FocusSession {
     void markInterrupted() {
         this.status = SessionStatus.INTERRUPTED;
         this.activeSegmentStartedAt = null;
+    }
+
+    /**
+     * Picks an interrupted session back up. Blocking is enforced again, and the stale heartbeat is
+     * cleared so it cannot interrupt the session straight away; SessionService re-arms detection
+     * if the extension is alive.
+     */
+    void resumeFromInterruption(Instant now) {
+        this.status = SessionStatus.ACTIVE;
+        this.activeSegmentStartedAt = now;
+        this.blockingState = BlockingState.ACTIVE;
+        this.lastHeartbeatAt = null;
+    }
+
+    void recordHeartbeat(Instant now) {
+        this.lastHeartbeatAt = now;
+    }
+
+    Instant getLastHeartbeatAt() {
+        return lastHeartbeatAt;
     }
 
     /**

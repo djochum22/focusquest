@@ -154,7 +154,7 @@ class ExtensionControllerTest {
     @Test
     void heartbeatReportsNoRefreshWhenTheVersionMatches() throws Exception {
         BlockingSnapshot snapshot = enforcingSnapshot();
-        when(blockingService.getBlockingSnapshot(user)).thenReturn(snapshot);
+        when(blockingService.heartbeat(user)).thenReturn(snapshot);
 
         mockMvc.perform(post("/api/extension/heartbeat")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -169,7 +169,7 @@ class ExtensionControllerTest {
     @Test
     void heartbeatRequestsRefreshWhenTheVersionIsStale() throws Exception {
         BlockingSnapshot snapshot = enforcingSnapshot();
-        when(blockingService.getBlockingSnapshot(user)).thenReturn(snapshot);
+        when(blockingService.heartbeat(user)).thenReturn(snapshot);
 
         mockMvc.perform(post("/api/extension/heartbeat")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -181,7 +181,7 @@ class ExtensionControllerTest {
     @Test
     void heartbeatWithoutABodyRequestsRefresh() throws Exception {
         BlockingSnapshot snapshot = enforcingSnapshot();
-        when(blockingService.getBlockingSnapshot(user)).thenReturn(snapshot);
+        when(blockingService.heartbeat(user)).thenReturn(snapshot);
 
         mockMvc.perform(post("/api/extension/heartbeat"))
                 .andExpect(status().isOk())

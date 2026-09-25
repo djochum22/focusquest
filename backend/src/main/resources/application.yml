@@ -41,6 +41,10 @@ focusquest:
     # each run and everyone is signed out on restart. Never commit a real secret.
     secret: "${FOCUSQUEST_JWT_SECRET:}"
     expiration-minutes: 60
+  session:
+    # A running session is interrupted when the Chrome extension, which checks in every 30 seconds,
+    # has been silent for longer than this: the time after its last check-in cannot be verified.
+    heartbeat-timeout: 3m
   # The XP and gem economy; see docs/technical_architecture.md, section 19 (XP and gem economy).
   xp:
     # XP for completing a session, per planned focus minute. Only completed sessions earn it.

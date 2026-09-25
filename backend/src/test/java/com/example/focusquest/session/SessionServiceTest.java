@@ -5,6 +5,7 @@ import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
+import com.example.focusquest.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collection;
@@ -41,6 +43,7 @@ class SessionServiceTest {
 
     private static final Instant BASE_INSTANT = Instant.parse("2026-01-15T09:00:00Z");
     private static final Long SESSION_ID = 1L;
+    private static final Duration HEARTBEAT_TIMEOUT = Duration.ofMinutes(3);
 
     @Mock
     private FocusSessionRepository focusSessionRepository;
@@ -57,6 +60,9 @@ class SessionServiceTest {
     @Mock
     private ProgressionService progressionService;
 
+    @Mock
+    private UserRepository userRepository;
+
     private ClockProvider clockProvider;
     private SessionService sessionService;
     private User user;
@@ -64,7 +70,8 @@ class SessionServiceTest {
     @BeforeEach
     void setUp() {
         clockProvider = new ClockProvider(Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
-        sessionService = new SessionService(focusSessionRepository, sessionPauseRepository, streakService, experienceService, progressionService, clockProvider);
+        sessionService = new SessionService(focusSessionRepository, sessionPauseRepository, streakService, experienceService, progressionService, clockProvider,
+                userRepository, HEARTBEAT_TIMEOUT);
         user = new User("doug", "hash", "Doug", "UTC");
 
         lenient().when(focusSessionRepository.save(any(FocusSession.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -197,7 +204,6 @@ class SessionServiceTest {
         assertThatThrownBy(() -> sessionService.resumeSession(SESSION_ID)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> sessionService.abandonSession(SESSION_ID)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> sessionService.startSession(SESSION_ID)).isInstanceOf(ResponseStatusException.class);
-        assertThatThrownBy(() -> sessionService.handleInterruption(SESSION_ID)).isInstanceOf(ResponseStatusException.class);
     }
 
     // --- pause / resume behavior ---
@@ -360,39 +366,215 @@ class SessionServiceTest {
 
     // --- interruption / recovery ---
 
-    @Test
-    void handleInterruptionRejectsSessionThatIsStillPlanned() {
-        FocusSession session = createSession(10);
-        stubLookup(session);
+    private void heartbeat(FocusSession session) {
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.of(session));
+        sessionService.recordHeartbeat(user);
+    }
 
-        assertThatThrownBy(() -> sessionService.handleInterruption(SESSION_ID))
-                .isInstanceOf(ResponseStatusException.class);
+    /** Starts a session, lets the extension check in after 60s, then goes silent for an hour. */
+    private FocusSession interruptAfterSixtySeconds() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        advanceClockBy(3600);
+        heartbeat(session);
+        return session;
     }
 
     @Test
-    void handleInterruptionDiscardsUnverifiedActiveTime() {
-        FocusSession session = createAndStartSession(10);
-        advanceClockBy(600);
-
-        sessionService.handleInterruption(SESSION_ID);
+    void heartbeatGapKeepsTimeUpToTheLastHeartbeatAndReleasesBlocking() {
+        FocusSession session = interruptAfterSixtySeconds();
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
-        assertThat(session.getActiveFocusSeconds()).isZero();
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+        assertThat(session.getQualifyingSeconds()).isEqualTo(60);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
+        verify(streakService).recordContribution(session, 60L, 0L);
     }
 
     @Test
-    void handleInterruptionFromPausedLeavesTheOpenPauseUnfinalized() {
+    void heartbeatsWithinTheTimeoutKeepTheSessionRunning() {
+        FocusSession session = createAndStartSession(10);
+        for (int i = 0; i < 5; i++) {
+            advanceClockBy(170);
+            heartbeat(session);
+        }
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
+    }
+
+    @Test
+    void sessionIsNeverInterruptedBeforeTheExtensionFirstChecksIn() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(3600);
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.of(session));
+
+        assertThat(sessionService.findCurrentSession(user)).contains(session);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+    }
+
+    @Test
+    void readingTheCurrentSessionDetectsAHeartbeatGap() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        advanceClockBy(3600);
+
+        assertThat(sessionService.findCurrentSession(user)).contains(session);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+    }
+
+    @Test
+    void heartbeatGapWhilePausedFinalizesThePauseAtTheLastHeartbeat() {
         FocusSession session = createAndStartSession(10);
         advanceClockBy(60);
         SessionPause openPause = pauseAndCaptureOpenPause(session);
-
+        advanceClockBy(30);
+        heartbeat(session);
         advanceClockBy(7200);
-        sessionService.handleInterruption(SESSION_ID);
+        heartbeat(session);
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
-        assertThat(openPause.isFinalized()).isFalse();
-        assertThat(session.getFinalizedPausedSeconds()).isZero();
-        assertThat(session.getQualifyingSeconds()).isEqualTo(60);
+        assertThat(openPause.isFinalized()).isTrue();
+        assertThat(openPause.getDurationSeconds()).isEqualTo(30);
+        assertThat(session.getQualifyingSeconds()).isEqualTo(60 + 30);
+    }
+
+    @Test
+    void interruptionAfterAResumeKeepsWhatWasCreditedAndCreditsTheVerifiedRest() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(100);
+        pauseAndCaptureOpenPause(session);
+        advanceClockBy(20);
+        sessionService.resumeSession(SESSION_ID);
+        advanceClockBy(60);
+        heartbeat(session);
+        advanceClockBy(3600);
+        heartbeat(session);
+
+        verify(streakService).recordContribution(session, 100L, 20L);
+        verify(streakService).recordContribution(session, 60L, 0L);
+        verify(streakService, org.mockito.Mockito.times(2)).recordContribution(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    void completingAnInterruptedSessionIsRefused() {
+        interruptAfterSixtySeconds();
+
+        assertThatThrownBy(() -> sessionService.completeSession(SESSION_ID))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("interrupted");
+    }
+
+    @Test
+    void resumingWhileTheExtensionIsAliveEnforcesBlockingAndWatchesTheSessionAgain() {
+        FocusSession session = interruptAfterSixtySeconds();   // the interrupting heartbeat shows the extension is alive
+        when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(session));
+
+        sessionService.resumeSession(SESSION_ID);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
+
+        advanceClockBy(3600);
+        sessionService.findCurrentSession(user);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+    }
+
+    @Test
+    void resumingWithoutALiveExtensionLeavesTheSessionUnwatched() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        advanceClockBy(3600);
+        sessionService.findCurrentSession(user);   // detected without a heartbeat: the extension is gone
+        when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(session));
+
+        sessionService.resumeSession(SESSION_ID);
+        advanceClockBy(3600);
+        sessionService.findCurrentSession(user);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+        assertThat(session.activeSecondsAt(clockProvider.now())).isEqualTo(60 + 3600);
+    }
+
+    @Test
+    void sessionStartedWhileTheExtensionIsAliveIsWatchedFromItsFirstSecond() {
+        user.recordExtensionHeartbeat(clockProvider.now().minusSeconds(20));
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(3600);   // the browser was quit before the extension's first check-in for the session
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.of(session));
+
+        sessionService.findCurrentSession(user);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
+        assertThat(session.getActiveFocusSeconds()).isZero();
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
+    }
+
+    @Test
+    void anExtensionLastSeenLongAgoDoesNotWatchANewSession() {
+        user.recordExtensionHeartbeat(clockProvider.now().minusSeconds(3600));
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(3600);
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.of(session));
+
+        sessionService.findCurrentSession(user);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+    }
+
+    @Test
+    void anInterruptedSessionSupersededByANewerOneCannotBeResumed() {
+        FocusSession session = interruptAfterSixtySeconds();
+        FocusSession newer = createSession(10);
+        when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(newer));
+
+        assertThatThrownBy(() -> sessionService.resumeSession(SESSION_ID))
+                .isInstanceOf(InvalidSessionStateException.class);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.INTERRUPTED);
+    }
+
+    @Test
+    void abandoningAnInterruptedSessionKeepsBlockingReleased() {
+        FocusSession session = interruptAfterSixtySeconds();
+
+        sessionService.abandonSession(SESSION_ID);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+        verify(streakService, never()).isDailyTargetReached(any());
+    }
+
+    @Test
+    void abandoningAfterAHeartbeatGapDropsTheGap() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        advanceClockBy(3600);
+
+        sessionService.abandonSession(SESSION_ID);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
+    }
+
+    @Test
+    void currentSessionIsTheLatestSessionWhenItWasInterrupted() {
+        FocusSession session = interruptAfterSixtySeconds();
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.empty());
+        when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
+                .thenReturn(Optional.of(session));
+
+        assertThat(sessionService.findCurrentSession(user)).contains(session);
     }
 
     // --- streak contribution and blocking release ---
@@ -477,21 +659,6 @@ class SessionServiceTest {
     }
 
     @Test
-    void interruptionAfterAResumeKeepsWhatWasCreditedAndCreditsNothingMore() {
-        FocusSession session = createAndStartSession(10);
-        advanceClockBy(100);
-        pauseAndCaptureOpenPause(session);
-        advanceClockBy(20);
-        sessionService.resumeSession(SESSION_ID);
-        advanceClockBy(300);
-
-        sessionService.handleInterruption(SESSION_ID);
-
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(session, 100L, 20L);
-        verify(streakService, org.mockito.Mockito.times(1)).recordContribution(any(), anyLong(), anyLong());
-    }
-
-    @Test
     void resumeThatIsRejectedCreditsNothing() {
         createAndStartSession(10);
         advanceClockBy(100);
@@ -571,17 +738,6 @@ class SessionServiceTest {
         verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
         assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
-    }
-
-    @Test
-    void handleInterruptionReleasesBlockingTechnicallyAndRecordsNoContribution() {
-        FocusSession session = createAndStartSession(10);
-        advanceClockBy(600);
-
-        sessionService.handleInterruption(SESSION_ID);
-
-        assertThat(session.getBlockingState()).isEqualTo(BlockingState.TECHNICAL_RELEASE);
-        verify(streakService, never()).recordContribution(any(), anyLong(), anyLong());
     }
 
     // --- manual override ---
