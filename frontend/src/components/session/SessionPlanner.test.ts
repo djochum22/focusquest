@@ -1,30 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { createMemoryHistory, createRouter } from 'vue-router'
-import * as sessionApi from '../api/sessionApi'
-import { apiFailure, networkFailure } from '../test-utils/apiFailures'
-import { makeSession } from '../test-utils/sessions'
-import SessionCreateView from './SessionCreateView.vue'
+import * as sessionApi from '../../api/sessionApi'
+import { apiFailure, networkFailure } from '../../test-utils/apiFailures'
+import { makeSession } from '../../test-utils/sessions'
+import { useSessionStore } from '../../stores/sessionStore'
+import SessionPlanner from './SessionPlanner.vue'
 
-vi.mock('../api/sessionApi')
+vi.mock('../../api/sessionApi')
 
-async function mountView() {
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: ['dashboard', 'session-create', 'history', 'streaks', 'blocking-rules', 'settings', 'login'].map((name) => ({
-      path: name === 'dashboard' ? '/' : `/${name}`,
-      name,
-      component: { template: '<div />' },
-    })),
-  })
-  await router.push({ name: 'session-create' })
-  const wrapper = mount(SessionCreateView, { global: { plugins: [router] }, attachTo: document.body })
-  await flushPromises()
-  return { wrapper, router }
+function mountPlanner() {
+  return mount(SessionPlanner, { attachTo: document.body })
 }
 
-type Wrapper = Awaited<ReturnType<typeof mountView>>['wrapper']
+type Wrapper = ReturnType<typeof mountPlanner>
 
 const button = (wrapper: Wrapper, label: string) => wrapper.findAll('button').find((b) => b.text() === label)
 
@@ -38,34 +27,22 @@ const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, sta
 
 beforeEach(() => {
   vi.resetAllMocks()
-  vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
-  vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
   setActivePinia(createPinia())
   document.body.innerHTML = ''
 })
 
-describe('SessionCreateView', () => {
-  it('shows the form when nothing is running', async () => {
-    const { wrapper } = await mountView()
+describe('SessionPlanner', () => {
+  it('shows the form with no error to begin with', () => {
+    const wrapper = mountPlanner()
 
     expect(wrapper.find('form').exists()).toBe(true)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('does not offer a second session while one is in progress', async () => {
-    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
-
-    const { wrapper } = await mountView()
-
-    expect(wrapper.text()).toContain('A session is already in progress')
-    expect(wrapper.find('form').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
   it('creates the session from the form values and offers to start it', async () => {
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
-    const { wrapper } = await mountView()
+    const wrapper = mountPlanner()
 
     await createTaskSession(wrapper)
 
@@ -80,23 +57,23 @@ describe('SessionCreateView', () => {
     wrapper.unmount()
   })
 
-  it('starts the planned session and moves to the dashboard', async () => {
+  it('starts the planned session, which becomes the current one', async () => {
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
     vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
-    const { wrapper, router } = await mountView()
+    const wrapper = mountPlanner()
     await createTaskSession(wrapper)
 
     await button(wrapper, 'Start session')!.trigger('click')
     await flushPromises()
 
     expect(sessionApi.startSession).toHaveBeenCalledWith(7)
-    expect(router.currentRoute.value.name).toBe('dashboard')
+    expect(useSessionStore().current?.id).toBe(7)
     wrapper.unmount()
   })
 
   it('lets the user go back and change the details before starting', async () => {
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
-    const { wrapper } = await mountView()
+    const wrapper = mountPlanner()
     await createTaskSession(wrapper)
 
     await button(wrapper, 'Change details')!.trigger('click')
@@ -111,7 +88,7 @@ describe('SessionCreateView', () => {
       vi.mocked(sessionApi.createSession).mockRejectedValue(
         apiFailure(400, { code: 'VALIDATION_ERROR', message: 'plannedFocusMinutes must be at least 5' }),
       )
-      const { wrapper } = await mountView()
+      const wrapper = mountPlanner()
 
       await createTaskSession(wrapper)
 
@@ -124,7 +101,7 @@ describe('SessionCreateView', () => {
       vi.mocked(sessionApi.createSession)
         .mockRejectedValueOnce(networkFailure())
         .mockResolvedValueOnce(planned)
-      const { wrapper } = await mountView()
+      const wrapper = mountPlanner()
       await createTaskSession(wrapper)
       expect(wrapper.find('[role="alert"]').exists()).toBe(true)
 
@@ -136,29 +113,19 @@ describe('SessionCreateView', () => {
       wrapper.unmount()
     })
 
-    it('still shows the form, with the error, when the running session cannot be checked', async () => {
-      vi.mocked(sessionApi.fetchCurrentSession).mockRejectedValue(networkFailure())
-
-      const { wrapper } = await mountView()
-
-      expect(wrapper.get('[role="alert"]').text()).toMatch(/Cannot reach the FocusQuest server/)
-      expect(wrapper.find('form').exists()).toBe(true)
-      wrapper.unmount()
-    })
-
     it("shows the backend's refusal when a session is already running elsewhere", async () => {
       vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
       vi.mocked(sessionApi.startSession).mockRejectedValue(
         apiFailure(409, { code: 'CONFLICT', message: 'Another session is already in progress' }),
       )
-      const { wrapper, router } = await mountView()
+      vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+      const wrapper = mountPlanner()
       await createTaskSession(wrapper)
 
       await button(wrapper, 'Start session')!.trigger('click')
       await flushPromises()
 
       expect(wrapper.get('[role="alert"]').text()).toBe('Another session is already in progress')
-      expect(router.currentRoute.value.name).toBe('session-create')
       wrapper.unmount()
     })
   })

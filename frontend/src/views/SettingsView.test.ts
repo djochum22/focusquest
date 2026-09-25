@@ -20,7 +20,7 @@ vi.mock('../utils/download')
 async function mountView() {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ['dashboard', 'session-create', 'history', 'streaks', 'blocking-rules', 'settings', 'login', 'setup'].map((name) => ({
+    routes: ['dashboard', 'history', 'streaks', 'blocking-rules', 'settings', 'login', 'setup'].map((name) => ({
       path: name === 'dashboard' ? '/' : `/${name}`,
       name,
       component: { template: '<div />' },

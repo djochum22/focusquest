@@ -36,7 +36,7 @@ function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
 async function mountDashboard() {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ['dashboard', 'session-create', 'history', 'streaks', 'blocking-rules', 'settings', 'login'].map((name) => ({
+    routes: ['dashboard', 'history', 'streaks', 'blocking-rules', 'settings', 'login'].map((name) => ({
       path: name === 'dashboard' ? '/' : `/${name}`,
       name,
       component: { template: '<div />' },
@@ -61,12 +61,60 @@ beforeEach(() => {
 })
 
 describe('DashboardView', () => {
-  it('offers to start a session when none is running', async () => {
+  it('shows the new-session form when none is running', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
 
     const wrapper = await mountDashboard()
 
-    expect(wrapper.text()).toContain('No session in progress')
+    expect(wrapper.find('form').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('does not offer a second session while one is running', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.find('form').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('offers the form only after the ended session is dismissed', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    vi.mocked(sessionApi.abandonSession).mockResolvedValue(
+      makeSession({ status: 'ABANDONED', blockingState: 'RELEASED' }),
+    )
+    const wrapper = await mountDashboard()
+    await button(wrapper, 'Abandon')!.trigger('click')
+    await button(wrapper, 'Abandon session')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Session abandoned')
+    expect(wrapper.find('form').exists()).toBe(false)
+
+    await button(wrapper, 'Start another session')!.trigger('click')
+
+    expect(wrapper.text()).not.toContain('Session abandoned')
+    expect(wrapper.find('form').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('creates a session from the form, then starts it in place', async () => {
+    const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, startedAt: null })
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
+    const wrapper = await mountDashboard()
+    await wrapper.get('select').setValue('CODING')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('[aria-label="Session ready"]').exists()).toBe(true)
+
+    await button(wrapper, 'Start session')!.trigger('click')
+    await flushPromises()
+
+    expect(sessionApi.startSession).toHaveBeenCalledWith(7)
+    expect(button(wrapper, 'Pause')).toBeDefined()
+    expect(wrapper.find('form').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -187,7 +235,7 @@ describe('DashboardView', () => {
 
     const wrapper = await mountDashboard()
 
-    expect(wrapper.text()).toContain('No session in progress')
+    expect(wrapper.find('form').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -246,7 +294,7 @@ describe('DashboardView', () => {
     await flushPromises()
 
     expect(wrapper.get('[role="alert"]').text()).toContain('Invalid transition from status COMPLETED')
-    expect(wrapper.text()).toContain('No session in progress')
+    expect(wrapper.find('form').exists()).toBe(true)
     wrapper.unmount()
   })
 })

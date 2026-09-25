@@ -574,7 +574,6 @@ src/
     LoginView.vue
     SetupView.vue
     DashboardView.vue
-    SessionCreateView.vue
     HistoryView.vue
     StreaksView.vue
     BlockingRulesView.vue
@@ -638,7 +637,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - Creating a session only creates it as `PLANNED`; the user starts it with a separate action, which is when the timer and blocking begin. The backend cannot list `PLANNED` sessions, so the store remembers the planned one locally and it is lost on a page reload. A `PLANNED` session that is never started, or is replaced by editing the details, stays on the server and blocks nothing.
 - `SessionTimer` counts locally between server responses, from the moment each response arrived (`Date.now()` at receipt) rather than from the server's `generatedAt`, so browser clock skew cannot distort it. When the countdown reaches zero the dashboard re-fetches the session, and the Complete button is enabled from the server's `remainingFocusSeconds`, not the local countdown. The dashboard also re-fetches when the tab becomes visible again.
 - Abandon asks for confirmation. Manual override is offered only after a session has been abandoned with blocking still held: the session summary on the dashboard shows an "Override blocking" button, and the running and paused views have none. It opens `ManualOverrideDialog`, which warns that an XP penalty will be applied without stating an amount (the penalty is a server-side, configurable placeholder), and calls the override endpoint only after the user confirms. Because the abandoned session is otherwise lost on a reload, the store looks at the latest history entry when there is no running session and restores it if it is `ABANDONED` with blocking `ACTIVE`; that summary has no dismiss button while the override is available.
-- The session views are `DashboardView` (current session, or the summary of the one that just ended), `SessionCreateView` and `HistoryView`.
+- The session views are `DashboardView` and `HistoryView`. The dashboard shows the current session; the summary of the one that just ended; or, when neither applies, `SessionPlanner` (the new-session form, then a "ready" step that starts it in place). The form appears only after the summary is dismissed. `/sessions/new` redirects to the dashboard.
 
 **Streaks, progression and settings in the frontend**
 
@@ -1429,7 +1428,7 @@ Use Vitest for:
 - Override confirmation dialog.
 - Error states.
 
-Covered by the suite: `validation.test.ts` (all form rules), `LoginView`, `SetupView`, `SessionForm` and `SessionCreateView` (validation messages, submitted payloads, backend and network errors, double-submit protection, safe redirects), `apiError` (how any failure becomes a message), `tokenStorage` (corrupt or blocked storage), the common form and dialog components, and the active, paused and override views.
+Covered by the suite: `validation.test.ts` (all form rules), `LoginView`, `SetupView`, `SessionForm` and `SessionPlanner` (validation messages, submitted payloads, backend and network errors, double-submit protection, safe redirects), `apiError` (how any failure becomes a message), `tokenStorage` (corrupt or blocked storage), the common form and dialog components, and the active, paused and override views.
 
 **Extension tests**
 

@@ -28,11 +28,8 @@ const router = createRouter({
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
     },
-    {
-      path: '/sessions/new',
-      name: 'session-create',
-      component: () => import('../views/SessionCreateView.vue'),
-    },
+    // Starting a session now lives on the dashboard; keep old links working.
+    { path: '/sessions/new', redirect: { name: 'dashboard' } },
     {
       path: '/history',
       name: 'history',

@@ -9,6 +9,7 @@ import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import ActiveSessionView from '../components/session/ActiveSessionView.vue'
 import ManualOverrideDialog from '../components/session/ManualOverrideDialog.vue'
 import PausedSessionView from '../components/session/PausedSessionView.vue'
+import SessionPlanner from '../components/session/SessionPlanner.vue'
 import SessionSummary from '../components/session/SessionSummary.vue'
 import { useSessionStore } from '../stores/sessionStore'
 
@@ -109,13 +110,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         @abandon="confirming = 'abandon'"
       />
 
-      <section v-else-if="!session.lastEnded" class="card dashboard__empty">
-        <h2>No session in progress</h2>
-        <p class="muted">Pick a duration and start focusing.</p>
-        <div>
-          <RouterLink class="dashboard__cta" :to="{ name: 'session-create' }">Start a focus session</RouterLink>
-        </div>
-      </section>
+      <SessionPlanner v-else-if="!session.lastEnded" />
     </div>
 
     <ConfirmDialog
@@ -149,21 +144,5 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-.dashboard__empty h2,
-.dashboard__empty p {
-  margin: 0;
-}
-.dashboard__cta {
-  display: inline-block;
-  padding: 0.65rem 1.1rem;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 600;
-  text-decoration: none;
-}
-.dashboard__cta:hover {
-  background: var(--accent-hover);
 }
 </style>

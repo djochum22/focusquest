@@ -53,7 +53,7 @@ const blockingNote = computed(() => {
       </div>
     </dl>
     <div class="summary__actions">
-      <RouterLink :to="{ name: 'session-create' }" @click="emit('dismiss')">Start another session</RouterLink>
+      <AppButton :disabled="busy" @click="emit('dismiss')">Start another session</AppButton>
       <AppButton v-if="canOverride" variant="secondary" :disabled="busy" @click="emit('override')">
         Override blocking
       </AppButton>
