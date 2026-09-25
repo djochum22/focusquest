@@ -1,4 +1,4 @@
-// The toolbar badge is the extension's only always-visible signal. A red "!" means it cannot check
+// The toolbar badge is the extension's only always-visible signal. A chestnut-red "!" means it cannot check
 // on the session because it is not signed in, so the user finds out before a session starts rather
 // than from the blocked page. A grey "?" means the backend cannot be reached. Otherwise it is blank.
 
@@ -16,14 +16,14 @@ export function badgeFor(status: SyncStatus): Badge {
     case 'unauthorized':
       return {
         text: '!',
-        color: '#d64545',
+        color: '#a3321e',
         title: 'FocusQuest: not connected. Open FocusQuest settings to connect.',
       }
     case 'offline':
     case 'error':
-      return { text: '?', color: '#7a7f99', title: 'FocusQuest: cannot reach the backend' }
+      return { text: '?', color: '#6e736f', title: 'FocusQuest: cannot reach the backend' }
     default:
-      return { text: '', color: '#7a7f99', title: 'FocusQuest' }
+      return { text: '', color: '#6e736f', title: 'FocusQuest' }
   }
 }
 

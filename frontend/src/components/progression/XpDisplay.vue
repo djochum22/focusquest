@@ -66,7 +66,7 @@ const toNextLevel = computed(() => Math.max(0, props.nextLevelXp - props.xp))
 .stat__fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-secondary);
   transition: width 0.3s;
 }
 .stat__note {

@@ -1,22 +1,24 @@
 :root {
-  --bg: #ffffff;
-  --text: #1c1e2b;
-  --muted: #5d6178;
-  --accent: #5b5bd6;
+  /* Mallard palette, matching the web app: hen in daylight. */
+  --bg: #fffcf7;
+  --text: #3e2723;
+  --muted: #6b5242;
+  --accent: #006b3f;
   --accent-text: #ffffff;
-  --ok: #1f8a4c;
-  --bad: #c23a3a;
+  --ok: #2e6b2b;
+  --bad: #a3321e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1e2030;
-    --text: #eceef8;
-    --muted: #a3a7c0;
-    --accent: #8b8bf0;
-    --accent-text: #14151f;
-    --ok: #55c88a;
-    --bad: #f08a8a;
+    /* Drake at dusk. */
+    --bg: #1a201d;
+    --text: #f1f2ee;
+    --muted: #b6bbb5;
+    --accent: #4cc38a;
+    --accent-text: #0b1410;
+    --ok: #a5d67a;
+    --bad: #f5a48e;
   }
 }
 

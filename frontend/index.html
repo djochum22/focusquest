@@ -5,6 +5,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FocusQuest</title>
+    <script>
+      // Apply a saved light/night choice before first paint; see src/utils/theme.ts.
+      try {
+        var theme = localStorage.getItem('focusquest.theme')
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

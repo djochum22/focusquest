@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from './AppButton.vue'
+import ThemeToggle from './ThemeToggle.vue'
 import { useAuthStore } from '../../stores/authStore'
 import { useExtensionStore } from '../../stores/extensionStore'
 
@@ -29,6 +30,7 @@ async function onLogout() {
         <RouterLink :to="{ name: 'blocking-rules' }">Blocking</RouterLink>
         <RouterLink :to="{ name: 'settings' }">Settings</RouterLink>
       </nav>
+      <ThemeToggle />
       <span class="shell__user">{{ auth.user?.displayName }}</span>
       <AppButton variant="secondary" @click="onLogout">Sign out</AppButton>
     </header>

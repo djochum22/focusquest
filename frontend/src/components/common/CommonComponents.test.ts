@@ -4,6 +4,7 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import ErrorMessage from './ErrorMessage.vue'
 import FormField from './FormField.vue'
 import Modal from './Modal.vue'
+import ThemeToggle from './ThemeToggle.vue'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -187,5 +188,41 @@ describe('ConfirmDialog', () => {
       expect(button.attributes('disabled')).toBeDefined()
     }
     wrapper.unmount()
+  })
+})
+
+describe('ThemeToggle', () => {
+  afterEach(() => {
+    localStorage.clear()
+    delete document.documentElement.dataset.theme
+  })
+
+  it('switches between light and night mode and remembers the choice', async () => {
+    localStorage.setItem('focusquest.theme', 'light')
+    const wrapper = mount(ThemeToggle)
+    const toggle = wrapper.get('[role="switch"]')
+
+    expect(toggle.attributes('aria-checked')).toBe('false')
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-checked')).toBe('true')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('focusquest.theme')).toBe('dark')
+
+    await toggle.trigger('click')
+    expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('shows a sun in light mode and a moon in night mode, with an accessible name', async () => {
+    localStorage.setItem('focusquest.theme', 'light')
+    const wrapper = mount(ThemeToggle)
+    const toggle = wrapper.get('[role="switch"]')
+
+    expect(toggle.attributes('aria-label')).toBe('Night mode')
+    expect(wrapper.find('[data-testid="icon-sun"]').exists()).toBe(true)
+
+    await toggle.trigger('click')
+    expect(wrapper.find('[data-testid="icon-moon"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="icon-sun"]').exists()).toBe(false)
   })
 })
