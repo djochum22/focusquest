@@ -66,6 +66,7 @@ Everything at once (backend, frontend and extension, with type-checks):
 
 ```bash
 ./scripts/test-all.sh
+FOCUSQUEST_E2E=1 ./scripts/test-all.sh   # also the end-to-end suite
 ```
 
 Or each suite on its own:
@@ -78,6 +79,7 @@ Or each suite on its own:
 | Frontend | `cd frontend && npm test` | Vitest; `npm run test:watch` while developing |
 | Frontend type-check | `cd frontend && npx vue-tsc -b` | `npm run build` also runs it |
 | Extension | `cd extension && npm test` | Vitest; `npm run typecheck` for types |
+| End-to-end | `cd e2e && npm test` | Playwright: web app, backend and extension together in Chromium. Setup in [`e2e/README.md`](e2e/README.md) |
 
 Gradle skips a test task whose inputs have not changed. Add `--rerun-tasks` to force a full run.
 The HTML report of a backend run is `backend/build/reports/tests/test/index.html`.

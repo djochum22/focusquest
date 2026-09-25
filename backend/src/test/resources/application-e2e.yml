@@ -1,0 +1,27 @@
+# The backend as the Playwright end-to-end suite runs it (see e2e/README.md). Its own port and an
+# in-memory database, so it can run next to the development backend and never touches backend/data/.
+server:
+  port: 18080
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:e2e;DB_CLOSE_DELAY=-1
+  flyway:
+    # E2eSupport wipes the schema between tests.
+    clean-disabled: false
+
+focusquest:
+  cors:
+    # Replaces the whole list in application.yml, so the extension's origin must be repeated: its
+    # requests carry it, and the backend refuses a request from an origin not listed here.
+    allowed-origins:
+      - http://localhost:15173
+      - chrome-extension://heccfmagjlcnoaodleaclgbbdlpibphf
+  session:
+    # The suite moves the backend's clock forward by whole minutes between the extension's
+    # check-ins, which must not count as the browser going quiet. Interruption has its own tests.
+    heartbeat-timeout: 24h
+
+logging:
+  level:
+    com.example.focusquest: INFO

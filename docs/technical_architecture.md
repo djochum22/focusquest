@@ -832,9 +832,8 @@ The user never copies a token. Signing the extension in is a handoff from the we
 1. **Extension icons** (`assets/icons/`).
 2. **Token expiry.** The extension token never expires; reconnecting or disconnecting replaces or revokes it. Consider an expiry with silent renewal if the API ever leaves localhost.
 3. **Extension login form.** The extension only connects through the web app, so the web app must be running. A login form in the popup would remove that need.
-4. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
-5. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
-6. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
+4. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
+5. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
@@ -1456,16 +1455,17 @@ Test:
 
 **End-to-end tests**
 
-Later use Playwright to test:
+Built in `e2e/` (see `e2e/README.md`). Playwright drives Chromium with the extension loaded against the real backend, run from the test sources with the `e2e` profile: its own ports, an in-memory database, and two test-only hooks, one that resets the database and one that moves the clock forward. The suite covers:
 
-1. Login.
-2. Create a session.
-3. Start the session.
-4. Confirm extension enforcement.
-5. Pause and resume.
-6. Complete or abandon.
-7. Verify streak progress.
-8. Verify XP and penalty handling.
+1. First-launch setup, which signs the user in.
+2. The extension connecting itself after sign-in.
+3. Adding a block rule, then creating and starting a session.
+4. The extension blocking the site, while running and while paused, within 10 seconds (so without waiting for its 30-second check-in).
+5. Completing a session: blocking released and XP awarded.
+6. Abandoning below the daily target: blocking kept, then released by a manual override, with the penalty recorded in history.
+7. The rule lock: a rule cannot be deleted during a session, but one can be added.
+
+Not covered end to end yet: the login form, streak progress and interruption. The backend integration tests cover those.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 

@@ -219,5 +219,5 @@ work"). The ones that matter first:
    ever leaves localhost.
 3. **Login form in the popup**, so connecting does not need the web app to be running.
 
-Also open: an end-to-end test suite, aligning the backend with the extension on malformed
+Also open: aligning the backend with the extension on malformed
 percent-escapes, and non-ASCII path rules being enforced only by the navigation guard.

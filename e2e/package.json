@@ -1,0 +1,15 @@
+{
+  "name": "focusquest-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests: the web app, the real backend and the Chrome extension together",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2"
+  }
+}
