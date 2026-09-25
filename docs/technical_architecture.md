@@ -815,7 +815,7 @@ The extension foundation is built (see `extension/README.md` for how to load and
 - **Permissions.** `declarativeNetRequest`, `storage`, `alarms`, `webNavigation`, and `<all_urls>` host access. Chrome only allows a redirect rule on sites the extension can access. Only the blocked page is web-accessible, and the extension registers no content scripts, so the token is never reachable from website code.
 - **Only top-level page navigations are blocked.** Embedded frames and sub-resources are left alone.
 - **Fail closed.** If the backend is unreachable or rejects the token, the last known rules stay in force and the blocked page explains why. Only a successful synchronization that reports enforcement has ended removes blocking. This stops an expired token or a stopped backend being a way out of a session.
-- **Synchronization.** A heartbeat every 30 seconds (the Chrome alarm minimum), on service worker start, browser start, install, and whenever the stored token changes. The full state is re-fetched only when `stateVersion` changes.
+- **Synchronization.** A heartbeat every 30 seconds (the Chrome alarm minimum), on service worker start, browser start, install, and whenever the stored token changes. The web app also sends `focusquest.sync` after every successful session action (start, pause, resume, complete, abandon, override) and rule change, so blocking follows within a second or two instead of at the next alarm. The full state is re-fetched only when `stateVersion` changes.
 
 **Extension sign-in**
 
@@ -823,19 +823,18 @@ The user never copies a token. Signing the extension in is a handoff from the we
 
 - **A separate credential, not the web app's JWT.** `POST /api/auth/extension-token` (JWT required) issues an opaque random token prefixed `fqx_`. The backend stores only its SHA-256 hash, in `extension_credentials` (one row per user; issuing again replaces the old token, and `DELETE /api/auth/extension-token` revokes it). Because it is not a JWT it survives backend restarts even without `FOCUSQUEST_JWT_SECRET`, and it does not expire after 60 minutes, so a session of any length stays visible to the extension.
 - **Scoped.** `JwtAuthenticationFilter` authenticates an `fqx_` token with `ROLE_EXTENSION` only. `SecurityConfig` lets that role reach `/api/extension/**` and nothing else; every other route needs `ROLE_USER`. A leaked extension token can read the blocking rules and current session but cannot start sessions, read history, export or delete data, or mint tokens. Deleting all data removes it too.
-- **Handoff.** The extension's manifest lists the web app's origin under `externally_connectable`, and pins its id with a `key` so the id is the same on every machine (`heccfmagjlcnoaodleaclgbbdlpibphf`; the web app can override it with `VITE_EXTENSION_ID`). The web app sends `focusquest.status`, `focusquest.connect` and `focusquest.disconnect` messages with `chrome.runtime.sendMessage`; the service worker (`externalMessages.ts`) checks the sender's origin again, accepts only `fqx_` tokens, stores the token in `chrome.storage.local`, runs a sync and replies with the result. The web app never stores the extension token.
+- **Handoff.** The extension's manifest lists the web app's origin under `externally_connectable`, and pins its id with a `key` so the id is the same on every machine (`heccfmagjlcnoaodleaclgbbdlpibphf`; the web app can override it with `VITE_EXTENSION_ID`). The web app sends `focusquest.status`, `focusquest.connect`, `focusquest.disconnect` and `focusquest.sync` messages with `chrome.runtime.sendMessage`; the service worker (`externalMessages.ts`) checks the sender's origin again, accepts only `fqx_` tokens, stores the token in `chrome.storage.local`, runs a sync and replies with the result. The web app never stores the extension token.
 - **Automatic.** After sign-in, `AppShell` asks the extension for its state and connects it if it is installed but not connected (once per page load, and never after the user disconnected it on purpose). Settings has Connect, Reconnect and Disconnect buttons.
 - **Visible state.** A toolbar badge shows a red `!` when the extension is not connected and a grey `?` when it cannot reach the backend; the popup explains and links to Settings.
 
 **Extension follow-up work**
 
-1. **Faster synchronization.** Changes reach the browser within about 30 seconds. Have the Vue app notify the extension when a session starts, pauses, resumes, completes, abandons or is overridden (the `externally_connectable` channel from the sign-in handoff can carry this), as the synchronization rules above call for.
-2. **Extension icons** (`assets/icons/`).
-3. **Token expiry.** The extension token never expires; reconnecting or disconnecting replaces or revokes it. Consider an expiry with silent renewal if the API ever leaves localhost.
-4. **Extension login form.** The extension only connects through the web app, so the web app must be running. A login form in the popup would remove that need.
-5. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
-6. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
-8. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
+1. **Extension icons** (`assets/icons/`).
+2. **Token expiry.** The extension token never expires; reconnecting or disconnecting replaces or revokes it. Consider an expiry with silent renewal if the API ever leaves localhost.
+3. **Extension login form.** The extension only connects through the web app, so the web app must be running. A login form in the popup would remove that need.
+4. **End-to-end tests.** The blocking behavior was verified in real Chrome with a scripted, throwaway test against a mock backend. Turn that into the Playwright end-to-end suite planned in section 14, against the real backend.
+5. **Backend parity.** The backend's `TargetUrl` treats a URL with a malformed percent-escape (for example `%zz`) as "not a URL", so it is never blocked. The extension blocks it instead. Align the backend reference implementation with the extension.
+6. **Non-ASCII path rules** (for example `/café`) are enforced only by the navigation guard, so a page may briefly begin to load before it is redirected. Add a percent-encoded variant of the rule to the declarativeNetRequest regex if this matters.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 

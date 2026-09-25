@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { disconnectExtension, getExtensionState, sendTokenToExtension } from './extensionBridge'
+import { disconnectExtension, getExtensionState, notifyExtensionOfChange, sendTokenToExtension } from './extensionBridge'
 
 type Responder = (message: unknown, callback: (response: unknown) => void) => void
 
@@ -65,6 +65,17 @@ describe('extensionBridge', () => {
 
     expect(await sendTokenToExtension('fqx_abc')).toEqual({ hasToken: true, status: 'unauthorized' })
     expect(runtime.sendMessage.mock.calls[0]![1]).toEqual({ type: 'focusquest.connect', token: 'fqx_abc' })
+  })
+
+  it('asks the extension to check in after a change, without waiting for an answer', () => {
+    const runtime = installChrome(() => {})   // never answers
+
+    expect(notifyExtensionOfChange()).toBeUndefined()
+    expect(runtime.sendMessage.mock.calls[0]![1]).toEqual({ type: 'focusquest.sync' })
+  })
+
+  it('notifies quietly when there is no extension to tell', () => {
+    expect(() => notifyExtensionOfChange()).not.toThrow()
   })
 
   it('asks the extension to disconnect', async () => {

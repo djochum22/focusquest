@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import * as sessionApi from '../api/sessionApi'
+import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import type { FocusSession } from '../types/session'
 import type { LoginResponse } from '../types/auth'
 import { useAuthStore } from './authStore'
@@ -9,6 +10,7 @@ import { useSessionStore } from './sessionStore'
 
 vi.mock('../api/sessionApi')
 vi.mock('../api/authApi')
+vi.mock('../utils/extensionBridge')
 
 function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
   return {
@@ -189,6 +191,27 @@ describe('sessionStore', () => {
     expect(sessionApi[apiFn]).toHaveBeenCalledWith(1)
     expect(store.current).toBeNull()
     expect(store.lastEnded?.status).toBe(ended.status)
+  })
+
+  it('tells the extension after every session change so blocking follows at once', async () => {
+    vi.mocked(sessionApi.pauseSession).mockResolvedValue(makeSession({ status: 'PAUSED' }))
+    vi.mocked(sessionApi.abandonSession).mockResolvedValue(makeSession({ status: 'ABANDONED' }))
+    const store = useSessionStore()
+
+    await store.pause(1)
+    await store.abandon(1)
+
+    expect(notifyExtensionOfChange).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not tell the extension when a change is refused', async () => {
+    vi.mocked(sessionApi.completeSession).mockRejectedValue(new Error('INVALID_SESSION_STATE'))
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    const store = useSessionStore()
+
+    await expect(store.complete(1)).rejects.toThrow()
+
+    expect(notifyExtensionOfChange).not.toHaveBeenCalled()
   })
 
   it('re-fetches the current session and rethrows when an action fails', async () => {

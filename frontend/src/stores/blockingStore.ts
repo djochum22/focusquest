@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import * as blockingApi from '../api/blockingApi'
 import type { RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
+import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { useAuthStore } from './authStore'
 
 const api = {
@@ -44,12 +45,16 @@ export const useBlockingStore = defineStore('blocking', () => {
     loaded.value = true
   }
 
-  /** Runs one change. If it fails the local list may be out of date, so look again before passing the error on. */
+  /**
+   * Runs one change and tells the extension, so a rule added mid-session applies at once. If it
+   * fails the local list may be out of date, so look again before passing the error on.
+   */
   async function mutate(kind: RuleKind, change: () => Promise<void>): Promise<boolean> {
     if (saving.value) return false
     saving.value = true
     try {
       await change()
+      notifyExtensionOfChange()
       return true
     } catch (error) {
       await fetchList(kind).catch(() => {})

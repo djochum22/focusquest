@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 import * as authApi from '../api/authApi'
 import * as blockingApi from '../api/blockingApi'
 import { apiFailure } from '../test-utils/apiFailures'
+import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { makeRule } from '../test-utils/rules'
 import type { LoginResponse } from '../types/auth'
 import { useAuthStore } from './authStore'
@@ -11,6 +12,7 @@ import { useBlockingStore } from './blockingStore'
 
 vi.mock('../api/blockingApi')
 vi.mock('../api/authApi')
+vi.mock('../utils/extensionBridge')
 
 const signedIn: LoginResponse = {
   token: 't',
@@ -52,6 +54,21 @@ describe('blockingStore', () => {
     expect(store.blocked).toEqual([youtube])
     expect(store.allowlist).toEqual([docs])
     expect(blockingApi.addBlockedTarget).toHaveBeenCalledWith({ targetValue: 'youtube.com' })
+  })
+
+  it('tells the extension about a rule change so it applies at once, but not about a refused one', async () => {
+    vi.mocked(blockingApi.addBlockedTarget).mockResolvedValueOnce(youtube)
+    vi.mocked(blockingApi.getBlockedTargets).mockResolvedValue([youtube])
+    const store = useBlockingStore()
+
+    await store.addRule('block', { targetValue: 'youtube.com' })
+    expect(notifyExtensionOfChange).toHaveBeenCalledOnce()
+
+    vi.mocked(blockingApi.addBlockedTarget).mockRejectedValueOnce(
+      apiFailure(409, { code: 'DUPLICATE_RULE', message: 'A rule for youtube.com already exists' }),
+    )
+    await expect(store.addRule('block', { targetValue: 'youtube.com' })).rejects.toBeDefined()
+    expect(notifyExtensionOfChange).toHaveBeenCalledOnce()
   })
 
   it('replaces an edited rule in place', async () => {

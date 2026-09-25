@@ -143,7 +143,8 @@ Use the web app (`npm run dev` in `frontend/`, http://localhost:5173) to create 
    remove one with `DELETE /api/blocked-targets/{id}`. Rules cannot be loosened while a session is
    being enforced.
 2. **Start a session** in the web app (create one, then start it). Nothing is blocked until it starts.
-3. **Wait up to 30 seconds** for the next sync, or trigger it right away with the reload icon on the
+3. **Starting it in the web app syncs the extension at once.** A change made straight against the API
+   instead waits for the next 30-second sync; trigger it right away with the reload icon on the
    extension's card (the worker syncs whenever it starts). Then confirm the rules arrived, in the worker console:
 
    ```js
@@ -177,7 +178,7 @@ Use the web app (`npm run dev` in `frontend/`, http://localhost:5173) to create 
    guard can catch it; you should land on the blocked page.
 
 7. **Pause and resume** the session. Sites stay blocked while paused (the blocked page says so).
-8. **Complete** the session (or abandon it and meet the daily target). Within 30 seconds the rules
+8. **Complete** the session (or abandon it and meet the daily target). Within a second or two the rules
    disappear (`getDynamicRules()` returns `[]`) and the sites load again. An **abandoned** session
    keeps blocking until the daily target is reached or you use the manual override in the web app.
 9. **Fail-closed check.** During an active session, stop the backend. Sites must stay blocked, and a
@@ -213,12 +214,10 @@ reachable from website code.
 The full, numbered list lives in `docs/technical_architecture.md`, section 9 ("Extension follow-up
 work"). The ones that matter first:
 
-1. **Faster sync.** Changes reach the browser within about 30 seconds. The web app could tell the
-   extension about session changes over the same `externally_connectable` channel.
-2. **Extension icons.**
-3. **Token expiry.** The extension token never expires; consider expiry with silent renewal if the API
+1. **Extension icons.**
+2. **Token expiry.** The extension token never expires; consider expiry with silent renewal if the API
    ever leaves localhost.
-4. **Login form in the popup**, so connecting does not need the web app to be running.
+3. **Login form in the popup**, so connecting does not need the web app to be running.
 
 Also open: an end-to-end test suite, aligning the backend with the extension on malformed
 percent-escapes, and non-ASCII path rules being enforced only by the navigation guard.

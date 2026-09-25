@@ -85,6 +85,30 @@ describe('handleExternalMessage', () => {
     expect(response).toMatchObject({ ok: true, hasToken: false })
   })
 
+  it('checks in with the backend at once when the web app reports a change', async () => {
+    const { deps } = setup({ token: 'fqx_abc', status: 'ok' })
+    const response = await handleExternalMessage({ type: 'focusquest.sync' }, ORIGIN, deps)
+
+    expect(deps.sync).toHaveBeenCalledWith('changed-in-web-app')
+    expect(response).toEqual({ ok: true, hasToken: true, status: 'ok' })
+  })
+
+  it('does not sync on request when it has no token', async () => {
+    const { deps } = setup()
+    const response = await handleExternalMessage({ type: 'focusquest.sync' }, ORIGIN, deps)
+
+    expect(deps.sync).not.toHaveBeenCalled()
+    expect(response).toEqual({ ok: true, hasToken: false, status: 'signed-out' })
+  })
+
+  it('refuses a sync request from any other origin', async () => {
+    const { deps } = setup({ token: 'fqx_abc' })
+    const response = await handleExternalMessage({ type: 'focusquest.sync' }, 'https://evil.example', deps)
+
+    expect(response).toEqual({ ok: false, error: 'Not allowed' })
+    expect(deps.sync).not.toHaveBeenCalled()
+  })
+
   it('ignores messages it does not understand', async () => {
     const { deps } = setup()
     for (const message of [null, 'connect', 7, {}, { type: 'other' }]) {

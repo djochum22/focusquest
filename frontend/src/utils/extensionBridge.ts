@@ -79,3 +79,12 @@ export function sendTokenToExtension(token: string): Promise<ExtensionState | nu
 export function disconnectExtension(): Promise<ExtensionState | null> {
   return request({ type: 'focusquest.disconnect' })
 }
+
+/**
+ * Tells the extension that a session or the blocking rules just changed, so it checks in with the
+ * backend now instead of at its next 30-second alarm. Fire and forget: an extension that is missing,
+ * signed out or slow to answer is not the caller's problem, and the alarm catches up regardless.
+ */
+export function notifyExtensionOfChange(): void {
+  void send({ type: 'focusquest.sync' })
+}

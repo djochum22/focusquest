@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import * as sessionApi from '../api/sessionApi'
 import type { CreateSessionRequest, FocusSession } from '../types/session'
+import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { isOverridable } from '../utils/sessionState'
 import { useAuthStore } from './authStore'
 
@@ -106,15 +107,16 @@ export const useSessionStore = defineStore('session', () => {
   const override = (id: number) => run(() => sessionApi.overrideSession(id))
 
   /**
-   * Runs one state-changing call. When it fails, the local copy may be out of date (the session
-   * could have been changed from another tab or ended elsewhere), so the current session is
-   * re-fetched before the error is passed on.
+   * Runs one state-changing call and tells the extension, so blocking follows at once. When it
+   * fails, the local copy may be out of date (the session could have been changed from another tab
+   * or ended elsewhere), so the current session is re-fetched before the error is passed on.
    */
   async function run(call: () => Promise<FocusSession>) {
     if (busy.value) return
     busy.value = true
     try {
       applyResult(await call())
+      notifyExtensionOfChange()
     } catch (error) {
       await fetchCurrent().catch(() => {})
       throw error
