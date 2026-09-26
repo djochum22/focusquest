@@ -136,13 +136,15 @@ class OffTaskApiIntegrationTest extends ApiIntegrationTest {
         getAs(token, SESSIONS + id + "/off-task")
                 .andExpect(jsonPath("$.state").value("WARNED"))
                 .andExpect(jsonPath("$.current.warnedAt").value(at(80)))
-                .andExpect(jsonPath("$.current.deductionStartedAt").doesNotExist());
+                .andExpect(jsonPath("$.current.deductionStartedAt").doesNotExist())
+                .andExpect(jsonPath("$.deductionStartsAt").value(at(140)));
 
         advanceToSecond(150);
         observe(id, "p1", OffTaskSignal.PHONE, 60, 150);
         getAs(token, SESSIONS + id + "/off-task")
                 .andExpect(jsonPath("$.state").value("DEDUCTING"))
                 .andExpect(jsonPath("$.current.deductionStartedAt").value(at(140)))
+                .andExpect(jsonPath("$.deductionStartsAt").value(at(140)))
                 .andExpect(jsonPath("$.offTaskSeconds").value(10));
 
         // The companion program stops reporting: nothing unverified is subtracted, the episode ends, and

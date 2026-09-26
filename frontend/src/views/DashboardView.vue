@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getErrorMessage } from '../api/apiError'
 import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
@@ -12,9 +12,27 @@ import ManualOverrideDialog from '../components/session/ManualOverrideDialog.vue
 import PausedSessionView from '../components/session/PausedSessionView.vue'
 import SessionPlanner from '../components/session/SessionPlanner.vue'
 import SessionSummary from '../components/session/SessionSummary.vue'
+import { useOffTaskStore } from '../stores/offTaskStore'
 import { useSessionStore } from '../stores/sessionStore'
 
 const session = useSessionStore()
+const offTask = useOffTaskStore()
+
+// Poll the camera's view only while a camera-verified session is running.
+watch(
+  () => (session.current?.status === 'ACTIVE' && session.current.cameraVerification ? session.current.id : null),
+  (id) => (id === null ? offTask.stop() : offTask.watchSession(id)),
+  { immediate: true },
+)
+onBeforeUnmount(() => offTask.stop())
+
+/** Disputes an off-task episode, then refreshes the session, whose off-task time may have changed. */
+async function dispute(episodeStartedAt: string) {
+  await perform(async () => {
+    await offTask.dispute(episodeStartedAt)
+    await session.fetchCurrent()
+  })
+}
 
 const loadError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
@@ -97,6 +115,9 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :session="session.current"
         :received-at="session.receivedAt"
         :busy="session.busy"
+        :off-task="offTask.status"
+        :off-task-received-at="offTask.receivedAt"
+        @dispute="dispute"
         @pause="perform(() => session.pause(session.current!.id))"
         @complete="perform(() => session.complete(session.current!.id))"
         @abandon="confirming = 'abandon'"

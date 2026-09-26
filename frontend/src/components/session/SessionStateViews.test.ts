@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { makeOffTaskStatus } from '../../test-utils/offTask'
 import { makeSession } from '../../test-utils/sessions'
+import type { OffTaskStatus } from '../../types/offTask'
 import ActiveSessionView from './ActiveSessionView.vue'
 import InterruptedSessionView from './InterruptedSessionView.vue'
 import ManualOverrideDialog from './ManualOverrideDialog.vue'
@@ -177,6 +179,70 @@ describe('ManualOverrideDialog', () => {
     for (const button of wrapper.findAll('button')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
+    wrapper.unmount()
+  })
+})
+
+describe('ActiveSessionView with the camera', () => {
+  const clock = (wrapper: ReturnType<typeof mount>) => wrapper.get('[role="timer"]').text()
+
+  function mountWithOffTask(offTaskSeconds: number, state: OffTaskStatus['state']) {
+    const receivedAt = Date.now()
+    return mount(ActiveSessionView, {
+      props: {
+        session: makeSession({ plannedFocusMinutes: 25, activeFocusSeconds: 600, cameraVerification: true }),
+        receivedAt,
+        busy: false,
+        offTask: makeOffTaskStatus({ state, offTaskSeconds }),
+        offTaskReceivedAt: receivedAt,
+      },
+    })
+  }
+
+  it('counts net time: active time minus off-task time', () => {
+    const wrapper = mountWithOffTask(100, 'ON_TASK')
+
+    expect(clock(wrapper)).toBe('16:40')                        // 25 min - (600 s - 100 s)
+    expect(wrapper.get('[data-testid="off-task-total"]').text()).toContain('Off task so far: 1 min')
+    wrapper.unmount()
+  })
+
+  it('holds the timer still while off-task time is being subtracted', () => {
+    const wrapper = mountWithOffTask(100, 'DEDUCTING')
+
+    expect(wrapper.find('.timer--paused').exists()).toBe(true)
+    expect(wrapper.get('[role="alert"]').text()).toContain("this time isn't counting")
+    wrapper.unmount()
+  })
+
+  it('uses the session alone until the camera has been asked', () => {
+    const wrapper = mount(ActiveSessionView, {
+      props: { session: makeSession({ activeFocusSeconds: 600, offTaskSeconds: 60 }), receivedAt: Date.now(), busy: false },
+    })
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="off-task-total"]').text()).toContain('Off task so far: 1 min')
+    wrapper.unmount()
+  })
+
+  it('passes a dispute up', async () => {
+    const receivedAt = Date.now()
+    const wrapper = mount(ActiveSessionView, {
+      props: {
+        session: makeSession({ cameraVerification: true }),
+        receivedAt,
+        busy: false,
+        offTask: makeOffTaskStatus({
+          state: 'WARNED',
+          current: { startedAt: 'T0', endedAt: 'T1', warnedAt: 'T1', deductionStartedAt: null, deductedSeconds: 0, disputed: false },
+        }),
+        offTaskReceivedAt: receivedAt,
+      },
+    })
+
+    await labelled(wrapper, 'Not accurate?')!.trigger('click')
+
+    expect(wrapper.emitted('dispute')).toEqual([['T0']])
     wrapper.unmount()
   })
 })

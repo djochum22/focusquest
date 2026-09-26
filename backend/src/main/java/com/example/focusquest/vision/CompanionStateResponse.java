@@ -6,7 +6,8 @@ import java.time.Instant;
  * What the companion program needs after each report. {@code cameraOn} says whether it should be
  * watching: a camera-verified session of the user's is running and camera verification is on. Only
  * then are {@code profile} (what to look for) and the off-task {@code state} set, with the running
- * episode's {@code warnedAt} and {@code deductionStartsAt} so it can show the warning.
+ * episode's {@code warnedAt} and {@code deductionStartsAt} (once warned: when subtraction starts if the
+ * user stays off task) so it can show the warning and count down.
  */
 public record CompanionStateResponse(
         boolean cameraOn,

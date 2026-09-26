@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import * as offTaskApi from '../api/offTaskApi'
 import * as sessionApi from '../api/sessionApi'
+import { useOffTaskStore } from '../stores/offTaskStore'
+import { makeOffTaskStatus } from '../test-utils/offTask'
 import type { FocusSession } from '../types/session'
 import DashboardView from './DashboardView.vue'
 
 vi.mock('../api/sessionApi')
+vi.mock('../api/offTaskApi')
 
 function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
   return {
@@ -329,5 +333,45 @@ describe('DashboardView', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('Invalid transition from status COMPLETED')
     expect(wrapper.find('form').exists()).toBe(true)
     wrapper.unmount()
+  })
+
+  describe('with the camera', () => {
+    it('asks the camera about a running camera-verified session and shows its warning', async () => {
+      vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ cameraVerification: true }))
+      vi.mocked(offTaskApi.fetchOffTaskStatus).mockResolvedValue(makeOffTaskStatus({ state: 'NOT_CONNECTED' }))
+
+      const wrapper = await mountDashboard()
+
+      expect(offTaskApi.fetchOffTaskStatus).toHaveBeenCalledWith(1)
+      expect(wrapper.text()).toContain("the companion program isn't connected")
+      wrapper.unmount()
+      expect(useOffTaskStore().watchedId).toBeNull()
+    })
+
+    it('does not ask about a session the camera does not check', async () => {
+      vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+
+      const wrapper = await mountDashboard()
+
+      expect(offTaskApi.fetchOffTaskStatus).not.toHaveBeenCalled()
+      wrapper.unmount()
+    })
+
+    it('disputes an episode and fetches the session again', async () => {
+      const current = { startedAt: '2026-01-15T09:01:00Z', endedAt: '2026-01-15T09:04:00Z',
+        warnedAt: '2026-01-15T09:01:20Z', deductionStartedAt: '2026-01-15T09:02:20Z', deductedSeconds: 100, disputed: false }
+      vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ cameraVerification: true }))
+      vi.mocked(offTaskApi.fetchOffTaskStatus).mockResolvedValue(makeOffTaskStatus({ state: 'DEDUCTING', current }))
+      vi.mocked(offTaskApi.disputeOffTask).mockResolvedValue(makeOffTaskStatus({ state: 'ON_TASK' }))
+      const wrapper = await mountDashboard()
+
+      await wrapper.findAll('button').find((b) => b.text() === 'Not accurate?')!.trigger('click')
+      await flushPromises()
+
+      expect(offTaskApi.disputeOffTask).toHaveBeenCalledWith(1, '2026-01-15T09:01:00Z')
+      expect(sessionApi.fetchCurrentSession).toHaveBeenCalledTimes(2)
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
   })
 })

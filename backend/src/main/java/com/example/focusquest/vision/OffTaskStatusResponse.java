@@ -5,8 +5,9 @@ import java.util.List;
 
 /**
  * A camera-verified session's off-task picture: whether the companion program is reporting, where it
- * stands now ({@code state}, with the episode
- * going on, if any, in {@code current}), the off-task time so far (settled plus provisional), and
+ * stands now ({@code state}, with the episode going on, if any, in {@code current}, and once the user
+ * is warned, when subtraction starts or started, {@code deductionStartsAt}), the off-task time so far
+ * (settled plus provisional), and
  * every episode, oldest first. {@code deductedSeconds} counts only active time: pauses are never
  * subtracted.
  */
@@ -16,6 +17,7 @@ public record OffTaskStatusResponse(
         boolean companionConnected,
         long offTaskSeconds,
         EpisodeResponse current,
+        Instant deductionStartsAt,
         List<EpisodeResponse> episodes
 ) {
 

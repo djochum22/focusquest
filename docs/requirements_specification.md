@@ -1196,7 +1196,7 @@ The timings and the minimum confidence are configuration, to be tuned once real 
 
 ### Off-task time
 
-- **Warning first.** When off-task signals last long enough, the user is warned at once, by a notification from the companion program and a banner in the web app.
+- **Warning first.** When off-task signals last long enough, the user is warned at once, by a notification from the companion program and a banner in the web app. The web app checks every 5 seconds while a camera-verified session runs. The banner counts down to the end of the grace period and offers to dispute the episode.
 - **Then subtraction.** If they are still off task when the grace period ends, the time from then until they are back on task is subtracted. The time between the warning and the end of the grace period is never subtracted.
 - **What is affected.** Subtracted time is taken off active focus time. It therefore counts against completing the session (which needs active focus time minus off-task time to reach the planned duration) and against qualifying time for streaks. Paused time is never subtracted.
 - **Disputes.** Until the session is completed, the user can mark an off-task episode as inaccurate. That restores the time and records the label, so the detector's accuracy can be measured.

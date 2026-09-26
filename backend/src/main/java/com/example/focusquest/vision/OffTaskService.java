@@ -198,7 +198,8 @@ public class OffTaskService implements OffTaskAccounting {
     public OffTaskStatusResponse status(FocusSession session, Instant now, Optional<TimeRange> uncreditedStretch,
                                         long offTaskSeconds) {
         if (!session.isCameraVerification()) {
-            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, false, 0, null, List.of());
+            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, false, 0, null, null,
+                    List.of());
         }
         Set<Instant> disputed = disputedEpisodeStarts(session);
         Map<Instant, List<OffTaskInterval>> settledByEpisode = new HashMap<>();
@@ -243,7 +244,12 @@ public class OffTaskService implements OffTaskAccounting {
                 }
             }
         }
-        return new OffTaskStatusResponse(session.getId(), state, connected, offTaskSeconds, current, responses);
+        // While warned, when subtraction will start if the user stays off task: the warning plus the grace.
+        Instant deductionStartsAt = current == null || current.warnedAt() == null ? null
+                : current.deductionStartedAt() != null ? current.deductionStartedAt()
+                : current.warnedAt().plus(cameraProfiles.forCategory(session.getTaskCategory()).grace());
+        return new OffTaskStatusResponse(session.getId(), state, connected, offTaskSeconds, current,
+                deductionStartsAt, responses);
     }
 
     private List<OffTaskCalculator.Episode> episodes(FocusSession session, Instant horizon) {

@@ -63,6 +63,6 @@ public class CompanionService {
         OffTaskStatusResponse.EpisodeResponse current = status.current();
         return new CompanionStateResponse(true, session.getId(),
                 CameraProfileResponse.from(cameraProfiles.forCategory(session.getTaskCategory())), status.state(),
-                current == null ? null : current.warnedAt(), current == null ? null : current.deductionStartedAt());
+                current == null ? null : current.warnedAt(), status.deductionStartsAt());
     }
 }

@@ -114,7 +114,7 @@ class CompanionApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("WARNED"))
                 .andExpect(jsonPath("$.warnedAt").value(clockProvider.now().minusSeconds(10).toString()))
-                .andExpect(jsonPath("$.deductionStartsAt").doesNotExist());
+                .andExpect(jsonPath("$.deductionStartsAt").value(clockProvider.now().plusSeconds(50).toString()));
     }
 
     @Test
