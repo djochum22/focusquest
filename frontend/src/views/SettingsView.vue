@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getErrorMessage } from '../api/apiError'
 import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
+import CameraVerificationCard from '../components/settings/CameraVerificationCard.vue'
 import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
 import FormField from '../components/common/FormField.vue'
@@ -244,6 +245,8 @@ async function onConfirmDelete() {
           Disconnecting during a session leaves blocking on until you connect again.
         </p>
       </section>
+
+      <CameraVerificationCard />
 
       <section class="card" aria-labelledby="export-heading">
         <h2 id="export-heading" class="settings__heading">Export your data</h2>

@@ -776,3 +776,29 @@ so that my session remains enforced.
 - Given the extension reconnects,  
   when the session is still active,  
   then the extension continues blocking the configured targets.
+
+## **Epic 16: Camera verification**
+
+## **US-150: Consent to camera verification**
+
+As a user,  
+I want to turn camera verification on only after reading exactly what it does and keeps,  
+so that I stay in control of my camera and my data.
+
+**Acceptance criteria:**
+
+- Given camera verification has never been turned on,  
+  when the settings page is opened,  
+  then it is off and the consent text is shown.
+- Given the user has not ticked "I have read this and agree",  
+  when they look at the settings,  
+  then camera verification cannot be turned on.
+- Given the user agrees and turns it on,  
+  when the settings are saved,  
+  then the consent and its time are recorded, and new sessions use the camera by default unless the user changes that.
+- Given camera verification is on,  
+  when the user turns it off,  
+  then consent is withdrawn and must be given again to turn it back on.
+- Given the consent text has changed since the user agreed,  
+  when the settings are opened,  
+  then camera verification is off until the user agrees to the new text.

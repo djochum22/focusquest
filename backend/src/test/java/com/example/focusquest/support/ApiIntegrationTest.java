@@ -17,6 +17,7 @@ import com.example.focusquest.streak.StreakContributionRepository;
 import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.UserRepository;
+import com.example.focusquest.vision.CameraSettingsRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Clock;
 import java.time.Instant;
@@ -78,6 +79,8 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private AllowlistTargetRepository allowlistTargetRepository;
     @Autowired
+    private CameraSettingsRepository cameraSettingsRepository;
+    @Autowired
     private ExtensionCredentialRepository extensionCredentialRepository;
     @Autowired
     protected UserRepository userRepository;
@@ -98,6 +101,7 @@ public abstract class ApiIntegrationTest {
         gemTransactionRepository.deleteAllInBatch();
         blockedTargetRepository.deleteAllInBatch();
         allowlistTargetRepository.deleteAllInBatch();
+        cameraSettingsRepository.deleteAllInBatch();
         extensionCredentialRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 

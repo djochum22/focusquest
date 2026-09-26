@@ -16,6 +16,7 @@ import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
+import com.example.focusquest.vision.CameraSettingsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +28,12 @@ public class ExportService {
 
     /**
      * 2.0 made the export a complete backup that can be restored; older exports cannot be. 2.1 added
-     * streak freezes; a 2.0 backup restores with none.
+     * streak freezes and 2.2 camera settings; an older backup restores without them.
      */
-    static final String SCHEMA_VERSION = "2.1";
+    static final String SCHEMA_VERSION = "2.2";
 
     /** The formats {@link RestoreService} accepts. */
-    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", SCHEMA_VERSION);
+    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", "2.1", SCHEMA_VERSION);
 
     private final FocusSessionRepository focusSessionRepository;
     private final SessionPauseRepository sessionPauseRepository;
@@ -44,6 +45,7 @@ public class ExportService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final CameraSettingsRepository cameraSettingsRepository;
     private final ClockProvider clockProvider;
 
     public ExportService(FocusSessionRepository focusSessionRepository,
@@ -56,6 +58,7 @@ public class ExportService {
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
+                          CameraSettingsRepository cameraSettingsRepository,
                           ClockProvider clockProvider) {
         this.focusSessionRepository = focusSessionRepository;
         this.sessionPauseRepository = sessionPauseRepository;
@@ -67,6 +70,7 @@ public class ExportService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.cameraSettingsRepository = cameraSettingsRepository;
         this.clockProvider = clockProvider;
     }
 
@@ -95,6 +99,7 @@ public class ExportService {
                 blockedTargetRepository.findByUserOrderByIdAsc(user).stream()
                         .map(RuleTargetResponse::from).toList(),
                 allowlistTargetRepository.findByUserOrderByIdAsc(user).stream()
-                        .map(RuleTargetResponse::from).toList());
+                        .map(RuleTargetResponse::from).toList(),
+                cameraSettingsRepository.findByUser(user).map(CameraSettingsBackup::from).orElse(null));
     }
 }

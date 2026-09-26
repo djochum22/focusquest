@@ -14,6 +14,7 @@ import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserRepository;
+import com.example.focusquest.vision.CameraSettingsRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class DataDeletionService {
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
     private final ExtensionCredentialRepository extensionCredentialRepository;
+    private final CameraSettingsRepository cameraSettingsRepository;
     private final UserRepository userRepository;
 
     public DataDeletionService(BlockingService blockingService,
@@ -55,6 +57,7 @@ public class DataDeletionService {
                                 BlockedTargetRepository blockedTargetRepository,
                                 AllowlistTargetRepository allowlistTargetRepository,
                                 ExtensionCredentialRepository extensionCredentialRepository,
+                                CameraSettingsRepository cameraSettingsRepository,
                                 UserRepository userRepository) {
         this.blockingService = blockingService;
         this.streakContributionRepository = streakContributionRepository;
@@ -68,6 +71,7 @@ public class DataDeletionService {
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
         this.extensionCredentialRepository = extensionCredentialRepository;
+        this.cameraSettingsRepository = cameraSettingsRepository;
         this.userRepository = userRepository;
     }
 
@@ -102,5 +106,6 @@ public class DataDeletionService {
         gemTransactionRepository.deleteAllByUser(user);
         blockedTargetRepository.deleteAllByUser(user);
         allowlistTargetRepository.deleteAllByUser(user);
+        cameraSettingsRepository.deleteAllByUser(user);
     }
 }

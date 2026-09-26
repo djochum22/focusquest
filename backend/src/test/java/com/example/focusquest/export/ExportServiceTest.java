@@ -27,6 +27,7 @@ import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.streak.StreakPeriodType;
 import com.example.focusquest.user.User;
+import com.example.focusquest.vision.CameraSettingsRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -62,6 +63,8 @@ class ExportServiceTest {
     private BlockedTargetRepository blockedTargetRepository;
     @Mock
     private AllowlistTargetRepository allowlistTargetRepository;
+    @Mock
+    private CameraSettingsRepository cameraSettingsRepository;
 
     private ExportService exportService;
     private User user;
@@ -71,7 +74,7 @@ class ExportServiceTest {
         exportService = new ExportService(focusSessionRepository, sessionPauseRepository,
                 streakConfigurationRepository, streakPeriodRepository, streakContributionRepository,
                 streakFreezeRepository, experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
-                allowlistTargetRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
+                allowlistTargetRepository, cameraSettingsRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
     }
 

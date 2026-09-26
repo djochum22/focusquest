@@ -25,6 +25,7 @@ import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import com.example.focusquest.user.UserRepository;
+import com.example.focusquest.vision.CameraSettingsService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -64,6 +65,8 @@ class RestoreIntegrationTest {
     private ProgressionService progressionService;
     @Autowired
     private StreakFreezeService streakFreezeService;
+    @Autowired
+    private CameraSettingsService cameraSettingsService;
     @Autowired
     private GemTransactionRepository gemTransactionRepository;
     @Autowired
@@ -121,6 +124,7 @@ class RestoreIntegrationTest {
         gemTransactionRepository.save(new GemTransaction(owner, 20, GemTransactionType.LEVEL_UP, "LEVEL", 99L, now));
         streakFreezeService.purchase(owner);
         streakFreezeService.purchase(owner);
+        cameraSettingsService.update(owner, true, CameraSettingsService.CONSENT_VERSION, false);
         for (int day = 0; day < 3; day += 2) {
             FocusSession planned = sessionService.createSession(owner, "Write " + day, TaskMode.TASK_REQUIRED,
                     TaskCategory.WRITING, 30);
@@ -152,6 +156,7 @@ class RestoreIntegrationTest {
         LocalDataExportDto before = exportService.exportLocalData(user);
         ProgressionService.ProgressionSummary progressBefore = progressionService.getSummary(user);
         int streakBefore = streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY);
+        assertThat(before.cameraSettings().consentVersion()).isEqualTo(CameraSettingsService.CONSENT_VERSION);
         assertThat(before.streakFreezes()).hasSize(2).filteredOn(freeze -> freeze.usedPeriodId() != null).hasSize(1);
         assertThat(before.streakPeriods()).extracting(StreakPeriodBackup::status).contains(StreakPeriodStatus.FROZEN);
 
@@ -219,7 +224,7 @@ class RestoreIntegrationTest {
                 current.focusSessions(), current.sessionPauses(), current.streakConfigurations(),
                 current.streakPeriods(), current.streakContributions(), null, current.experienceTransactions(),
                 current.gemTransactions().stream().filter(t -> !t.referenceType().equals("STREAK_FREEZE")).toList(),
-                current.blockedTargets(), current.allowlistTargets());
+                current.blockedTargets(), current.allowlistTargets(), null);
 
         restoreService.restore(reload(other), old);
 
@@ -275,7 +280,7 @@ class RestoreIntegrationTest {
         populate(user);
         LocalDataExportDto backup = exportService.exportLocalData(user);
         LocalDataExportDto old = new LocalDataExportDto(backup.exportedAt(), "1.2", backup.user(),
-                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of());
+                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null);
 
         assertRefusedWithoutChanges(old, "format 1.2");
     }
@@ -303,7 +308,7 @@ class RestoreIntegrationTest {
                 backup.focusSessions(), backup.sessionPauses(), backup.streakConfigurations(),
                 backup.streakPeriods(), backup.streakContributions(), backup.streakFreezes(),
                 backup.experienceTransactions(),
-                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets());
+                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets(), backup.cameraSettings());
 
         assertRefusedWithoutChanges(bad, null);
     }
@@ -330,7 +335,7 @@ class RestoreIntegrationTest {
                 new ArrayList<>(export.streakContributions()), new ArrayList<>(export.streakFreezes()),
                 new ArrayList<>(export.experienceTransactions()),
                 new ArrayList<>(export.gemTransactions()), new ArrayList<>(export.blockedTargets()),
-                new ArrayList<>(export.allowlistTargets()));
+                new ArrayList<>(export.allowlistTargets()), export.cameraSettings());
         damage.accept(backup);
         assertRefusedWithoutChanges(backup, message);
     }

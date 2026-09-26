@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import * as authApi from '../api/authApi'
+import * as cameraApi from '../api/cameraApi'
 import * as extensionApi from '../api/extensionApi'
 import * as sessionApi from '../api/sessionApi'
 import * as settingsApi from '../api/settingsApi'
@@ -15,6 +16,7 @@ import SettingsView from './SettingsView.vue'
 
 vi.mock('../api/settingsApi')
 vi.mock('../api/authApi')
+vi.mock('../api/cameraApi')
 vi.mock('../api/extensionApi')
 vi.mock('../api/sessionApi')
 vi.mock('../utils/extensionBridge')
@@ -60,6 +62,8 @@ beforeEach(async () => {
   vi.mocked(extensionApi.revokeExtensionToken).mockResolvedValue()
   vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
   vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
+  vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
+    { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true })
 })
 
 describe('SettingsView', () => {

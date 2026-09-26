@@ -72,6 +72,8 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
                 new String[] {"GET", "/api/me/streak-freezes"},
                 new String[] {"POST", "/api/me/streak-freezes/purchase"},
                 new String[] {"PUT", "/api/me/profile"},
+                new String[] {"GET", "/api/me/camera-settings"},
+                new String[] {"PUT", "/api/me/camera-settings"},
                 new String[] {"GET", "/api/export"},
                 new String[] {"POST", "/api/me/data/restore"},
                 new String[] {"DELETE", "/api/me/data"},

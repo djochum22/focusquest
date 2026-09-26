@@ -32,6 +32,8 @@ import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import com.example.focusquest.user.UserRepository;
 import com.example.focusquest.user.UserService;
+import com.example.focusquest.vision.CameraSettings;
+import com.example.focusquest.vision.CameraSettingsRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -77,6 +79,7 @@ public class RestoreService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final CameraSettingsRepository cameraSettingsRepository;
 
     public RestoreService(DataDeletionService dataDeletionService,
                           UserRepository userRepository,
@@ -89,7 +92,8 @@ public class RestoreService {
                           ExperienceTransactionRepository experienceTransactionRepository,
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
-                          AllowlistTargetRepository allowlistTargetRepository) {
+                          AllowlistTargetRepository allowlistTargetRepository,
+                          CameraSettingsRepository cameraSettingsRepository) {
         this.dataDeletionService = dataDeletionService;
         this.userRepository = userRepository;
         this.focusSessionRepository = focusSessionRepository;
@@ -102,6 +106,7 @@ public class RestoreService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.cameraSettingsRepository = cameraSettingsRepository;
     }
 
     @Transactional
@@ -183,6 +188,13 @@ public class RestoreService {
         for (RuleTargetResponse target : listOf(backup.allowlistTargets())) {
             allowlistTargetRepository.save(new AllowlistTarget(owner, RuleNormalizer.normalize(target.targetValue()),
                     target.displayName(), target.active()));
+        }
+
+        // Consent to an older consent text is restored as it was; it simply does not count.
+        CameraSettingsBackup camera = backup.cameraSettings();
+        if (camera != null) {
+            cameraSettingsRepository.save(new CameraSettings(owner, camera.consentVersion(), camera.consentedAt(),
+                    camera.verifyNewSessions()));
         }
     }
 
