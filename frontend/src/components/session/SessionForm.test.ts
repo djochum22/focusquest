@@ -156,4 +156,41 @@ describe('SessionForm', () => {
       expect(button.attributes('disabled')).toBeDefined()
     })
   })
+
+  describe('camera verification', () => {
+    const cameraBox = (wrapper: Wrapper) =>
+      wrapper.findAll('input[type="checkbox"]').find((b) => b.element.parentElement?.textContent?.includes('Verify with camera'))
+
+    it('is not offered while camera verification is off, and nothing is sent', async () => {
+      const wrapper = mountForm()
+      await wrapper.get('select').setValue('CODING')
+
+      await submit(wrapper)
+
+      expect(cameraBox(wrapper)).toBeUndefined()
+      expect(submitted(wrapper)[0]![0]).not.toHaveProperty('cameraVerification')
+    })
+
+    it('starts at the default and sends the choice', async () => {
+      const wrapper = mount(SessionForm, { props: { submitting: false, cameraAvailable: true, cameraByDefault: true } })
+      await wrapper.get('select').setValue('CODING')
+      expect((cameraBox(wrapper)!.element as HTMLInputElement).checked).toBe(true)
+
+      await cameraBox(wrapper)!.setValue(false)
+      await submit(wrapper)
+
+      expect(submitted(wrapper)[0]![0]).toMatchObject({ cameraVerification: false })
+    })
+
+    it('follows a default that arrives late, until the user changes it', async () => {
+      const wrapper = mount(SessionForm, { props: { submitting: false, cameraAvailable: true, cameraByDefault: false } })
+
+      await wrapper.setProps({ cameraByDefault: true })
+      expect((cameraBox(wrapper)!.element as HTMLInputElement).checked).toBe(true)
+
+      await cameraBox(wrapper)!.setValue(false)
+      await wrapper.setProps({ cameraByDefault: true })
+      expect((cameraBox(wrapper)!.element as HTMLInputElement).checked).toBe(false)
+    })
+  })
 })

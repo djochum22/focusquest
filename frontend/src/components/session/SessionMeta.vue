@@ -10,6 +10,7 @@ defineProps<{ session: FocusSession }>()
     <h2 class="meta__task">{{ session.taskDescription || (session.taskMode === 'TASK_FREE' ? 'Task-free session' : 'Untitled task') }}</h2>
     <p class="meta__line muted">
       {{ CATEGORY_LABELS[session.taskCategory] }} · {{ session.plannedFocusMinutes }} min planned
+      <template v-if="session.cameraVerification"> · Checked by camera</template>
     </p>
     <p v-if="session.blockingState" class="meta__blocking" :class="`meta__blocking--${session.blockingState}`">
       {{ BLOCKING_LABELS[session.blockingState] }}

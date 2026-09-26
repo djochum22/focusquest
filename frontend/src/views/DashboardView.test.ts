@@ -11,6 +11,7 @@ import DashboardView from './DashboardView.vue'
 
 vi.mock('../api/sessionApi')
 vi.mock('../api/offTaskApi')
+vi.mock('../api/cameraApi')
 
 function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
   return {

@@ -7,6 +7,7 @@ import ActiveSessionView from './ActiveSessionView.vue'
 import InterruptedSessionView from './InterruptedSessionView.vue'
 import ManualOverrideDialog from './ManualOverrideDialog.vue'
 import PausedSessionView from './PausedSessionView.vue'
+import SessionSummary from './SessionSummary.vue'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -243,6 +244,18 @@ describe('ActiveSessionView with the camera', () => {
     await labelled(wrapper, 'Not accurate?')!.trigger('click')
 
     expect(wrapper.emitted('dispute')).toEqual([['T0']])
+    wrapper.unmount()
+  })
+})
+
+describe('SessionSummary with the camera', () => {
+  it('shows focused time net of off-task time, and the off-task time', () => {
+    const wrapper = mount(SessionSummary, {
+      props: { session: makeSession({ status: 'COMPLETED', activeFocusSeconds: 1900, offTaskSeconds: 100, cameraVerification: true }) },
+    })
+
+    expect(wrapper.text()).toContain('Focused30 min')
+    expect(wrapper.text()).toContain('Off task1 min')
     wrapper.unmount()
   })
 })

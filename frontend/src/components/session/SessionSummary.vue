@@ -37,7 +37,11 @@ const blockingNote = computed(() => {
     <dl class="summary__stats">
       <div>
         <dt>Focused</dt>
-        <dd>{{ formatMinutes(session.activeFocusSeconds) }}</dd>
+        <dd>{{ formatMinutes(session.activeFocusSeconds - session.offTaskSeconds) }}</dd>
+      </div>
+      <div v-if="session.offTaskSeconds > 0">
+        <dt>Off task</dt>
+        <dd>{{ formatMinutes(session.offTaskSeconds) }}</dd>
       </div>
       <div>
         <dt>Planned</dt>

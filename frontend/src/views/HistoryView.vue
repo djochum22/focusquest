@@ -5,6 +5,7 @@ import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
 import LoadingIndicator from '../components/common/LoadingIndicator.vue'
+import OffTaskEpisodes from '../components/session/OffTaskEpisodes.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useSessionStore } from '../stores/sessionStore'
 import { formatMinutes } from '../utils/duration'
@@ -61,9 +62,19 @@ onMounted(load)
           {{ CATEGORY_LABELS[item.taskCategory] }} · {{ formatDateTime(item.startedAt, auth.user?.timezone) }}
         </p>
         <p class="history__line">
-          {{ formatMinutes(item.activeFocusSeconds) }} focused of {{ item.plannedFocusMinutes }} min planned
+          {{ formatMinutes(item.activeFocusSeconds - item.offTaskSeconds) }} focused of {{ item.plannedFocusMinutes }} min planned
           <template v-if="item.overtimeSeconds > 0"> (+{{ formatMinutes(item.overtimeSeconds) }} overtime)</template>
         </p>
+        <p v-if="item.cameraVerification" class="muted history__line" data-testid="history-camera">
+          Checked by camera<template v-if="item.offTaskSeconds > 0"> · {{ formatMinutes(item.offTaskSeconds) }} off task, not counted</template>
+        </p>
+        <OffTaskEpisodes
+          v-if="item.cameraVerification"
+          :session-id="item.id"
+          :can-dispute="item.status !== 'COMPLETED'"
+          :timezone="auth.user?.timezone"
+          @changed="load"
+        />
         <p v-if="item.overrideUsed" class="history__override">Override used · XP penalty applied</p>
         <p v-else-if="item.blockingState && item.status !== 'COMPLETED'" class="muted history__line">
           {{ BLOCKING_LABELS[item.blockingState] }}

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import * as cameraApi from '../../api/cameraApi'
 import * as sessionApi from '../../api/sessionApi'
 import { apiFailure, networkFailure } from '../../test-utils/apiFailures'
 import { makeSession } from '../../test-utils/sessions'
@@ -8,6 +9,7 @@ import { useSessionStore } from '../../stores/sessionStore'
 import SessionPlanner from './SessionPlanner.vue'
 
 vi.mock('../../api/sessionApi')
+vi.mock('../../api/cameraApi')
 
 function mountPlanner() {
   return mount(SessionPlanner, { attachTo: document.body })
@@ -25,8 +27,12 @@ async function createTaskSession(wrapper: Wrapper) {
 
 const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, startedAt: null })
 
+const cameraOff = { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true,
+  companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false } }
+
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(cameraOff)
   setActivePinia(createPinia())
   document.body.innerHTML = ''
 })
@@ -131,5 +137,27 @@ describe('SessionPlanner', () => {
       expect(wrapper.get('[role="alert"]').text()).toBe('Another session is already in progress')
       wrapper.unmount()
     })
+  })
+
+  it('offers the camera once it is turned on in Settings, and creates a camera-verified session', async () => {
+    vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue({ ...cameraOff, enabled: true, consentedAt: '2026-01-15T08:00:00Z' })
+    vi.mocked(sessionApi.createSession).mockResolvedValue({ ...planned, cameraVerification: true })
+    const wrapper = mountPlanner()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Verify with camera')
+    await createTaskSession(wrapper)
+
+    expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({ cameraVerification: true }))
+    expect(wrapper.text()).toContain('Checked by camera')
+    wrapper.unmount()
+  })
+
+  it('does not offer the camera while it is off', async () => {
+    const wrapper = mountPlanner()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Verify with camera')
+    wrapper.unmount()
   })
 })

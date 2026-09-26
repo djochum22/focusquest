@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import AppButton from '../common/AppButton.vue'
 import FormField from '../common/FormField.vue'
 import type { CreateSessionRequest } from '../../types/session'
@@ -13,8 +13,24 @@ import {
   type SessionForm,
 } from '../../utils/validation'
 
-defineProps<{ submitting: boolean }>()
+const props = defineProps<{
+  submitting: boolean
+  /** Camera verification is turned on in Settings, so a session can use it. */
+  cameraAvailable?: boolean
+  /** Whether new sessions use the camera by default; the switch starts here. */
+  cameraByDefault?: boolean
+}>()
 const emit = defineEmits<{ submit: [request: CreateSessionRequest] }>()
+
+/** The "Verify with camera" switch, following the default until the user changes it. */
+const useCamera = ref(props.cameraByDefault ?? false)
+const cameraTouched = ref(false)
+watch(
+  () => props.cameraByDefault,
+  (byDefault) => {
+    if (!cameraTouched.value) useCamera.value = byDefault ?? false
+  },
+)
 
 const form = reactive<SessionForm>({
   taskMode: 'TASK_REQUIRED',
@@ -34,6 +50,8 @@ function onSubmit() {
     taskCategory: taskFree || form.taskCategory === '' ? 'TASK_FREE' : form.taskCategory,
     taskDescription: taskFree ? null : form.taskDescription.trim() || null,
     plannedFocusMinutes: form.plannedFocusMinutes,
+    // Only when the camera can be used; otherwise the backend leaves it off.
+    ...(props.cameraAvailable ? { cameraVerification: useCamera.value } : {}),
   })
 }
 </script>
@@ -83,6 +101,16 @@ function onSubmit() {
       />
     </FormField>
 
+    <div v-if="cameraAvailable" class="session-form__camera">
+      <label class="session-form__camera-label">
+        <input v-model="useCamera" type="checkbox" @change="cameraTouched = true" />
+        Verify with camera
+      </label>
+      <p class="muted session-form__note">
+        The camera checks that you stay on task. Off-task time does not count toward the session.
+      </p>
+    </div>
+
     <AppButton type="submit" :loading="submitting">
       {{ submitting ? 'Creating…' : 'Create session' }}
     </AppButton>
@@ -114,5 +142,21 @@ function onSubmit() {
 }
 .session-form__note {
   margin: 0;
+}
+.session-form__camera {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.session-form__camera-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.session-form__camera-label input {
+  flex: none;
+  width: auto;
+  margin: 0;
+  padding: 0;
 }
 </style>

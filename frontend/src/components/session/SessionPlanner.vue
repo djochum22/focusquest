@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { getErrorMessage } from '../../api/apiError'
+import { useCameraStore } from '../../stores/cameraStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import type { CreateSessionRequest } from '../../types/session'
 import AppButton from '../common/AppButton.vue'
@@ -13,6 +14,12 @@ import SessionMeta from './SessionMeta.vue'
  * confirm. Starting replaces this component with the running session, so nothing navigates.
  */
 const session = useSessionStore()
+const camera = useCameraStore()
+
+// Only decides whether the form offers the camera; without it the form simply does not.
+onMounted(() => {
+  camera.fetch().catch(() => {})
+})
 
 const submitError = ref<string | null>(null)
 
@@ -56,7 +63,12 @@ async function onStart() {
   <section v-else class="card" aria-label="New focus session">
     <h2 class="planner__title">Start a focus session</h2>
     <ErrorMessage :message="submitError" />
-    <SessionForm :submitting="session.busy" @submit="onSubmit" />
+    <SessionForm
+      :submitting="session.busy"
+      :camera-available="camera.settings?.enabled ?? false"
+      :camera-by-default="camera.settings?.verifyNewSessionsByDefault ?? false"
+      @submit="onSubmit"
+    />
   </section>
 </template>
 
