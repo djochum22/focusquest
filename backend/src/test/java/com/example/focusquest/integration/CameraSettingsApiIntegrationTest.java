@@ -53,7 +53,7 @@ class CameraSettingsApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.consentedAt").value(BASE.toString()))
                 .andExpect(jsonPath("$.verifyNewSessionsByDefault").value(false));
         getAs(token, "/api/export")
-                .andExpect(jsonPath("$.schemaVersion").value("2.2"))
+                .andExpect(jsonPath("$.schemaVersion").value("2.3"))
                 .andExpect(jsonPath("$.cameraSettings.consentVersion").value(1))
                 .andExpect(jsonPath("$.cameraSettings.verifyNewSessions").value(false));
     }

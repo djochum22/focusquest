@@ -32,6 +32,8 @@ function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
     overrideUsed: false,
     completionXpAwarded: false,
     createdAt: '2026-01-15T08:59:00Z',
+    cameraVerification: false,
+    offTaskSeconds: 0,
     generatedAt: '2026-01-15T09:00:00Z',
     ...overrides,
   }

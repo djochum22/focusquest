@@ -64,6 +64,8 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
                 new String[] {"POST", "/api/focus-sessions/1/complete"},
                 new String[] {"POST", "/api/focus-sessions/1/abandon"},
                 new String[] {"POST", "/api/focus-sessions/1/override"},
+                new String[] {"GET", "/api/focus-sessions/1/off-task"},
+                new String[] {"POST", "/api/focus-sessions/1/off-task/disputes"},
                 new String[] {"GET", "/api/streaks/current"},
                 new String[] {"GET", "/api/streak-configurations"},
                 new String[] {"POST", "/api/streak-configurations"},

@@ -27,7 +27,10 @@ import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.streak.StreakPeriodType;
 import com.example.focusquest.user.User;
+import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.OffTaskDisputeRepository;
+import com.example.focusquest.vision.OffTaskIntervalRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -65,6 +68,12 @@ class ExportServiceTest {
     private AllowlistTargetRepository allowlistTargetRepository;
     @Mock
     private CameraSettingsRepository cameraSettingsRepository;
+    @Mock
+    private CameraObservationRepository cameraObservationRepository;
+    @Mock
+    private OffTaskIntervalRepository offTaskIntervalRepository;
+    @Mock
+    private OffTaskDisputeRepository offTaskDisputeRepository;
 
     private ExportService exportService;
     private User user;
@@ -74,7 +83,8 @@ class ExportServiceTest {
         exportService = new ExportService(focusSessionRepository, sessionPauseRepository,
                 streakConfigurationRepository, streakPeriodRepository, streakContributionRepository,
                 streakFreezeRepository, experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
-                allowlistTargetRepository, cameraSettingsRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
+                allowlistTargetRepository, cameraSettingsRepository, cameraObservationRepository,
+                offTaskIntervalRepository, offTaskDisputeRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
     }
 

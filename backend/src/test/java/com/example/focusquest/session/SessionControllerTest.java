@@ -84,7 +84,7 @@ class SessionControllerTest {
     @Test
     void createReturns201WithThePlannedSession() throws Exception {
         FocusSession created = session(SessionStatus.PLANNED, null);
-        when(sessionService.createSession(user, "Write the report", TaskMode.TASK_REQUIRED, TaskCategory.WRITING, 25))
+        when(sessionService.createSession(user, "Write the report", TaskMode.TASK_REQUIRED, TaskCategory.WRITING, 25, null))
                 .thenReturn(created);
 
         mockMvc.perform(post("/api/focus-sessions").contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))

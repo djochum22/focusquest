@@ -6,6 +6,7 @@ import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.shared.time.TimeRange;
 import com.example.focusquest.user.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -241,6 +242,13 @@ public class StreakService {
                 .orElse(false);
     }
 
+    /** True when {@code instant} falls within the daily period covering the current moment. */
+    @Transactional(readOnly = true)
+    public boolean isInCurrentDailyPeriod(User user, Instant instant) {
+        StreakPeriodCalculator.PeriodWindow window = windowContaining(user, StreakPeriodType.DAILY, clockProvider.now());
+        return !instant.isBefore(window.start()) && instant.isBefore(window.end());
+    }
+
     /**
      * Creates the streak period covering the current moment, snapshotting the user's currently
      * active configuration for that period type onto it.
@@ -267,6 +275,17 @@ public class StreakService {
     @Transactional
     public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
                                                        Instant creditedUntil) {
+        return recordContribution(session, activeSeconds, pausedSeconds, creditedUntil, List.of());
+    }
+
+    /**
+     * As {@link #recordContribution(FocusSession, long, long, Instant)}, leaving out the off-task time
+     * settled in the active part of the stretch: {@code offTask} ranges inside it. Each period is
+     * credited the active time that fell in it minus the off-task time that did.
+     */
+    @Transactional
+    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
+                                                       Instant creditedUntil, List<TimeRange> offTask) {
         User user = session.getUser();
         Instant creditedFrom = creditedUntil.minusSeconds(activeSeconds + pausedSeconds);
         List<StreakContribution> contributions = new ArrayList<>();
@@ -281,9 +300,14 @@ public class StreakService {
                 long active = Math.min(activeLeft, inWindow);
                 long paused = inWindow - active;
                 Instant partEnd = cursor.plusSeconds(inWindow);
-                findOrCreatePeriodIfConfigured(user, periodType, window, partEnd)
-                        .flatMap(period -> applyContribution(period, session, active, paused))
-                        .ifPresent(contributions::add);
+                Instant activeEnd = cursor.plusSeconds(active);
+                long offTaskInPart = offTaskSecondsBetween(offTask, cursor, activeEnd);
+                long netActive = Math.max(0, active - offTaskInPart);
+                if (netActive + paused > 0) {
+                    findOrCreatePeriodIfConfigured(user, periodType, window, partEnd)
+                            .flatMap(period -> applyContribution(period, session, netActive, paused))
+                            .ifPresent(contributions::add);
+                }
                 activeLeft -= active;
                 pausedLeft -= paused;
                 cursor = partEnd;
@@ -337,6 +361,10 @@ public class StreakService {
                                 user, periodType, asOf);
         return configuration
                 .map(active -> streakPeriodRepository.save(buildPeriod(user, periodType, active, window)));
+    }
+
+    private static long offTaskSecondsBetween(List<TimeRange> offTask, Instant from, Instant to) {
+        return offTask.stream().mapToLong(range -> range.overlapSeconds(from, to)).sum();
     }
 
     /** Whole seconds from {@code from} to {@code to}, rounded up so that a part always reaches the boundary. */

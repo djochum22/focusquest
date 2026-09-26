@@ -28,6 +28,9 @@ public record LocalDataExportDto(
         List<GemTransactionResponse> gemTransactions,
         List<RuleTargetResponse> blockedTargets,
         List<RuleTargetResponse> allowlistTargets,
-        CameraSettingsBackup cameraSettings
+        CameraSettingsBackup cameraSettings,
+        List<CameraObservationBackup> cameraObservations,
+        List<OffTaskIntervalBackup> offTaskIntervals,
+        List<OffTaskDisputeBackup> offTaskDisputes
 ) {
 }

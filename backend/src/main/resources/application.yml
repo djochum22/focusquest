@@ -76,6 +76,9 @@ focusquest:
     grace: 60s
     # Observations below this confidence (0 to 1) are ignored.
     min-confidence: 0.7
+    # Observations of a signal this close together count as one stretch: a short gap is detector
+    # flicker, not the user coming back.
+    merge-gap: 5s
   cors:
     allowed-origins:
       - http://localhost:5173

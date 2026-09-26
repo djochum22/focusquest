@@ -49,6 +49,10 @@ export interface FocusSession {
   overrideUsed: boolean
   completionXpAwarded: boolean
   createdAt: string
+  /** Whether the camera checks this session (camera verification). */
+  cameraVerification: boolean
+  /** Off-task time so far, subtracted from the active time; `remainingFocusSeconds` already counts it. */
+  offTaskSeconds: number
   generatedAt: string
 }
 
@@ -58,4 +62,6 @@ export interface CreateSessionRequest {
   taskMode: TaskMode
   taskCategory: TaskCategory
   plannedFocusMinutes: number
+  /** Omitted to use the default from the camera settings. */
+  cameraVerification?: boolean
 }

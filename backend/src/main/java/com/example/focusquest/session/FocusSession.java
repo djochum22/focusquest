@@ -99,11 +99,27 @@ public class FocusSession {
     @Column(name = "last_heartbeat_at")
     private Instant lastHeartbeatAt;
 
+    // Whether the camera checks this session (requirements specification, section 21), chosen when
+    // it is created.
+    @Column(name = "camera_verification", nullable = false)
+    private boolean cameraVerification;
+
+    // Off-task time settled against the session: subtracted from its active time in the qualifying
+    // time and toward completion. Settled when time is credited to the streak; see SessionService.
+    @Column(name = "off_task_seconds", nullable = false)
+    private long offTaskSeconds;
+
     protected FocusSession() {
     }
 
     public FocusSession(User user, String taskDescription, TaskMode taskMode, TaskCategory taskCategory,
                          int plannedFocusMinutes, Instant createdAt) {
+        this(user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, false, createdAt);
+    }
+
+    public FocusSession(User user, String taskDescription, TaskMode taskMode, TaskCategory taskCategory,
+                         int plannedFocusMinutes, boolean cameraVerification, Instant createdAt) {
+        this.cameraVerification = cameraVerification;
         this.user = user;
         this.taskDescription = taskDescription;
         this.taskMode = taskMode;
@@ -130,14 +146,16 @@ public class FocusSession {
                                        SessionStatus status, BlockingState blockingState, Instant startedAt,
                                        Instant completedAt, Instant abandonedAt, boolean overrideUsed,
                                        boolean completionXpAwarded, Instant createdAt,
-                                       long streakCreditedActiveSeconds, long streakCreditedPausedSeconds) {
+                                       long streakCreditedActiveSeconds, long streakCreditedPausedSeconds,
+                                       boolean cameraVerification, long offTaskSeconds) {
         if (status == SessionStatus.ACTIVE || status == SessionStatus.PAUSED) {
             throw new IllegalArgumentException("A running session cannot be restored as running");
         }
         FocusSession session = new FocusSession(user, taskDescription, taskMode, taskCategory,
-                plannedFocusMinutes, createdAt);
+                plannedFocusMinutes, cameraVerification, createdAt);
         session.activeFocusSeconds = activeFocusSeconds;
         session.finalizedPausedSeconds = finalizedPausedSeconds;
+        session.offTaskSeconds = offTaskSeconds;
         session.recalculateQualifyingSeconds();
         session.overtimeSeconds = overtimeSeconds;
         session.status = status;
@@ -182,15 +200,34 @@ public class FocusSession {
         recalculateQualifyingSeconds();
     }
 
+    /** Off-task time just settled against the session. */
+    void addOffTaskSeconds(long seconds) {
+        this.offTaskSeconds += seconds;
+        recalculateQualifyingSeconds();
+    }
+
+    /** Settled off-task time given back after the user disputed it. */
+    void restoreOffTaskSeconds(long seconds) {
+        this.offTaskSeconds = Math.max(0, this.offTaskSeconds - seconds);
+        recalculateQualifyingSeconds();
+        if (status == SessionStatus.COMPLETED) {
+            this.overtimeSeconds = netOvertimeSeconds();
+        }
+    }
+
     private void recalculateQualifyingSeconds() {
-        this.qualifyingSeconds = this.activeFocusSeconds + this.finalizedPausedSeconds;
+        this.qualifyingSeconds = this.activeFocusSeconds + this.finalizedPausedSeconds - this.offTaskSeconds;
+    }
+
+    private long netOvertimeSeconds() {
+        return Math.max(0, this.activeFocusSeconds - this.offTaskSeconds - this.plannedFocusMinutes * 60L);
     }
 
     void markCompleted(Instant now) {
         this.status = SessionStatus.COMPLETED;
         this.completedAt = now;
         this.activeSegmentStartedAt = null;
-        this.overtimeSeconds = Math.max(0, this.activeFocusSeconds - (this.plannedFocusMinutes * 60L));
+        this.overtimeSeconds = netOvertimeSeconds();
         this.completionXpAwarded = true;
     }
 
@@ -339,6 +376,15 @@ public class FocusSession {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isCameraVerification() {
+        return cameraVerification;
+    }
+
+    /** Off-task time settled so far. Time still provisional in the running stretch is not included. */
+    public long getOffTaskSeconds() {
+        return offTaskSeconds;
     }
 
     /** Part of {@code activeFocusSeconds} already credited to the streak. Exported for backups. */

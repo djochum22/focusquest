@@ -26,6 +26,9 @@ import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import com.example.focusquest.user.UserRepository;
 import com.example.focusquest.vision.CameraSettingsService;
+import com.example.focusquest.vision.ObservationInput;
+import com.example.focusquest.vision.OffTaskService;
+import com.example.focusquest.vision.OffTaskSignal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -67,6 +70,8 @@ class RestoreIntegrationTest {
     private StreakFreezeService streakFreezeService;
     @Autowired
     private CameraSettingsService cameraSettingsService;
+    @Autowired
+    private OffTaskService offTaskService;
     @Autowired
     private GemTransactionRepository gemTransactionRepository;
     @Autowired
@@ -224,13 +229,54 @@ class RestoreIntegrationTest {
                 current.focusSessions(), current.sessionPauses(), current.streakConfigurations(),
                 current.streakPeriods(), current.streakContributions(), null, current.experienceTransactions(),
                 current.gemTransactions().stream().filter(t -> !t.referenceType().equals("STREAK_FREEZE")).toList(),
-                current.blockedTargets(), current.allowlistTargets(), null);
+                current.blockedTargets(), current.allowlistTargets(), null, null, null, null);
 
         restoreService.restore(reload(other), old);
 
         LocalDataExportDto restored = exportService.exportLocalData(reload(other));
         assertThat(restored.focusSessions()).hasSize(current.focusSessions().size());
         assertThat(restored.streakFreezes()).isEmpty();
+    }
+
+    @Test
+    void cameraObservationsSettledTimeAndDisputesRoundTrip() {
+        streakService.createDefaultConfiguration(user);
+        cameraSettingsService.update(user, true, CameraSettingsService.CONSENT_VERSION, true);
+        FocusSession planned = sessionService.createSession(user, "Code", TaskMode.TASK_REQUIRED,
+                TaskCategory.CODING, 30, true);
+        FocusSession session = sessionService.startSession(planned.getId(), user.getUsername());
+        Instant started = now;
+        advance(300);
+        offTaskService.recordObservations(sessionService.getOwnedSession(session.getId(), user.getUsername()),
+                List.of(new ObservationInput("p1", OffTaskSignal.PHONE, 0.9, started.plusSeconds(60),
+                        started.plusSeconds(300)),
+                        new ObservationInput("a1", OffTaskSignal.AWAY, 0.8, started.plusSeconds(10),
+                                started.plusSeconds(20))));
+        sessionService.pauseSession(session.getId(), user.getUsername());
+        advance(100);
+        sessionService.resumeSession(session.getId(), user.getUsername());      // settles 160 s
+        sessionService.disputeOffTask(session.getId(), user.getUsername(), started.plusSeconds(10));
+        advance(2000);
+        sessionService.completeSession(session.getId(), user.getUsername());
+        LocalDataExportDto backup = exportService.exportLocalData(user);
+
+        restoreService.restore(reload(other), backup);
+
+        LocalDataExportDto restored = exportService.exportLocalData(reload(other));
+        assertThat(restored.cameraObservations()).hasSize(2);
+        assertThat(restored.offTaskIntervals()).singleElement()
+                .satisfies(interval -> assertThat(interval.deductedSeconds()).isEqualTo(160));
+        assertThat(restored.offTaskDisputes()).hasSize(1);
+        assertThat(restored.focusSessions()).singleElement().satisfies(s -> {
+            assertThat(s.cameraVerification()).isTrue();
+            assertThat(s.offTaskSeconds()).isEqualTo(160);
+        });
+        assertThat(restored)
+                .usingRecursiveComparison()
+                .ignoringFields("exportedAt", "user")
+                .ignoringFieldsMatchingRegexes(".*\\.id", ".*\\.sessionId", ".*\\.streakPeriodId",
+                        ".*\\.configurationId", ".*\\.referenceId", ".*\\.usedPeriodId")
+                .isEqualTo(backup);
     }
 
     @Test
@@ -280,7 +326,8 @@ class RestoreIntegrationTest {
         populate(user);
         LocalDataExportDto backup = exportService.exportLocalData(user);
         LocalDataExportDto old = new LocalDataExportDto(backup.exportedAt(), "1.2", backup.user(),
-                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null);
+                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null,
+                null, null, null);
 
         assertRefusedWithoutChanges(old, "format 1.2");
     }
@@ -308,7 +355,8 @@ class RestoreIntegrationTest {
                 backup.focusSessions(), backup.sessionPauses(), backup.streakConfigurations(),
                 backup.streakPeriods(), backup.streakContributions(), backup.streakFreezes(),
                 backup.experienceTransactions(),
-                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets(), backup.cameraSettings());
+                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets(), backup.cameraSettings(),
+                backup.cameraObservations(), backup.offTaskIntervals(), backup.offTaskDisputes());
 
         assertRefusedWithoutChanges(bad, null);
     }
@@ -321,7 +369,8 @@ class RestoreIntegrationTest {
                     s.plannedFocusMinutes(), s.activeFocusSeconds(), s.finalizedPausedSeconds(),
                     s.qualifyingSeconds(), s.overtimeSeconds(), s.status(), s.blockingState(), s.startedAt(),
                     s.completedAt(), s.abandonedAt(), s.overrideUsed(), s.completionXpAwarded(), s.createdAt(),
-                    s.streakCreditedActiveSeconds(), s.streakCreditedPausedSeconds()));
+                    s.streakCreditedActiveSeconds(), s.streakCreditedPausedSeconds(), s.cameraVerification(),
+                    s.offTaskSeconds()));
         }, "damaged");
     }
 
@@ -335,7 +384,9 @@ class RestoreIntegrationTest {
                 new ArrayList<>(export.streakContributions()), new ArrayList<>(export.streakFreezes()),
                 new ArrayList<>(export.experienceTransactions()),
                 new ArrayList<>(export.gemTransactions()), new ArrayList<>(export.blockedTargets()),
-                new ArrayList<>(export.allowlistTargets()), export.cameraSettings());
+                new ArrayList<>(export.allowlistTargets()), export.cameraSettings(),
+                new ArrayList<>(export.cameraObservations()), new ArrayList<>(export.offTaskIntervals()),
+                new ArrayList<>(export.offTaskDisputes()));
         damage.accept(backup);
         assertRefusedWithoutChanges(backup, message);
     }

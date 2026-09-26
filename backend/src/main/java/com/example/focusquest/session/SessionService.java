@@ -5,6 +5,7 @@ import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.shared.time.TimeRange;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserRepository;
@@ -35,6 +36,11 @@ import java.util.Optional;
  * heartbeat cannot be verified, so it is dropped and blocking is released. The check is lazy (on
  * each heartbeat, on reading the current session and before each transition), which also catches a
  * backend that was itself down. An interrupted session can be resumed or abandoned.
+ *
+ * <p>A camera-verified session also loses its off-task time (requirements specification, section
+ * 21). It is settled whenever a stretch of active time is credited to the streak, through
+ * {@link OffTaskAccounting}: taken off the session's qualifying time and left out of the streak.
+ * Until then it is provisional, but it still counts against completing the session.
  */
 @Service
 public class SessionService {
@@ -55,6 +61,7 @@ public class SessionService {
     private final ProgressionService progressionService;
     private final ClockProvider clockProvider;
     private final UserRepository userRepository;
+    private final OffTaskAccounting offTaskAccounting;
     private final Duration heartbeatTimeout;
 
     public SessionService(FocusSessionRepository focusSessionRepository,
@@ -64,6 +71,7 @@ public class SessionService {
                            ProgressionService progressionService,
                            ClockProvider clockProvider,
                            UserRepository userRepository,
+                           OffTaskAccounting offTaskAccounting,
                            @Value("${focusquest.session.heartbeat-timeout}") Duration heartbeatTimeout) {
         this.focusSessionRepository = focusSessionRepository;
         this.sessionPauseRepository = sessionPauseRepository;
@@ -72,12 +80,23 @@ public class SessionService {
         this.progressionService = progressionService;
         this.clockProvider = clockProvider;
         this.userRepository = userRepository;
+        this.offTaskAccounting = offTaskAccounting;
         this.heartbeatTimeout = heartbeatTimeout;
     }
 
     @Transactional
     public FocusSession createSession(User user, String taskDescription, TaskMode taskMode,
                                        TaskCategory taskCategory, int plannedFocusMinutes) {
+        return createSession(user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, null);
+    }
+
+    /**
+     * Creates a planned session. {@code cameraVerification} says whether the camera checks it; null
+     * takes the user's default. It can only be on while the user has camera verification turned on.
+     */
+    @Transactional
+    public FocusSession createSession(User user, String taskDescription, TaskMode taskMode,
+                                       TaskCategory taskCategory, int plannedFocusMinutes, Boolean cameraVerification) {
         if (plannedFocusMinutes < MIN_PLANNED_FOCUS_MINUTES) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "plannedFocusMinutes must be at least " + MIN_PLANNED_FOCUS_MINUTES);
@@ -94,8 +113,9 @@ public class SessionService {
         // A user has at most one planned session: a new one replaces any that was never started.
         // A planned session has no pauses, streak credit or XP, so nothing else refers to it.
         focusSessionRepository.deleteAll(focusSessionRepository.findByUserAndStatus(user, SessionStatus.PLANNED));
-        FocusSession session = new FocusSession(
-                user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, clockProvider.now());
+        boolean useCamera = offTaskAccounting.cameraVerificationForNewSession(user, cameraVerification);
+        FocusSession session = new FocusSession(user, taskDescription, taskMode, taskCategory,
+                plannedFocusMinutes, useCamera, clockProvider.now());
         return focusSessionRepository.save(session);
     }
 
@@ -254,15 +274,18 @@ public class SessionService {
 
         long elapsedInCurrentSegment = elapsedSeconds(session.getActiveSegmentStartedAt(), now);
         long projectedActiveSeconds = session.getActiveFocusSeconds() + elapsedInCurrentSegment;
+        long projectedOffTaskSeconds = offTaskSecondsAt(session, now);
         long requiredSeconds = session.getPlannedFocusMinutes() * 60L;
-        if (projectedActiveSeconds < requiredSeconds) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "activeFocusTime must reach plannedFocusTime before the session can be completed");
+        if (projectedActiveSeconds - projectedOffTaskSeconds < requiredSeconds) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, projectedOffTaskSeconds > 0
+                    ? "activeFocusTime minus off-task time must reach plannedFocusTime before the session can be completed"
+                    : "activeFocusTime must reach plannedFocusTime before the session can be completed");
         }
 
         session.addActiveSeconds(elapsedInCurrentSegment);
-        session.markCompleted(now);
+        // Credit (and so settle the off-task time) before marking it completed, so overtime is net of it.
         recordStreakContribution(session, now);
+        session.markCompleted(now);
         session.updateBlockingState(BlockingState.RELEASED);
         FocusSession saved = focusSessionRepository.save(session);
         progressionService.awardSessionCompletion(saved.getUser(), sessionId, saved.getPlannedFocusMinutes());
@@ -339,6 +362,64 @@ public class SessionService {
         return saved;
     }
 
+    /**
+     * Gives back the settled time of an off-task episode the user says was inaccurate, to the session
+     * and to the streak, and makes sure the rest of it is never subtracted. Possible until the session
+     * is completed.
+     */
+    @Transactional
+    public FocusSession disputeOffTask(Long sessionId, String username, Instant episodeStartedAt) {
+        FocusSession session = getOwnedSessionOrThrow(sessionId, username);
+        if (!session.isCameraVerification()) {
+            throw new InvalidSessionStateException("This session is not checked by the camera");
+        }
+        requireStatus(session, SessionStatus.ACTIVE, SessionStatus.PAUSED, SessionStatus.ABANDONED,
+                SessionStatus.INTERRUPTED);
+        for (TimeRange restored : offTaskAccounting.dispute(session, episodeStartedAt)) {
+            session.restoreOffTaskSeconds(restored.seconds());
+            streakService.recordContribution(session, restored.seconds(), 0, restored.end());
+        }
+        return focusSessionRepository.save(session);
+    }
+
+    /**
+     * The session's off-task time as of {@code now}: what is settled, plus what is provisional in the
+     * active stretch not credited yet. 0 for a session the camera does not check.
+     */
+    @Transactional(readOnly = true)
+    public long offTaskSecondsAt(FocusSession session, Instant now) {
+        if (!session.isCameraVerification()) {
+            return 0;
+        }
+        Optional<TimeRange> stretch = uncreditedActiveStretch(session, now);
+        return session.getOffTaskSeconds()
+                + stretch.map(range -> offTaskAccounting.provisionalSeconds(session, range.start(), range.end()))
+                        .orElse(0L);
+    }
+
+    /**
+     * The active time of a running session that has not been credited yet, as a span of time: the
+     * current segment of an ACTIVE session, or the segment before the open pause of a PAUSED one.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TimeRange> uncreditedActiveStretch(FocusSession session, Instant now) {
+        if (session.getStatus() == SessionStatus.ACTIVE && session.getActiveSegmentStartedAt() != null) {
+            Instant from = session.getActiveSegmentStartedAt();
+            return now.isAfter(from) ? Optional.of(new TimeRange(from, now)) : Optional.empty();
+        }
+        if (session.getStatus() == SessionStatus.PAUSED) {
+            return sessionPauseRepository.findFirstBySessionAndFinalizedFalse(session).map(pause -> new TimeRange(
+                    pause.getStartedAt().minusSeconds(session.uncreditedActiveSeconds()), pause.getStartedAt()));
+        }
+        return Optional.empty();
+    }
+
+    /** The session, if it is the user's; another user's session is reported as not found. */
+    @Transactional(readOnly = true)
+    public FocusSession getOwnedSession(Long sessionId, String username) {
+        return getOwnedSessionOrThrow(sessionId, username);
+    }
+
     private boolean isLatestStartedSession(FocusSession session) {
         return focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(session.getUser())
                 .map(latest -> latest == session
@@ -391,7 +472,8 @@ public class SessionService {
      * <p>The time not yet credited is one unbroken stretch ending at {@code creditedUntil}: the
      * active time since the previous credit, then the pause just finalized, if any. The streak
      * splits it at midnight and at the start of the week, so time before a boundary counts toward
-     * the period that was then current.
+     * the period that was then current. Off-task time in the active part is settled here and left
+     * out of the credit.
      */
     private void recordStreakContribution(FocusSession session, Instant creditedUntil) {
         long activeSeconds = session.uncreditedActiveSeconds();
@@ -399,7 +481,13 @@ public class SessionService {
         if (activeSeconds + pausedSeconds <= 0) {
             return;
         }
-        streakService.recordContribution(session, activeSeconds, pausedSeconds, creditedUntil);
+        List<TimeRange> offTask = List.of();
+        if (session.isCameraVerification() && activeSeconds > 0) {
+            Instant activeTo = creditedUntil.minusSeconds(pausedSeconds);
+            offTask = offTaskAccounting.settle(session, activeTo.minusSeconds(activeSeconds), activeTo);
+            session.addOffTaskSeconds(offTask.stream().mapToLong(TimeRange::seconds).sum());
+        }
+        streakService.recordContribution(session, activeSeconds, pausedSeconds, creditedUntil, offTask);
         session.markStreakCredited();
     }
 

@@ -9,6 +9,9 @@ import java.time.Instant;
  * running as of {@code generatedAt}, so the UI can render a timer without doing time math against
  * the server. {@code qualifyingSeconds} is the value stored on the session, which only advances at
  * pause, resume and end.
+ *
+ * <p>For a camera-verified session, {@code offTaskSeconds} is the off-task time so far and
+ * {@code remainingFocusSeconds} counts it: active time minus off-task time must reach the plan.
  */
 public record FocusSessionDto(
         Long id,
@@ -29,10 +32,13 @@ public record FocusSessionDto(
         boolean overrideUsed,
         boolean completionXpAwarded,
         Instant createdAt,
+        boolean cameraVerification,
+        long offTaskSeconds,
         Instant generatedAt
 ) {
 
-    public static FocusSessionDto from(FocusSession session, Instant now) {
+    /** {@code offTaskSeconds} is the settled plus provisional off-task time as of {@code now}. */
+    public static FocusSessionDto from(FocusSession session, Instant now, long offTaskSeconds) {
         long activeSeconds = session.activeSecondsAt(now);
         return new FocusSessionDto(
                 session.getId(),
@@ -41,7 +47,7 @@ public record FocusSessionDto(
                 session.getTaskCategory(),
                 session.getPlannedFocusMinutes(),
                 activeSeconds,
-                Math.max(0, session.getPlannedFocusMinutes() * 60L - activeSeconds),
+                Math.max(0, session.getPlannedFocusMinutes() * 60L - (activeSeconds - offTaskSeconds)),
                 session.getFinalizedPausedSeconds(),
                 session.getQualifyingSeconds(),
                 session.getOvertimeSeconds(),
@@ -53,6 +59,8 @@ public record FocusSessionDto(
                 session.isOverrideUsed(),
                 session.isCompletionXpAwarded(),
                 session.getCreatedAt(),
+                session.isCameraVerification(),
+                offTaskSeconds,
                 now);
     }
 }

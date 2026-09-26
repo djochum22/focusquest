@@ -32,8 +32,14 @@ import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import com.example.focusquest.user.UserRepository;
 import com.example.focusquest.user.UserService;
+import com.example.focusquest.vision.CameraObservation;
+import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettings;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.OffTaskDispute;
+import com.example.focusquest.vision.OffTaskDisputeRepository;
+import com.example.focusquest.vision.OffTaskInterval;
+import com.example.focusquest.vision.OffTaskIntervalRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -80,6 +86,9 @@ public class RestoreService {
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
+    private final CameraObservationRepository cameraObservationRepository;
+    private final OffTaskIntervalRepository offTaskIntervalRepository;
+    private final OffTaskDisputeRepository offTaskDisputeRepository;
 
     public RestoreService(DataDeletionService dataDeletionService,
                           UserRepository userRepository,
@@ -93,7 +102,10 @@ public class RestoreService {
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
-                          CameraSettingsRepository cameraSettingsRepository) {
+                          CameraSettingsRepository cameraSettingsRepository,
+                          CameraObservationRepository cameraObservationRepository,
+                          OffTaskIntervalRepository offTaskIntervalRepository,
+                          OffTaskDisputeRepository offTaskDisputeRepository) {
         this.dataDeletionService = dataDeletionService;
         this.userRepository = userRepository;
         this.focusSessionRepository = focusSessionRepository;
@@ -107,6 +119,9 @@ public class RestoreService {
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
+        this.cameraObservationRepository = cameraObservationRepository;
+        this.offTaskIntervalRepository = offTaskIntervalRepository;
+        this.offTaskDisputeRepository = offTaskDisputeRepository;
     }
 
     @Transactional
@@ -140,6 +155,20 @@ public class RestoreService {
                     ? SessionPause.restore(session, pause.startedAt(), pause.endedAt(), pause.durationSeconds())
                     : SessionPause.restore(session, pause.startedAt(), pause.startedAt(), 0);
             sessionPauseRepository.save(restored);
+        }
+        for (CameraObservationBackup observation : listOf(backup.cameraObservations())) {
+            cameraObservationRepository.save(new CameraObservation(sessions.get(observation.sessionId()),
+                    observation.clientEventId(), observation.signal(), observation.confidence(),
+                    observation.startedAt(), observation.observedUntil(), observation.receivedAt()));
+        }
+        for (OffTaskIntervalBackup interval : listOf(backup.offTaskIntervals())) {
+            offTaskIntervalRepository.save(new OffTaskInterval(sessions.get(interval.sessionId()),
+                    interval.episodeStartedAt(), interval.warnedAt(), interval.deductionStartedAt(),
+                    interval.deductionEndedAt(), interval.deductedSeconds(), interval.disputed()));
+        }
+        for (OffTaskDisputeBackup dispute : listOf(backup.offTaskDisputes())) {
+            offTaskDisputeRepository.save(new OffTaskDispute(sessions.get(dispute.sessionId()),
+                    dispute.episodeStartedAt(), dispute.createdAt()));
         }
 
         Map<Long, StreakConfiguration> configurations = new HashMap<>();
@@ -207,7 +236,7 @@ public class RestoreService {
                 running ? BlockingState.TECHNICAL_RELEASE : session.blockingState(),
                 session.startedAt(), session.completedAt(), session.abandonedAt(), session.overrideUsed(),
                 session.completionXpAwarded(), session.createdAt(), session.streakCreditedActiveSeconds(),
-                session.streakCreditedPausedSeconds());
+                session.streakCreditedPausedSeconds(), session.cameraVerification(), session.offTaskSeconds());
     }
 
     /** Ledger entries point at a session, a period, a freeze or a level; all but a level have new ids now. */
@@ -260,6 +289,17 @@ public class RestoreService {
         for (StreakPeriodBackup period : listOf(backup.streakPeriods())) {
             requireReference(configurationIds, period.configurationId(), "A streak period");
         }
+        for (CameraObservationBackup observation : listOf(backup.cameraObservations())) {
+            requireReference(sessionIds, observation.sessionId(), "A camera observation");
+        }
+        requireUnique(backup.cameraObservations(), o -> o.sessionId() + "/" + o.clientEventId(), "camera observation");
+        for (OffTaskIntervalBackup interval : listOf(backup.offTaskIntervals())) {
+            requireReference(sessionIds, interval.sessionId(), "An off-task interval");
+        }
+        for (OffTaskDisputeBackup dispute : listOf(backup.offTaskDisputes())) {
+            requireReference(sessionIds, dispute.sessionId(), "An off-task dispute");
+        }
+        requireUnique(backup.offTaskDisputes(), d -> d.sessionId() + "/" + d.episodeStartedAt(), "off-task dispute");
         requireUnique(backup.streakPeriods(), period -> period.periodType() + "@" + period.startTime(),
                 "streak period");
         for (StreakContributionBackup contribution : listOf(backup.streakContributions())) {

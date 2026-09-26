@@ -17,7 +17,10 @@ import com.example.focusquest.streak.StreakContributionRepository;
 import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.UserRepository;
+import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.OffTaskDisputeRepository;
+import com.example.focusquest.vision.OffTaskIntervalRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Clock;
 import java.time.Instant;
@@ -81,6 +84,12 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private CameraSettingsRepository cameraSettingsRepository;
     @Autowired
+    private CameraObservationRepository cameraObservationRepository;
+    @Autowired
+    private OffTaskIntervalRepository offTaskIntervalRepository;
+    @Autowired
+    private OffTaskDisputeRepository offTaskDisputeRepository;
+    @Autowired
     private ExtensionCredentialRepository extensionCredentialRepository;
     @Autowired
     protected UserRepository userRepository;
@@ -93,6 +102,9 @@ public abstract class ApiIntegrationTest {
         // Children before parents, in foreign-key order.
         streakContributionRepository.deleteAllInBatch();
         streakFreezeRepository.deleteAllInBatch();
+        cameraObservationRepository.deleteAllInBatch();
+        offTaskIntervalRepository.deleteAllInBatch();
+        offTaskDisputeRepository.deleteAllInBatch();
         sessionPauseRepository.deleteAllInBatch();
         streakPeriodRepository.deleteAllInBatch();
         focusSessionRepository.deleteAllInBatch();

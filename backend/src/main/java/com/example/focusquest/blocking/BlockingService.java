@@ -158,7 +158,9 @@ public class BlockingService {
         Instant now = clockProvider.now();
         return findEnforcingSession(user).map(session -> {
             long activeSeconds = session.activeSecondsAt(now);
-            long remainingSeconds = Math.max(0, session.getPlannedFocusMinutes() * 60L - activeSeconds);
+            // Settled off-task time only; the web app shows the provisional part as it happens.
+            long remainingSeconds = Math.max(0,
+                    session.getPlannedFocusMinutes() * 60L - (activeSeconds - session.getOffTaskSeconds()));
             return new CurrentSessionSnapshot(session, activeSeconds, remainingSeconds,
                     streakService.findCurrentPeriod(user, StreakPeriodType.DAILY).orElse(null), now);
         });

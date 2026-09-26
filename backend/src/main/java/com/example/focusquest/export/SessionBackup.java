@@ -31,7 +31,9 @@ public record SessionBackup(
         boolean completionXpAwarded,
         Instant createdAt,
         long streakCreditedActiveSeconds,
-        long streakCreditedPausedSeconds
+        long streakCreditedPausedSeconds,
+        boolean cameraVerification,
+        long offTaskSeconds
 ) {
 
     static SessionBackup from(FocusSession session) {
@@ -41,6 +43,7 @@ public record SessionBackup(
                 session.getStatus(), session.getBlockingState(), session.getStartedAt(), session.getCompletedAt(),
                 session.getAbandonedAt(), session.isOverrideUsed(), session.isCompletionXpAwarded(),
                 session.getCreatedAt(), session.getStreakCreditedActiveSeconds(),
-                session.getStreakCreditedPausedSeconds());
+                session.getStreakCreditedPausedSeconds(), session.isCameraVerification(),
+                session.getOffTaskSeconds());
     }
 }

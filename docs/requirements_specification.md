@@ -230,7 +230,7 @@ Time during which a session is in the PAUSED state. Website blocking remains act
 
 ### Qualifying time
 
-Time that contributes to daily or weekly streak progress. Under the current decisions, qualifying time includes active time and finalized paused time when the session matches the streak requirements.
+Time that contributes to daily or weekly streak progress. Under the current decisions, qualifying time includes active time and finalized paused time when the session matches the streak requirements. For a session the camera checks, off-task time is subtracted from it (section 21).
 
 ### Session completion
 
@@ -1199,7 +1199,19 @@ The timings and the minimum confidence are configuration, to be tuned once real 
 - **Warning first.** When off-task signals last long enough, the user is warned at once, by a notification from the companion program and a banner in the web app.
 - **Then subtraction.** If they are still off task when the grace period ends, the time from then until they are back on task is subtracted. The time between the warning and the end of the grace period is never subtracted.
 - **What is affected.** Subtracted time is taken off active focus time. It therefore counts against completing the session (which needs active focus time minus off-task time to reach the planned duration) and against qualifying time for streaks. Paused time is never subtracted.
-- **Disputes.** Until the session is completed, the user can mark an off-task interval as inaccurate. That restores the time and records the label, so the detector's accuracy can be measured.
+- **Disputes.** Until the session is completed, the user can mark an off-task episode as inaccurate. That restores the time and records the label, so the detector's accuracy can be measured.
+
+### How episodes are worked out
+
+- **Observations.** The companion program reports stretches of one signal: which signal, how confident it is, when the stretch started and the last moment it was seen. It keeps extending a stretch while it lasts. Only signals the category checks, at or above the minimum confidence, count.
+- **Flicker.** Stretches of the same signal no more than 5 seconds apart count as one: a short gap is detector flicker, not the user coming back. The gap is configuration.
+- **Episodes.** Off-task stretches of any signal that touch or are within the same 5 seconds form one episode.
+- **Warning.** The warning comes at the first moment one signal has lasted its warning time without a break. Signals do not add up: 15 seconds on the phone followed by 50 seconds looking away warns no one.
+- **Subtraction.** It runs from the end of the grace period to the end of the episode, and only over active time.
+- **Nothing unverified.** If the companion program stops reporting, the episode ends at the last moment it was seen, so time nobody observed is never subtracted.
+- **Settling.** Off-task time is settled when the session's time is credited to the streak: on resume, complete, abandon and interruption. From then on it is recorded against the session and left out of the streak, split at midnight and the start of the week like the rest of the time. Before that it is provisional. The session shows it as it happens, and it already counts against completing the session.
+- **Interruption.** When a session is interrupted because the extension went quiet, off-task time is settled only up to the last heartbeat, like the rest of the session's time.
+- **Disputed episodes.** An episode is disputed as a whole. A provisional one is never subtracted; the settled part of one is given back to the session and to the streak periods it was taken from.
 
 ### Failure
 

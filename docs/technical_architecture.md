@@ -429,6 +429,11 @@ com.example.focusquest
     CameraProfiles.java               (the profile of each task category)
     CameraProfile.java, WorkArea.java, OffTaskSignal.java
     CameraProfileController.java
+    CameraObservation.java            (one stretch of one off-task signal)
+    OffTaskCalculator.java            (observations to episodes; pure)
+    OffTaskService.java               (implements session.OffTaskAccounting)
+    OffTaskInterval.java, OffTaskDispute.java
+    OffTaskController.java
 
   shared/
     exception/
@@ -962,6 +967,8 @@ PUT    /api/me/profile
 GET    /api/me/camera-settings
 PUT    /api/me/camera-settings
 GET    /api/camera/profiles
+GET    /api/focus-sessions/{id}/off-task
+POST   /api/focus-sessions/{id}/off-task/disputes
 GET    /api/export
 POST   /api/me/data/restore
 DELETE /api/me/data
@@ -971,8 +978,30 @@ DELETE /api/me/data
 
 - **`GET /api/me/camera-settings`** returns `{ "enabled", "consentVersion", "consentedAt", "verifyNewSessionsByDefault" }`. `consentVersion` is the version of the consent text the backend requires (`CameraSettingsService.CONSENT_VERSION`, currently 1); `consentedAt` is null while camera verification is off. **`PUT`** takes `{ "enabled", "consentVersion", "verifyNewSessionsByDefault" }`. Turning it on needs `consentVersion` equal to the current version, otherwise `400` ("Read and accept the current camera consent text to turn camera verification on"); once on, changing only the default keeps the original consent. Turning it off withdraws consent. Consent to an older version of the text does not count, so bumping the version asks everyone again. The web app's `utils/cameraConsent.ts` holds the text and must carry the same version.
 - **`GET /api/camera/profiles`** returns what the camera checks for each task category, one entry per category in declaration order: `{ "category", "workArea", "checks": [{ "signal", "warningAfterSeconds" }], "graceSeconds", "minConfidence" }`. `workArea` is `SCREEN`, `SCREEN_OR_DESK` or `ANYWHERE`; `checks` lists `AWAY`, `PHONE` and, unless the work area is `ANYWHERE`, `LOOKING_AWAY`. The work area of each category is fixed in `CameraProfiles`; the timings and minimum confidence come from `focusquest.camera.*` in `application.yml` and are the same for every category. The profiles are the same for every user, but the route still needs sign-in. The settings page lists them, grouped by identical rules, in a collapsible section of `CameraVerificationCard`.
-- **`export`** returns everything held for the caller as one JSON document, complete enough to restore: `exportedAt`, `schemaVersion` (currently `2.2`), `user` (never the password hash), `focusSessions`, `sessionPauses`, `streakConfigurations`, `streakPeriods`, `streakContributions`, `streakFreezes` (each with `usedPeriodId`, null while unused), `experienceTransactions`, `gemTransactions`, `blockedTargets`, `allowlistTargets` and `cameraSettings` (null if never set). Records carry their stored values, including the streak bookkeeping on sessions (`streakCreditedActiveSeconds`, `streakCreditedPausedSeconds`) and each period's `configurationId` and `freezeConsumed`, and refer to one another by the exported ids. A session's times are the stored totals, so a session still running at export time leaves out its segment in progress. New kinds of data get a new schema version and must be restored too.
-- **`POST /api/me/data/restore`** takes an export and replaces all of the caller's data with it, returning 204. The account's username, password and extension token are kept; the display name and time zone come from the backup. Rows get new ids and the references between them are rewritten, including ledger entries' `referenceId` for `FOCUS_SESSION`, `STREAK_PERIOD` and `STREAK_FREEZE` (a `LEVEL` reference is a level number and is kept). A session that was `ACTIVE` or `PAUSED` in the backup comes back `INTERRUPTED` with blocking `TECHNICAL_RELEASE`, and its open pause is closed with zero length, as if the extension had gone silent: it can be resumed or abandoned. The restore is all or nothing. It is refused with `400` for a schema version other than `2.0`, `2.1` or `2.2` (exports before `2.0` lack pauses and contributions; an older backup restores without the freezes or camera settings it predates), an unknown time zone, missing or repeated ids, a reference to a record not in the file, duplicate rows the database would reject, or a missing required value; and with `409 CONFLICT` while website blocking is being enforced, for the same reason as deletion.
+- **Camera-verified sessions.** `POST /api/focus-sessions` takes an optional `cameraVerification`. Omitted, it takes the user's default: on if camera verification is on and new sessions use it by default. Asking for it while camera verification is off is `400`. The session DTO carries `cameraVerification` and `offTaskSeconds`, the settled plus provisional off-task time, and `remainingFocusSeconds` counts it.
+- **`GET /api/focus-sessions/{id}/off-task`** returns `{ "sessionId", "state", "offTaskSeconds", "current", "episodes" }`.
+  - `state` is `NOT_VERIFIED`, `NOT_RUNNING`, `ON_TASK`, `OFF_TASK`, `WARNED` or `DEDUCTING`. An episode seen within the last 15 seconds counts as going on, and it is `current`.
+  - Each episode is `{ "startedAt", "endedAt", "warnedAt", "deductionStartedAt", "deductedSeconds", "disputed" }`. `deductedSeconds` counts active time only: what is settled plus what is provisional in the stretch not credited yet.
+- **`POST /api/focus-sessions/{id}/off-task/disputes`** takes `{ "episodeStartedAt" }` and returns the same status.
+  - `404` for an episode that does not exist.
+  - `400` for a completed session, or one the camera does not check.
+  - Disputing twice changes nothing.
+- **Observations** reach `OffTaskService.recordObservations`. Its endpoint arrives with the companion program's own token. The service accepts:
+  - only running, camera-verified sessions of a user with camera verification on, otherwise `400`/`409`;
+  - at most 200 observations at a time, none claiming a time more than 5 seconds ahead of the backend's clock.
+
+  Sending a `clientEventId` again extends that stretch. Changing its signal or start is refused.
+
+**Off-task time model.**
+- **Episodes are computed, never stored.** `OffTaskCalculator` works them out from the observations each time.
+- **Settling.** When `SessionService` credits a stretch of active time to the streak (resume, complete, abandon, interruption), it calls `OffTaskAccounting.settle` for that stretch. The stretch is `[creditedUntil - paused - active, creditedUntil - paused)`: the active segment since the previous credit, which is contiguous because a credit happens at every resume. `settle` stores the part of each episode's subtraction inside the stretch as an `OffTaskInterval` and returns the ranges.
+- **Effect on the session.** The ranges are added to `FocusSession.offTaskSeconds`, so qualifying is active plus paused minus off-task. They are passed to `StreakService.recordContribution`, which leaves them out of each period part they fall in, so off-task time across midnight or the start of the week is taken from the period it fell in (to within a second, since credit times can fall between whole seconds).
+- **Completion.** `completeSession` checks active minus settled minus provisional off-task against the plan. It credits (settles) before marking the session completed, so overtime is net.
+- **Disputes.** A dispute stores an `OffTaskDispute` keyed by the episode's start. Settled intervals of that episode are marked disputed, and their seconds are restored to the session and credited to the streak at the time they fell.
+- **Late observations.** Observations that arrive after their stretch was settled change nothing already settled.
+
+- **`export`** returns everything held for the caller as one JSON document, complete enough to restore: `exportedAt`, `schemaVersion` (currently `2.3`), `user` (never the password hash), `focusSessions`, `sessionPauses`, `streakConfigurations`, `streakPeriods`, `streakContributions`, `streakFreezes` (each with `usedPeriodId`, null while unused), `experienceTransactions`, `gemTransactions`, `blockedTargets`, `allowlistTargets`, `cameraSettings` (null if never set), `cameraObservations`, `offTaskIntervals` and `offTaskDisputes`. Sessions carry `cameraVerification` and `offTaskSeconds`. Records carry their stored values, including the streak bookkeeping on sessions (`streakCreditedActiveSeconds`, `streakCreditedPausedSeconds`) and each period's `configurationId` and `freezeConsumed`, and refer to one another by the exported ids. A session's times are the stored totals, so a session still running at export time leaves out its segment in progress. New kinds of data get a new schema version and must be restored too.
+- **`POST /api/me/data/restore`** takes an export and replaces all of the caller's data with it, returning 204. The account's username, password and extension token are kept; the display name and time zone come from the backup. Rows get new ids and the references between them are rewritten, including ledger entries' `referenceId` for `FOCUS_SESSION`, `STREAK_PERIOD` and `STREAK_FREEZE` (a `LEVEL` reference is a level number and is kept). A session that was `ACTIVE` or `PAUSED` in the backup comes back `INTERRUPTED` with blocking `TECHNICAL_RELEASE`, and its open pause is closed with zero length, as if the extension had gone silent: it can be resumed or abandoned. The restore is all or nothing. It is refused with `400` for a schema version other than `2.0` to `2.3` (exports before `2.0` lack pauses and contributions; an older backup restores without the freezes, camera settings or off-task data it predates), an unknown time zone, missing or repeated ids, a reference to a record not in the file, duplicate rows the database would reject, or a missing required value; and with `409 CONFLICT` while website blocking is being enforced, for the same reason as deletion.
 - **`DELETE /api/me/data`** deletes all of the caller's sessions, pauses, streak contributions, periods and configurations, XP and gem transactions, block and allowlist rules, and the account itself, and returns 204. The next launch is first-time setup, and the old token is rejected with 401. It is refused with `409 CONFLICT` while website blocking is being enforced (section 13); otherwise it would be a way to release blocking without the override penalty. The user must end the session, or abandon it and override, first.
 
 **Extension-specific API**

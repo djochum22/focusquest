@@ -14,7 +14,10 @@ import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserRepository;
+import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.OffTaskDisputeRepository;
+import com.example.focusquest.vision.OffTaskIntervalRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,9 @@ public class DataDeletionService {
     private final AllowlistTargetRepository allowlistTargetRepository;
     private final ExtensionCredentialRepository extensionCredentialRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
+    private final CameraObservationRepository cameraObservationRepository;
+    private final OffTaskIntervalRepository offTaskIntervalRepository;
+    private final OffTaskDisputeRepository offTaskDisputeRepository;
     private final UserRepository userRepository;
 
     public DataDeletionService(BlockingService blockingService,
@@ -58,6 +64,9 @@ public class DataDeletionService {
                                 AllowlistTargetRepository allowlistTargetRepository,
                                 ExtensionCredentialRepository extensionCredentialRepository,
                                 CameraSettingsRepository cameraSettingsRepository,
+                                CameraObservationRepository cameraObservationRepository,
+                                OffTaskIntervalRepository offTaskIntervalRepository,
+                                OffTaskDisputeRepository offTaskDisputeRepository,
                                 UserRepository userRepository) {
         this.blockingService = blockingService;
         this.streakContributionRepository = streakContributionRepository;
@@ -72,6 +81,9 @@ public class DataDeletionService {
         this.allowlistTargetRepository = allowlistTargetRepository;
         this.extensionCredentialRepository = extensionCredentialRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
+        this.cameraObservationRepository = cameraObservationRepository;
+        this.offTaskIntervalRepository = offTaskIntervalRepository;
+        this.offTaskDisputeRepository = offTaskDisputeRepository;
         this.userRepository = userRepository;
     }
 
@@ -98,6 +110,9 @@ public class DataDeletionService {
         // Children before parents, in foreign-key order.
         streakContributionRepository.deleteAllByUser(user);
         streakFreezeRepository.deleteAllByUser(user);
+        cameraObservationRepository.deleteAllByUser(user);
+        offTaskIntervalRepository.deleteAllByUser(user);
+        offTaskDisputeRepository.deleteAllByUser(user);
         sessionPauseRepository.deleteAllByUser(user);
         streakPeriodRepository.deleteAllByUser(user);
         focusSessionRepository.deleteAllByUser(user);

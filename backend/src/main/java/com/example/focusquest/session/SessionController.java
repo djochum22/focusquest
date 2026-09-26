@@ -3,6 +3,7 @@ package com.example.focusquest.session;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.user.UserService;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,8 @@ public class SessionController {
                                                    @Valid @RequestBody CreateSessionRequest request) {
         FocusSession session = sessionService.createSession(
                 userService.getByUsername(principal.getUsername()),
-                request.taskDescription(), request.taskMode(), request.taskCategory(), request.plannedFocusMinutes());
+                request.taskDescription(), request.taskMode(), request.taskCategory(), request.plannedFocusMinutes(),
+                request.cameraVerification());
         return ResponseEntity.status(HttpStatus.CREATED).body(toDto(session));
     }
 
@@ -110,6 +112,7 @@ public class SessionController {
     }
 
     private FocusSessionDto toDto(FocusSession session) {
-        return FocusSessionDto.from(session, clockProvider.now());
+        Instant now = clockProvider.now();
+        return FocusSessionDto.from(session, now, sessionService.offTaskSecondsAt(session, now));
     }
 }

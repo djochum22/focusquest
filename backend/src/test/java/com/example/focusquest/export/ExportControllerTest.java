@@ -58,14 +58,14 @@ class ExportControllerTest {
     @WithMockUser(username = "doug")
     void exportReturnsTheCallersDataAsJson() throws Exception {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        when(exportService.exportLocalData(user)).thenReturn(new LocalDataExportDto(now, "2.2",
+        when(exportService.exportLocalData(user)).thenReturn(new LocalDataExportDto(now, "2.3",
                 UserDto.from(user), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), null));
+                List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of()));
 
         mockMvc.perform(get("/api/export"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exportedAt", notNullValue()))
-                .andExpect(jsonPath("$.schemaVersion").value("2.2"))
+                .andExpect(jsonPath("$.schemaVersion").value("2.3"))
                 .andExpect(jsonPath("$.user.username").value("doug"))
                 .andExpect(jsonPath("$.focusSessions").isArray())
                 .andExpect(jsonPath("$.sessionPauses").isArray())

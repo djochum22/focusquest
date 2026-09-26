@@ -16,7 +16,10 @@ import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
+import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.OffTaskDisputeRepository;
+import com.example.focusquest.vision.OffTaskIntervalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +31,13 @@ public class ExportService {
 
     /**
      * 2.0 made the export a complete backup that can be restored; older exports cannot be. 2.1 added
-     * streak freezes and 2.2 camera settings; an older backup restores without them.
+     * streak freezes, 2.2 camera settings, and 2.3 camera observations and off-task time; an older
+     * backup restores without them.
      */
-    static final String SCHEMA_VERSION = "2.2";
+    static final String SCHEMA_VERSION = "2.3";
 
     /** The formats {@link RestoreService} accepts. */
-    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", "2.1", SCHEMA_VERSION);
+    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", "2.1", "2.2", SCHEMA_VERSION);
 
     private final FocusSessionRepository focusSessionRepository;
     private final SessionPauseRepository sessionPauseRepository;
@@ -46,6 +50,9 @@ public class ExportService {
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
+    private final CameraObservationRepository cameraObservationRepository;
+    private final OffTaskIntervalRepository offTaskIntervalRepository;
+    private final OffTaskDisputeRepository offTaskDisputeRepository;
     private final ClockProvider clockProvider;
 
     public ExportService(FocusSessionRepository focusSessionRepository,
@@ -59,6 +66,9 @@ public class ExportService {
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
                           CameraSettingsRepository cameraSettingsRepository,
+                          CameraObservationRepository cameraObservationRepository,
+                          OffTaskIntervalRepository offTaskIntervalRepository,
+                          OffTaskDisputeRepository offTaskDisputeRepository,
                           ClockProvider clockProvider) {
         this.focusSessionRepository = focusSessionRepository;
         this.sessionPauseRepository = sessionPauseRepository;
@@ -71,6 +81,9 @@ public class ExportService {
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
+        this.cameraObservationRepository = cameraObservationRepository;
+        this.offTaskIntervalRepository = offTaskIntervalRepository;
+        this.offTaskDisputeRepository = offTaskDisputeRepository;
         this.clockProvider = clockProvider;
     }
 
@@ -100,6 +113,12 @@ public class ExportService {
                         .map(RuleTargetResponse::from).toList(),
                 allowlistTargetRepository.findByUserOrderByIdAsc(user).stream()
                         .map(RuleTargetResponse::from).toList(),
-                cameraSettingsRepository.findByUser(user).map(CameraSettingsBackup::from).orElse(null));
+                cameraSettingsRepository.findByUser(user).map(CameraSettingsBackup::from).orElse(null),
+                cameraObservationRepository.findBySessionUserOrderByIdAsc(user).stream()
+                        .map(CameraObservationBackup::from).toList(),
+                offTaskIntervalRepository.findBySessionUserOrderByIdAsc(user).stream()
+                        .map(OffTaskIntervalBackup::from).toList(),
+                offTaskDisputeRepository.findBySessionUserOrderByIdAsc(user).stream()
+                        .map(OffTaskDisputeBackup::from).toList());
     }
 }
