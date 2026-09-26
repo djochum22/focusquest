@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getErrorMessage } from '../../api/apiError'
 import { useAuthStore } from '../../stores/authStore'
 import { useCameraStore } from '../../stores/cameraStore'
 import { CAMERA_CONSENT_POINTS } from '../../utils/cameraConsent'
+import { formatShortDuration, groupProfiles } from '../../utils/cameraProfiles'
 import { formatDateTime } from '../../utils/dateTime'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
@@ -15,6 +16,10 @@ const agreed = ref(false)
 const error = ref<string | null>(null)
 const loaded = ref(false)
 
+const profileGroups = computed(() => groupProfiles(camera.profiles))
+/** Every profile has the same grace period; shown once. */
+const grace = computed(() => camera.profiles[0]?.graceSeconds ?? null)
+
 onMounted(async () => {
   try {
     await camera.fetch()
@@ -23,6 +28,8 @@ onMounted(async () => {
   } finally {
     loaded.value = true
   }
+  // Only explains the rules; the card works without it.
+  camera.fetchProfiles().catch(() => {})
 })
 
 async function run(action: () => Promise<void>) {
@@ -58,6 +65,20 @@ function onDefaultChange(event: Event) {
       only records your choice; no camera is used.
     </p>
     <ErrorMessage :message="error" />
+
+    <details v-if="profileGroups.length > 0" class="camera__profiles">
+      <summary>What the camera checks for each category</summary>
+      <p class="muted camera__hint">You are warned when you are off task for this long:</p>
+      <ul class="camera__rules">
+        <li v-for="group in profileGroups" :key="group.categories">
+          <strong>{{ group.categories }}:</strong> {{ group.rules }}.
+        </li>
+      </ul>
+      <p v-if="grace !== null" class="muted camera__hint">
+        If you are still off task {{ formatShortDuration(grace) }} after a warning, the time from then
+        on does not count.
+      </p>
+    </details>
 
     <template v-if="camera.settings?.enabled">
       <p class="camera__on" role="status">
@@ -135,6 +156,23 @@ function onDefaultChange(event: Event) {
 }
 .camera__points {
   margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+}
+.camera__profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.camera__profiles summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.camera__rules {
+  margin: 0.5rem 0;
   padding-left: 1.25rem;
   display: flex;
   flex-direction: column;

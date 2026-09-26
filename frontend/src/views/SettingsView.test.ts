@@ -64,6 +64,7 @@ beforeEach(async () => {
   vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
   vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
     { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true })
+  vi.mocked(cameraApi.fetchCameraProfiles).mockResolvedValue([])
 })
 
 describe('SettingsView', () => {

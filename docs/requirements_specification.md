@@ -1168,7 +1168,31 @@ Camera verification is the next planned feature after the MVP. During a session,
   - looking down, as when reading,
   - a phone visible or in hand,
   - a book or document visible.
-- **Per category.** Each task category has a profile saying which signals mean on task and which mean off task, how long a signal must last before a warning, how long the grace period after the warning is, and the minimum confidence. Several categories may share a profile. The profiles are defined in the next step of the camera work.
+- **Per category.** Each task category has a camera profile (below) saying what counts as off task and how quickly the user is warned.
+
+### Camera profiles
+
+Three things count as off task:
+
+- **Away:** nobody in front of the camera.
+- **Phone:** a phone visible in the user's hands.
+- **Looking away:** the user's head turned away from the category's work area.
+
+The work area is where the user may look and still be on task. Looking down at the desk counts as on task where the work area includes it, so reading or writing on paper is not mistaken for looking away.
+
+| Categories | Work area | Off task |
+| --- | --- | --- |
+| Coding, Work, Administration | The screen | Away, phone, looking away |
+| Studying, Reading, Writing, Planning | The screen or the desk | Away, phone, looking away |
+| Creative work, Other, Task-free | Anywhere | Away, phone |
+
+The timings are the same for every category:
+
+- **Warnings.** The user is warned once they have been away for 3 minutes, had a phone in hand for 20 seconds, or looked away for 60 seconds.
+- **Grace period.** If they are still off task 60 seconds after the warning, subtraction starts.
+- **Minimum confidence.** Observations below a confidence of 0.7 are ignored.
+
+The timings and the minimum confidence are configuration, to be tuned once real detection exists. The user cannot change the profiles yet; the Settings page shows what the camera checks for each category.
 
 ### Off-task time
 
@@ -1204,8 +1228,8 @@ The following decisions remain open or need more precision:
 13. Exact local authentication mechanism. (Decided: a local username and password (BCrypt) issue a short-lived JWT for the web app. The Chrome extension uses a separate, revocable token that works only on the extension endpoints.)
 14. Data backup and export format. (Decided: the JSON export is the backup. From format 2.0 it holds every stored row and can be restored from Settings; a restore replaces all current data.)
 15. Exact initial task-category list. (Decided: Studying, Coding, Writing, Reading, Work, Planning, Creative work, Administration, Other, and Task-free. Future off-task detection may give several categories the same behaviour profile instead of merging them.)
-16. The camera profile for each task category: its on-task and off-task signals, how long a signal lasts before a warning, the grace period after it, and the minimum confidence (section 21).
-17. Whether a user may change the camera profiles, or only use the defaults.
+16. The camera profile for each task category: its on-task and off-task signals, how long a signal lasts before a warning, the grace period after it, and the minimum confidence. (Decided: see "Camera profiles" in section 21.)
+17. Whether a user may change the camera profiles, or only use the defaults. (Decided: defaults only for now. They are configuration and can be revisited once real detection shows whether they need tuning.)
 
 ## 23\. Current product definition
 

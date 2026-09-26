@@ -104,4 +104,24 @@ class CameraSettingsApiIntegrationTest extends ApiIntegrationTest {
 
         update(token, json("verifyNewSessionsByDefault", true)).andExpect(status().isBadRequest());
     }
+
+    @Test
+    void theProfilesSayWhatTheCameraChecksForEachCategory() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+
+        getAs(token, "/api/camera/profiles")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(10)))
+                .andExpect(jsonPath("$[?(@.category == 'CODING')].workArea").value(org.hamcrest.Matchers.contains("SCREEN")))
+                .andExpect(jsonPath("$[?(@.category == 'CODING')].checks[*].signal")
+                        .value(org.hamcrest.Matchers.contains("AWAY", "PHONE", "LOOKING_AWAY")))
+                .andExpect(jsonPath("$[?(@.category == 'CODING')].checks[*].warningAfterSeconds")
+                        .value(org.hamcrest.Matchers.contains(180, 20, 60)))
+                .andExpect(jsonPath("$[?(@.category == 'READING')].workArea")
+                        .value(org.hamcrest.Matchers.contains("SCREEN_OR_DESK")))
+                .andExpect(jsonPath("$[?(@.category == 'TASK_FREE')].checks[*].signal")
+                        .value(org.hamcrest.Matchers.contains("AWAY", "PHONE")))
+                .andExpect(jsonPath("$[0].graceSeconds").value(60))
+                .andExpect(jsonPath("$[0].minConfidence").value(0.7));
+    }
 }

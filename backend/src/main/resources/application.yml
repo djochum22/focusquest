@@ -64,6 +64,18 @@ focusquest:
     # Gems one streak freeze costs, and how many unused freezes the user may hold.
     price: 10
     max-owned: 2
+  # Camera verification (requirements specification, section 21). The same for every task category;
+  # which categories check looking away is fixed in CameraProfiles.
+  camera:
+    # How long each off-task signal must last before the user is warned.
+    warning-after:
+      away: 3m
+      phone: 20s
+      looking-away: 60s
+    # After a warning, how long before off-task time starts being subtracted.
+    grace: 60s
+    # Observations below this confidence (0 to 1) are ignored.
+    min-confidence: 0.7
   cors:
     allowed-origins:
       - http://localhost:5173
