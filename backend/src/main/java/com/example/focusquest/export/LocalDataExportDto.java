@@ -23,6 +23,7 @@ public record LocalDataExportDto(
         List<StreakConfigurationBackup> streakConfigurations,
         List<StreakPeriodBackup> streakPeriods,
         List<StreakContributionBackup> streakContributions,
+        List<StreakFreezeBackup> streakFreezes,
         List<ExperienceTransactionResponse> experienceTransactions,
         List<GemTransactionResponse> gemTransactions,
         List<RuleTargetResponse> blockedTargets,

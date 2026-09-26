@@ -60,6 +60,10 @@ focusquest:
     # Gems the first time a streak period reaches its target.
     daily-streak: 1
     weekly-streak: 5
+  streak-freeze:
+    # Gems one streak freeze costs, and how many unused freezes the user may hold.
+    price: 10
+    max-owned: 2
   cors:
     allowed-origins:
       - http://localhost:5173

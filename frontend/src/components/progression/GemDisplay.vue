@@ -13,7 +13,7 @@ defineProps<{ balance: number | null }>()
       <p class="stat__value">
         <span data-testid="gem-value">{{ balance.toLocaleString() }}</span>{{ ' ' }}<span class="stat__unit">{{ balance === 1 ? 'gem' : 'gems' }}</span>
       </p>
-      <p class="muted stat__note">Earned by levelling up and reaching streak targets.</p>
+      <p class="muted stat__note">Earned by levelling up and reaching streak targets. Spend them on streak freezes.</p>
     </template>
   </section>
 </template>

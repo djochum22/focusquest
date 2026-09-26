@@ -46,9 +46,13 @@ export function streakUnit(length: number, periodType: StreakPeriodType): string
 }
 
 /** What the user can do about their streak right now. */
-export function streakHint(length: number, progress: StreakProgress): string {
+export function streakHint(length: number, progress: StreakProgress, protectedDays = 0): string {
   const now = progress.periodType === 'DAILY' ? 'today' : 'this week'
   if (progress.status === 'COMPLETED') return `You have reached your target ${now}.`
+  if (protectedDays > 0) {
+    const days = protectedDays === 1 ? 'the day you missed' : `the ${protectedDays} days you missed`
+    return `Your streak freezes are covering ${days}. Reach your target ${now} to keep the streak.`
+  }
   return length > 0
     ? `Reach your target ${now} to keep it going and add to it.`
     : `Reach your target ${now} to start a streak.`

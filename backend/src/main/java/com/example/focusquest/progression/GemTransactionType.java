@@ -5,5 +5,7 @@ public enum GemTransactionType {
     /** Reaching a level; referenced to the LEVEL by its number. */
     LEVEL_UP,
     /** A streak period reaching its target for the first time; referenced to the STREAK_PERIOD. */
-    STREAK_COMPLETION
+    STREAK_COMPLETION,
+    /** Buying a streak freeze, recorded as a negative amount; referenced to the STREAK_FREEZE. */
+    FREEZE_PURCHASE
 }

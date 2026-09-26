@@ -95,3 +95,19 @@ describe('levelProgressPercent', () => {
     expect(levelProgressPercent(10, 0, 0)).toBe(0)
   })
 })
+
+describe('streakHint with streak freezes', () => {
+  it('says freezes are covering one missed day', () => {
+    expect(streakHint(4, makeProgress(), 1)).toBe(
+      'Your streak freezes are covering the day you missed. Reach your target today to keep the streak.')
+  })
+
+  it('says freezes are covering several missed days', () => {
+    expect(streakHint(4, makeProgress(), 2)).toBe(
+      'Your streak freezes are covering the 2 days you missed. Reach your target today to keep the streak.')
+  })
+
+  it('does not mention freezes once today is reached', () => {
+    expect(streakHint(5, makeProgress({ status: 'COMPLETED' }), 0)).toBe('You have reached your target today.')
+  })
+})

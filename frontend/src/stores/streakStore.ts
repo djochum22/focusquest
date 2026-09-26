@@ -2,12 +2,14 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import * as streakApi from '../api/streakApi'
 import type {
+  FreezeInventory,
   StreakConfiguration,
   StreakConfigurationValues,
   StreakPeriodType,
   StreakProgress,
 } from '../types/streak'
 import { useAuthStore } from './authStore'
+import { useProgressionStore } from './progressionStore'
 
 /**
  * The user's streaks as last reported by the backend: the current daily and weekly period, and the
@@ -20,7 +22,13 @@ export const useStreakStore = defineStore('streak', () => {
   /** Periods in a row that reached their target, as counted by the backend. */
   const dailyStreak = ref(0)
   const weeklyStreak = ref<number | null>(null)
+  /** Missed days streak freezes are bridging right now; 0 when the streak is not relying on them. */
+  const dailyProtectedDays = ref(0)
   const currentLoaded = ref(false)
+
+  const freezes = ref<FreezeInventory | null>(null)
+  /** True while a freeze is being bought; blocks double purchases. */
+  const buyingFreeze = ref(false)
 
   const configurations = ref<StreakConfiguration[]>([])
   const configurationsLoaded = ref(false)
@@ -41,7 +49,29 @@ export const useStreakStore = defineStore('streak', () => {
     weekly.value = current.weekly
     dailyStreak.value = current.dailyStreak
     weeklyStreak.value = current.weeklyStreak
+    dailyProtectedDays.value = current.dailyStreakProtectedDays
     currentLoaded.value = true
+  }
+
+  async function fetchFreezes() {
+    freezes.value = await streakApi.fetchFreezes()
+  }
+
+  /**
+   * Buys one streak freeze. The gem balance shown elsewhere is updated from the answer, and the
+   * streak is fetched again, since a new freeze can protect days already missed that have not ended.
+   */
+  async function buyFreeze() {
+    if (buyingFreeze.value) return
+    buyingFreeze.value = true
+    try {
+      freezes.value = await streakApi.purchaseFreeze()
+    } finally {
+      buyingFreeze.value = false
+    }
+    const progression = useProgressionStore()
+    if (progression.loaded) progression.gems = freezes.value.gems
+    await fetchCurrent().catch(() => {})
   }
 
   async function fetchConfigurations() {
@@ -86,7 +116,10 @@ export const useStreakStore = defineStore('streak', () => {
     weekly.value = null
     dailyStreak.value = 0
     weeklyStreak.value = null
+    dailyProtectedDays.value = 0
     currentLoaded.value = false
+    freezes.value = null
+    buyingFreeze.value = false
     configurations.value = []
     configurationsLoaded.value = false
     saving.value = false
@@ -106,7 +139,10 @@ export const useStreakStore = defineStore('streak', () => {
     weekly,
     dailyStreak,
     weeklyStreak,
+    dailyProtectedDays,
     currentLoaded,
+    freezes,
+    buyingFreeze,
     configurations,
     configurationsLoaded,
     dailyConfiguration,
@@ -114,6 +150,8 @@ export const useStreakStore = defineStore('streak', () => {
     saving,
     fetchCurrent,
     fetchConfigurations,
+    fetchFreezes,
+    buyFreeze,
     refresh,
     saveConfiguration,
     reset,

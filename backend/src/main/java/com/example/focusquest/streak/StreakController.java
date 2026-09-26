@@ -35,11 +35,13 @@ public class StreakController {
     public CurrentStreaksResponse current(@AuthenticationPrincipal UserDetails principal) {
         User user = currentUser(principal);
         StreakProgressResponse weekly = progress(user, StreakPeriodType.WEEKLY);
+        StreakService.CurrentStreak daily = streakService.getCurrentStreak(user, StreakPeriodType.DAILY);
         return new CurrentStreaksResponse(
                 progress(user, StreakPeriodType.DAILY),
                 weekly,
-                streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY),
-                weekly == null ? null : streakService.getCurrentStreakLength(user, StreakPeriodType.WEEKLY));
+                daily.length(),
+                weekly == null ? null : streakService.getCurrentStreakLength(user, StreakPeriodType.WEEKLY),
+                daily.protectedDays());
     }
 
     @GetMapping("/api/streak-configurations")

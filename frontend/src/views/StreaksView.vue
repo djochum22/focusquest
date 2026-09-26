@@ -8,6 +8,7 @@ import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import GemDisplay from '../components/progression/GemDisplay.vue'
 import XpDisplay from '../components/progression/XpDisplay.vue'
 import StreakConfigurationForm from '../components/streak/StreakConfigurationForm.vue'
+import StreakFreezeCard from '../components/streak/StreakFreezeCard.vue'
 import StreakProgress from '../components/streak/StreakProgress.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useProgressionStore } from '../stores/progressionStore'
@@ -35,12 +36,14 @@ const ready = ref(false)
 const loadError = ref<string | null>(null)
 const saveError = reactive<Record<StreakPeriodType, string | null>>({ DAILY: null, WEEKLY: null })
 const saved = ref<StreakPeriodType | null>(null)
+const freezeError = ref<string | null>(null)
+const freezeBought = ref(false)
 
 async function load() {
   loadError.value = null
   // XP is secondary: a failure loading it must not hide the streaks, so the two load separately.
   // The session is only needed to know whether the settings are locked; the backend has the last word.
-  const results = await Promise.allSettled([streaks.refresh(), progression.fetch()])
+  const results = await Promise.allSettled([streaks.refresh(), progression.fetch(), streaks.fetchFreezes()])
   await session.fetchCurrent().catch(() => {})
   const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
   if (failed) loadError.value = getErrorMessage(failed.reason)
@@ -55,6 +58,17 @@ async function onSave(periodType: StreakPeriodType, values: StreakConfigurationV
     saved.value = periodType
   } catch (error) {
     saveError[periodType] = getErrorMessage(error)
+  }
+}
+
+async function onBuyFreeze() {
+  freezeError.value = null
+  freezeBought.value = false
+  try {
+    await streaks.buyFreeze()
+    freezeBought.value = true
+  } catch (error) {
+    freezeError.value = getErrorMessage(error)
   }
 }
 
@@ -90,6 +104,7 @@ onMounted(load)
           v-if="streaks.daily"
           :progress="streaks.daily"
           :streak-length="streaks.dailyStreak"
+          :protected-days="streaks.dailyProtectedDays"
           :timezone="auth.user?.timezone"
         />
         <StreakProgress
@@ -102,6 +117,17 @@ onMounted(load)
           No weekly streak yet. Add one below to track a Monday-to-Sunday target.
         </p>
       </section>
+
+      <div v-if="streaks.freezes" class="streaks__stack">
+        <ErrorMessage :message="freezeError" />
+        <p v-if="freezeBought" class="streaks__saved" role="status">Streak freeze bought.</p>
+        <StreakFreezeCard
+          :inventory="streaks.freezes"
+          :buying="streaks.buyingFreeze"
+          :timezone="auth.user?.timezone"
+          @buy="onBuyFreeze"
+        />
+      </div>
 
       <section v-if="streaks.configurationsLoaded" class="streaks__stack" aria-labelledby="settings-heading">
         <h2 id="settings-heading" class="streaks__heading">Streak settings</h2>

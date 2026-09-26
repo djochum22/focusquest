@@ -7,6 +7,9 @@ import com.example.focusquest.blocking.BlockingService;
 import com.example.focusquest.blocking.RuleTargetResponse;
 import com.example.focusquest.progression.ExperienceService;
 import com.example.focusquest.progression.ExperienceTransactionResponse;
+import com.example.focusquest.progression.GemTransaction;
+import com.example.focusquest.progression.GemTransactionRepository;
+import com.example.focusquest.progression.GemTransactionType;
 import com.example.focusquest.progression.ProgressionService;
 import com.example.focusquest.session.BlockingState;
 import com.example.focusquest.session.FocusSession;
@@ -15,6 +18,8 @@ import com.example.focusquest.session.SessionStatus;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.streak.StreakFreezeService;
+import com.example.focusquest.streak.StreakPeriodStatus;
 import com.example.focusquest.streak.StreakPeriodType;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
@@ -57,7 +62,10 @@ class RestoreIntegrationTest {
     private BlockingService blockingService;
     @Autowired
     private ProgressionService progressionService;
-
+    @Autowired
+    private StreakFreezeService streakFreezeService;
+    @Autowired
+    private GemTransactionRepository gemTransactionRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -102,12 +110,18 @@ class RestoreIntegrationTest {
         });
     }
 
-    /** Two days of use: sessions with pauses, a streak across both days, an override and some rules. */
+    /**
+     * Three days of use: sessions with pauses, a streak across a missed middle day that a freeze
+     * covers, a second freeze left unused, an override and some rules.
+     */
     private void populate(User owner) {
         streakService.createDefaultConfiguration(owner);
         blockingService.createBlockedTarget(owner, "youtube.com", "YouTube", true);
         blockingService.createAllowlistTarget(owner, "youtube.com/watch", null, true);
-        for (int day = 0; day < 2; day++) {
+        gemTransactionRepository.save(new GemTransaction(owner, 20, GemTransactionType.LEVEL_UP, "LEVEL", 99L, now));
+        streakFreezeService.purchase(owner);
+        streakFreezeService.purchase(owner);
+        for (int day = 0; day < 3; day += 2) {
             FocusSession planned = sessionService.createSession(owner, "Write " + day, TaskMode.TASK_REQUIRED,
                     TaskCategory.WRITING, 30);
             FocusSession session = sessionService.startSession(planned.getId(), owner.getUsername());
@@ -117,7 +131,7 @@ class RestoreIntegrationTest {
             sessionService.resumeSession(session.getId(), owner.getUsername());
             advance(20 * 60);
             sessionService.completeSession(session.getId(), owner.getUsername());
-            advance(24 * 3600 - 31 * 60);
+            advance(2 * 24 * 3600 - 31 * 60);
         }
         FocusSession abandoned = sessionService.createSession(owner, "Read", TaskMode.TASK_REQUIRED,
                 TaskCategory.READING, 30);
@@ -138,6 +152,8 @@ class RestoreIntegrationTest {
         LocalDataExportDto before = exportService.exportLocalData(user);
         ProgressionService.ProgressionSummary progressBefore = progressionService.getSummary(user);
         int streakBefore = streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY);
+        assertThat(before.streakFreezes()).hasSize(2).filteredOn(freeze -> freeze.usedPeriodId() != null).hasSize(1);
+        assertThat(before.streakPeriods()).extracting(StreakPeriodBackup::status).contains(StreakPeriodStatus.FROZEN);
 
         // Change things after the backup, so the restore has something to undo.
         blockingService.createBlockedTarget(user, "reddit.com", "Reddit", true);
@@ -150,7 +166,7 @@ class RestoreIntegrationTest {
                 .usingRecursiveComparison()
                 .ignoringFields("exportedAt")
                 .ignoringFieldsMatchingRegexes(".*\\.id", ".*\\.sessionId", ".*\\.streakPeriodId",
-                        ".*\\.configurationId", ".*\\.referenceId")
+                        ".*\\.configurationId", ".*\\.referenceId", ".*\\.usedPeriodId")
                 .isEqualTo(before);
         assertThat(progressionService.getSummary(reload(user))).isEqualTo(progressBefore);
         assertThat(streakService.getCurrentStreakLength(reload(user), StreakPeriodType.DAILY))
@@ -177,6 +193,13 @@ class RestoreIntegrationTest {
         });
         assertThat(restored.streakPeriods()).extracting(StreakPeriodBackup::configurationId)
                 .allMatch(configurationIds::contains);
+        List<Long> frozenIds = restored.streakPeriods().stream()
+                .filter(period -> period.status() == StreakPeriodStatus.FROZEN).map(StreakPeriodBackup::id).toList();
+        assertThat(restored.streakFreezes()).extracting(StreakFreezeBackup::usedPeriodId)
+                .filteredOn(java.util.Objects::nonNull).containsExactlyElementsOf(frozenIds);
+        List<Long> freezeIds = restored.streakFreezes().stream().map(StreakFreezeBackup::id).toList();
+        assertThat(restored.gemTransactions()).filteredOn(t -> t.referenceType().equals("STREAK_FREEZE"))
+                .hasSize(2).allSatisfy(t -> assertThat(freezeIds).contains(t.referenceId()));
         for (ExperienceTransactionResponse transaction : restored.experienceTransactions()) {
             List<Long> targets = transaction.referenceType().equals(ExperienceService.FOCUS_SESSION_REFERENCE)
                     ? sessionIds : periodIds;
@@ -186,6 +209,23 @@ class RestoreIntegrationTest {
         assertThat(exportService.exportLocalData(user).focusSessions()).hasSize(backup.focusSessions().size());
         assertThat(reload(other).getUsername()).isEqualTo(other.getUsername());
         assertThat(reload(other).getDisplayName()).isEqualTo("Test");
+    }
+
+    @Test
+    void aBackupFromBeforeFreezesExistedStillRestores() {
+        populate(user);
+        LocalDataExportDto current = exportService.exportLocalData(user);
+        LocalDataExportDto old = new LocalDataExportDto(current.exportedAt(), "2.0", current.user(),
+                current.focusSessions(), current.sessionPauses(), current.streakConfigurations(),
+                current.streakPeriods(), current.streakContributions(), null, current.experienceTransactions(),
+                current.gemTransactions().stream().filter(t -> !t.referenceType().equals("STREAK_FREEZE")).toList(),
+                current.blockedTargets(), current.allowlistTargets());
+
+        restoreService.restore(reload(other), old);
+
+        LocalDataExportDto restored = exportService.exportLocalData(reload(other));
+        assertThat(restored.focusSessions()).hasSize(current.focusSessions().size());
+        assertThat(restored.streakFreezes()).isEmpty();
     }
 
     @Test
@@ -235,7 +275,7 @@ class RestoreIntegrationTest {
         populate(user);
         LocalDataExportDto backup = exportService.exportLocalData(user);
         LocalDataExportDto old = new LocalDataExportDto(backup.exportedAt(), "1.2", backup.user(),
-                backup.focusSessions(), null, null, null, null, List.of(), List.of(), List.of(), List.of());
+                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of());
 
         assertRefusedWithoutChanges(old, "format 1.2");
     }
@@ -261,7 +301,8 @@ class RestoreIntegrationTest {
                 new UserDto(profile.id(), profile.username(), profile.displayName(), "Mars/Olympus",
                         profile.createdAt()),
                 backup.focusSessions(), backup.sessionPauses(), backup.streakConfigurations(),
-                backup.streakPeriods(), backup.streakContributions(), backup.experienceTransactions(),
+                backup.streakPeriods(), backup.streakContributions(), backup.streakFreezes(),
+                backup.experienceTransactions(),
                 backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets());
 
         assertRefusedWithoutChanges(bad, null);
@@ -286,7 +327,8 @@ class RestoreIntegrationTest {
         LocalDataExportDto backup = new LocalDataExportDto(export.exportedAt(), export.schemaVersion(),
                 export.user(), new ArrayList<>(export.focusSessions()), new ArrayList<>(export.sessionPauses()),
                 new ArrayList<>(export.streakConfigurations()), new ArrayList<>(export.streakPeriods()),
-                new ArrayList<>(export.streakContributions()), new ArrayList<>(export.experienceTransactions()),
+                new ArrayList<>(export.streakContributions()), new ArrayList<>(export.streakFreezes()),
+                new ArrayList<>(export.experienceTransactions()),
                 new ArrayList<>(export.gemTransactions()), new ArrayList<>(export.blockedTargets()),
                 new ArrayList<>(export.allowlistTargets()));
         damage.accept(backup);

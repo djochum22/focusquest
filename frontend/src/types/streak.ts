@@ -26,13 +26,31 @@ export interface StreakProgress {
 /**
  * Mirrors the backend `CurrentStreaksResponse`. `dailyStreak` and `weeklyStreak` are how many
  * periods in a row reached their target. `weekly` and `weeklyStreak` are null until a weekly
- * streak is configured.
+ * streak is configured. `dailyStreakProtectedDays` is how many missed days streak freezes are
+ * bridging right now; they are spent when the next daily target is reached.
  */
 export interface CurrentStreaks {
   daily: StreakProgress | null
   weekly: StreakProgress | null
   dailyStreak: number
   weeklyStreak: number | null
+  dailyStreakProtectedDays: number
+}
+
+/** A spent streak freeze: the day it covered and when it was spent. */
+export interface UsedFreeze {
+  periodStart: string
+  periodEnd: string
+  usedAt: string
+}
+
+/** Mirrors the backend `FreezeInventoryResponse`. `recentlyUsed` is newest first. */
+export interface FreezeInventory {
+  owned: number
+  maxOwned: number
+  price: number
+  gems: number
+  recentlyUsed: UsedFreeze[]
 }
 
 /** Mirrors the backend `StreakConfigurationResponse`. */

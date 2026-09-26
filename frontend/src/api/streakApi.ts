@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type {
   CreateStreakConfigurationRequest,
   CurrentStreaks,
+  FreezeInventory,
   StreakConfiguration,
   UpdateStreakConfigurationRequest,
 } from '../types/streak'
@@ -32,5 +33,17 @@ export async function updateStreakConfiguration(
   request: UpdateStreakConfigurationRequest,
 ): Promise<StreakConfiguration> {
   const { data } = await apiClient.put<StreakConfiguration>(`/api/streak-configurations/${id}`, request)
+  return data
+}
+
+/** The user's streak freezes, their price and the gem balance. */
+export async function fetchFreezes(): Promise<FreezeInventory> {
+  const { data } = await apiClient.get<FreezeInventory>('/api/me/streak-freezes')
+  return data
+}
+
+/** Buys one freeze. Fails with 409 when at the limit or short of gems. */
+export async function purchaseFreeze(): Promise<FreezeInventory> {
+  const { data } = await apiClient.post<FreezeInventory>('/api/me/streak-freezes/purchase')
   return data
 }

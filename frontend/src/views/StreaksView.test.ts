@@ -58,6 +58,7 @@ beforeEach(() => {
     weekly: null,
     dailyStreak: 3,
     weeklyStreak: null,
+    dailyStreakProtectedDays: 0,
   })
   vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([dailyConfiguration])
   vi.mocked(progressionApi.fetchProgression).mockResolvedValue(progression)
@@ -94,6 +95,7 @@ describe('StreaksView', () => {
       weekly: makeProgress({ periodType: 'WEEKLY', targetMinutes: 180 }),
       dailyStreak: 3,
       weeklyStreak: 2,
+      dailyStreakProtectedDays: 0,
     })
 
     const wrapper = await mountView()
@@ -117,6 +119,7 @@ describe('StreaksView', () => {
       weekly: makeProgress({ periodType: 'WEEKLY', targetMinutes: 180, qualifyingSeconds: 90 * 60 }),
       dailyStreak: 1,
       weeklyStreak: 0,
+      dailyStreakProtectedDays: 0,
     })
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([
       dailyConfiguration,
@@ -278,5 +281,56 @@ describe('StreaksView', () => {
     expect(wrapper.find('[data-testid="streak-length"]').exists()).toBe(true)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     wrapper.unmount()
+  })
+
+  describe('streak freezes', () => {
+    const inventory = { owned: 0, maxOwned: 2, price: 10, gems: 12, recentlyUsed: [] }
+
+    it('offers to buy a freeze and says when one was bought', async () => {
+      vi.mocked(streakApi.fetchFreezes).mockResolvedValue(inventory)
+      vi.mocked(streakApi.purchaseFreeze).mockResolvedValue({ ...inventory, owned: 1, gems: 2 })
+      const wrapper = await mountView()
+      expect(wrapper.get('[data-testid="freeze-count"]').text()).toBe('0 of 2')
+
+      await wrapper.findAll('button').find((b) => b.text() === 'Buy a freeze for 10 gems')!.trigger('click')
+      await flushPromises()
+
+      expect(streakApi.purchaseFreeze).toHaveBeenCalledTimes(1)
+      expect(wrapper.get('[data-testid="freeze-count"]').text()).toBe('1 of 2')
+      expect(wrapper.get('[data-testid="gem-value"]').text()).toBe('2')
+      expect(wrapper.text()).toContain('Streak freeze bought.')
+      wrapper.unmount()
+    })
+
+    it('shows the backend message when buying is refused', async () => {
+      vi.mocked(streakApi.fetchFreezes).mockResolvedValue(inventory)
+      vi.mocked(streakApi.purchaseFreeze).mockRejectedValue(Object.assign(new Error('conflict'), {
+        isAxiosError: true,
+        response: { status: 409, data: { code: 'CONFLICT', message: 'You already hold 2 streak freezes, the most allowed' } },
+      }))
+      const wrapper = await mountView()
+
+      await wrapper.findAll('button').find((b) => b.text() === 'Buy a freeze for 10 gems')!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('[role="alert"]').text()).toContain('the most allowed')
+      wrapper.unmount()
+    })
+
+    it('says when freezes are protecting the daily streak', async () => {
+      vi.mocked(streakApi.fetchFreezes).mockResolvedValue({ ...inventory, owned: 1 })
+      vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+        daily: makeProgress({ qualifyingSeconds: 0 }),
+        weekly: null,
+        dailyStreak: 3,
+        weeklyStreak: null,
+        dailyStreakProtectedDays: 1,
+      })
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="streak-hint"]').text())
+        .toBe('Your streak freezes are covering the day you missed. Reach your target today to keep the streak.')
+      wrapper.unmount()
+    })
   })
 })

@@ -12,24 +12,34 @@ import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 /** Builds the full local data export for a user. See {@link LocalDataExportDto}. */
 @Service
 public class ExportService {
 
-    /** 2.0 made the export a complete backup that can be restored; older exports cannot be. */
-    static final String SCHEMA_VERSION = "2.0";
+    /**
+     * 2.0 made the export a complete backup that can be restored; older exports cannot be. 2.1 added
+     * streak freezes; a 2.0 backup restores with none.
+     */
+    static final String SCHEMA_VERSION = "2.1";
+
+    /** The formats {@link RestoreService} accepts. */
+    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", SCHEMA_VERSION);
 
     private final FocusSessionRepository focusSessionRepository;
     private final SessionPauseRepository sessionPauseRepository;
     private final StreakConfigurationRepository streakConfigurationRepository;
     private final StreakPeriodRepository streakPeriodRepository;
     private final StreakContributionRepository streakContributionRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
     private final ExperienceTransactionRepository experienceTransactionRepository;
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
@@ -41,6 +51,7 @@ public class ExportService {
                           StreakConfigurationRepository streakConfigurationRepository,
                           StreakPeriodRepository streakPeriodRepository,
                           StreakContributionRepository streakContributionRepository,
+                          StreakFreezeRepository streakFreezeRepository,
                           ExperienceTransactionRepository experienceTransactionRepository,
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
@@ -51,6 +62,7 @@ public class ExportService {
         this.streakConfigurationRepository = streakConfigurationRepository;
         this.streakPeriodRepository = streakPeriodRepository;
         this.streakContributionRepository = streakContributionRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
         this.experienceTransactionRepository = experienceTransactionRepository;
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
@@ -74,6 +86,8 @@ public class ExportService {
                         .map(StreakPeriodBackup::from).toList(),
                 streakContributionRepository.findByStreakPeriodUserOrderByIdAsc(user).stream()
                         .map(StreakContributionBackup::from).toList(),
+                streakFreezeRepository.findByUserOrderByIdAsc(user).stream()
+                        .map(StreakFreezeBackup::from).toList(),
                 experienceTransactionRepository.findByUserOrderByIdAsc(user).stream()
                         .map(ExperienceTransactionResponse::from).toList(),
                 gemTransactionRepository.findByUserOrderByIdAsc(user).stream()

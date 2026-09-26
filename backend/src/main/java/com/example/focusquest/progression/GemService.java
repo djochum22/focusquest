@@ -8,15 +8,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Records gem rewards as ledger transactions and reports the balance. Every reward is tied to the
- * thing that earned it (a level, a streak period) and recorded at most once, so a retried request
- * or a level lost and regained never pays twice.
+ * Records gem rewards and purchases as ledger transactions and reports the balance. Every reward is
+ * tied to the thing that earned it (a level, a streak period) and recorded at most once, so a
+ * retried request or a level lost and regained never pays twice. A purchase is tied to what it bought.
  */
 @Service
 public class GemService {
 
     public static final String LEVEL_REFERENCE = "LEVEL";
     public static final String STREAK_PERIOD_REFERENCE = "STREAK_PERIOD";
+    public static final String STREAK_FREEZE_REFERENCE = "STREAK_FREEZE";
 
     private final GemTransactionRepository gemTransactionRepository;
     private final ClockProvider clockProvider;
@@ -52,6 +53,13 @@ public class GemService {
     public void awardStreakCompletion(User user, StreakPeriodType periodType, Long periodId) {
         int amount = periodType == StreakPeriodType.DAILY ? dailyStreakReward : weeklyStreakReward;
         record(user, amount, GemTransactionType.STREAK_COMPLETION, STREAK_PERIOD_REFERENCE, periodId);
+    }
+
+    /** Charges the price of a streak freeze. The caller checks the balance first. */
+    @Transactional
+    public void chargeFreezePurchase(User user, Long freezeId, int price) {
+        gemTransactionRepository.save(new GemTransaction(user, -price, GemTransactionType.FREEZE_PURCHASE,
+                STREAK_FREEZE_REFERENCE, freezeId, clockProvider.now()));
     }
 
     @Transactional(readOnly = true)

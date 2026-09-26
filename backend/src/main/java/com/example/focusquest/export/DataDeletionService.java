@@ -10,6 +10,7 @@ import com.example.focusquest.session.FocusSessionRepository;
 import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserRepository;
@@ -30,6 +31,7 @@ public class DataDeletionService {
 
     private final BlockingService blockingService;
     private final StreakContributionRepository streakContributionRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
     private final SessionPauseRepository sessionPauseRepository;
     private final StreakPeriodRepository streakPeriodRepository;
     private final FocusSessionRepository focusSessionRepository;
@@ -43,6 +45,7 @@ public class DataDeletionService {
 
     public DataDeletionService(BlockingService blockingService,
                                 StreakContributionRepository streakContributionRepository,
+                                StreakFreezeRepository streakFreezeRepository,
                                 SessionPauseRepository sessionPauseRepository,
                                 StreakPeriodRepository streakPeriodRepository,
                                 FocusSessionRepository focusSessionRepository,
@@ -55,6 +58,7 @@ public class DataDeletionService {
                                 UserRepository userRepository) {
         this.blockingService = blockingService;
         this.streakContributionRepository = streakContributionRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
         this.sessionPauseRepository = sessionPauseRepository;
         this.streakPeriodRepository = streakPeriodRepository;
         this.focusSessionRepository = focusSessionRepository;
@@ -89,6 +93,7 @@ public class DataDeletionService {
     void deleteActivity(User user) {
         // Children before parents, in foreign-key order.
         streakContributionRepository.deleteAllByUser(user);
+        streakFreezeRepository.deleteAllByUser(user);
         sessionPauseRepository.deleteAllByUser(user);
         streakPeriodRepository.deleteAllByUser(user);
         focusSessionRepository.deleteAllByUser(user);

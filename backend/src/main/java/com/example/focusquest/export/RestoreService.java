@@ -24,6 +24,8 @@ import com.example.focusquest.streak.StreakConfiguration;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContribution;
 import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakFreeze;
+import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.User;
@@ -70,6 +72,7 @@ public class RestoreService {
     private final StreakConfigurationRepository streakConfigurationRepository;
     private final StreakPeriodRepository streakPeriodRepository;
     private final StreakContributionRepository streakContributionRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
     private final ExperienceTransactionRepository experienceTransactionRepository;
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
@@ -82,6 +85,7 @@ public class RestoreService {
                           StreakConfigurationRepository streakConfigurationRepository,
                           StreakPeriodRepository streakPeriodRepository,
                           StreakContributionRepository streakContributionRepository,
+                          StreakFreezeRepository streakFreezeRepository,
                           ExperienceTransactionRepository experienceTransactionRepository,
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
@@ -93,6 +97,7 @@ public class RestoreService {
         this.streakConfigurationRepository = streakConfigurationRepository;
         this.streakPeriodRepository = streakPeriodRepository;
         this.streakContributionRepository = streakContributionRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
         this.experienceTransactionRepository = experienceTransactionRepository;
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
@@ -152,17 +157,22 @@ public class RestoreService {
                     sessions.get(contribution.sessionId()), contribution.activeSeconds(),
                     contribution.pausedSeconds(), contribution.createdAt()));
         }
+        Map<Long, StreakFreeze> freezes = new HashMap<>();
+        for (StreakFreezeBackup freeze : listOf(backup.streakFreezes())) {
+            freezes.put(freeze.id(), streakFreezeRepository.save(StreakFreeze.restore(owner, freeze.purchasedAt(),
+                    freeze.usedPeriodId() == null ? null : periods.get(freeze.usedPeriodId()), freeze.usedAt())));
+        }
 
         for (ExperienceTransactionResponse transaction : listOf(backup.experienceTransactions())) {
             experienceTransactionRepository.save(new ExperienceTransaction(owner, transaction.amount(),
                     transaction.type(), transaction.referenceType(),
-                    newReferenceId(transaction.referenceType(), transaction.referenceId(), sessions, periods),
+                    newReferenceId(transaction.referenceType(), transaction.referenceId(), sessions, periods, freezes),
                     transaction.createdAt()));
         }
         for (GemTransactionResponse transaction : listOf(backup.gemTransactions())) {
             gemTransactionRepository.save(new GemTransaction(owner, transaction.amount(), transaction.type(),
                     transaction.referenceType(),
-                    newReferenceId(transaction.referenceType(), transaction.referenceId(), sessions, periods),
+                    newReferenceId(transaction.referenceType(), transaction.referenceId(), sessions, periods, freezes),
                     transaction.createdAt()));
         }
 
@@ -188,12 +198,13 @@ public class RestoreService {
                 session.streakCreditedPausedSeconds());
     }
 
-    /** Ledger entries point at a session, a period or a level; the first two have new ids now. */
-    private static Long newReferenceId(String referenceType, Long referenceId,
-                                       Map<Long, FocusSession> sessions, Map<Long, StreakPeriod> periods) {
+    /** Ledger entries point at a session, a period, a freeze or a level; all but a level have new ids now. */
+    private static Long newReferenceId(String referenceType, Long referenceId, Map<Long, FocusSession> sessions,
+                                       Map<Long, StreakPeriod> periods, Map<Long, StreakFreeze> freezes) {
         return switch (referenceType) {
             case ExperienceService.FOCUS_SESSION_REFERENCE -> sessions.get(referenceId).getId();
             case ExperienceService.STREAK_PERIOD_REFERENCE -> periods.get(referenceId).getId();
+            case GemService.STREAK_FREEZE_REFERENCE -> freezes.get(referenceId).getId();
             default -> referenceId;
         };
     }
@@ -203,12 +214,13 @@ public class RestoreService {
      * anything is deleted. What is left (a missing required value) is caught by the database.
      */
     private static void validate(LocalDataExportDto backup) {
-        if (backup == null || !ExportService.SCHEMA_VERSION.equals(backup.schemaVersion())) {
+        if (backup == null || !ExportService.RESTORABLE_VERSIONS.contains(backup.schemaVersion())) {
             String version = backup == null ? null : backup.schemaVersion();
             throw invalid(version == null
                     ? "This file is not a FocusQuest backup"
                     : "This backup uses format " + version + ", which cannot be restored. Only backups in format "
-                            + ExportService.SCHEMA_VERSION + " or later can be restored");
+                            + String.join(" or ", ExportService.RESTORABLE_VERSIONS.stream().sorted().toList())
+                            + " can be restored");
         }
         UserDto profile = backup.user();
         if (profile == null || profile.displayName() == null || profile.displayName().isBlank()
@@ -243,13 +255,24 @@ public class RestoreService {
             requireReference(sessionIds, contribution.sessionId(), "A streak contribution");
         }
 
+        Set<Long> freezeIds = uniqueIds(backup.streakFreezes(), StreakFreezeBackup::id, "streak freezes");
+        for (StreakFreezeBackup freeze : listOf(backup.streakFreezes())) {
+            if (freeze.usedPeriodId() != null) {
+                requireReference(periodIds, freeze.usedPeriodId(), "A streak freeze");
+            }
+        }
+        requireUnique(listOf(backup.streakFreezes()).stream().filter(freeze -> freeze.usedPeriodId() != null)
+                .toList(), freeze -> String.valueOf(freeze.usedPeriodId()), "frozen day");
+
         for (ExperienceTransactionResponse transaction : listOf(backup.experienceTransactions())) {
-            requireLedgerReference(transaction.referenceType(), transaction.referenceId(), sessionIds, periodIds);
+            requireLedgerReference(transaction.referenceType(), transaction.referenceId(), sessionIds, periodIds,
+                    Set.of());
         }
         requireUnique(backup.experienceTransactions(),
                 t -> t.type() + "/" + t.referenceType() + "/" + t.referenceId(), "XP entry");
         for (GemTransactionResponse transaction : listOf(backup.gemTransactions())) {
-            requireLedgerReference(transaction.referenceType(), transaction.referenceId(), sessionIds, periodIds);
+            requireLedgerReference(transaction.referenceType(), transaction.referenceId(), sessionIds, periodIds,
+                    freezeIds);
         }
         requireUnique(backup.gemTransactions(),
                 t -> t.type() + "/" + t.referenceType() + "/" + t.referenceId(), "gem entry");
@@ -264,13 +287,14 @@ public class RestoreService {
     }
 
     private static void requireLedgerReference(String referenceType, Long referenceId,
-                                               Set<Long> sessionIds, Set<Long> periodIds) {
+                                               Set<Long> sessionIds, Set<Long> periodIds, Set<Long> freezeIds) {
         if (referenceType == null || referenceId == null) {
             throw invalid("A reward in the backup does not say what it was for");
         }
         switch (referenceType) {
             case ExperienceService.FOCUS_SESSION_REFERENCE -> requireReference(sessionIds, referenceId, "A reward");
             case ExperienceService.STREAK_PERIOD_REFERENCE -> requireReference(periodIds, referenceId, "A reward");
+            case GemService.STREAK_FREEZE_REFERENCE -> requireReference(freezeIds, referenceId, "A purchase");
             case GemService.LEVEL_REFERENCE -> { }
             default -> throw invalid("A reward in the backup refers to an unknown kind of record: " + referenceType);
         }

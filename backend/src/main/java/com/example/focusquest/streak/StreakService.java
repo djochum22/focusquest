@@ -26,9 +26,14 @@ public class StreakService {
     public static final int MAX_DAILY_TARGET_MINUTES = 24 * 60;
     public static final int MAX_WEEKLY_TARGET_MINUTES = 7 * 24 * 60;
 
+    /** The statuses that continue a run: a period that reached its target, or a missed one a freeze covered. */
+    private static final List<StreakPeriodStatus> RUN_STATUSES =
+            List.of(StreakPeriodStatus.COMPLETED, StreakPeriodStatus.FROZEN);
+
     private final StreakConfigurationRepository streakConfigurationRepository;
     private final StreakPeriodRepository streakPeriodRepository;
     private final StreakContributionRepository streakContributionRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
     private final StreakPeriodCalculator periodCalculator;
     private final ProgressionService progressionService;
     private final ClockProvider clockProvider;
@@ -36,12 +41,14 @@ public class StreakService {
     public StreakService(StreakConfigurationRepository streakConfigurationRepository,
                           StreakPeriodRepository streakPeriodRepository,
                           StreakContributionRepository streakContributionRepository,
+                          StreakFreezeRepository streakFreezeRepository,
                           StreakPeriodCalculator periodCalculator,
                           ProgressionService progressionService,
                           ClockProvider clockProvider) {
         this.streakConfigurationRepository = streakConfigurationRepository;
         this.streakPeriodRepository = streakPeriodRepository;
         this.streakContributionRepository = streakContributionRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
         this.periodCalculator = periodCalculator;
         this.progressionService = progressionService;
         this.clockProvider = clockProvider;
@@ -116,30 +123,59 @@ public class StreakService {
      * The current period counts once it has reached its target; until then the streak is the run
      * that ended with the previous period, so it is not lost until a period ends unfinished. A
      * period with no record, because nothing qualifying was done in it, is a missed one, and a
-     * missed period ends the run. There are no freezes, so nothing can bridge a gap.
+     * missed period ends the run.
+     *
+     * <p>A frozen daily period (a missed day a freeze covered) continues the run without adding to
+     * it. Missed days that the user's freezes could cover, but that have not been covered yet because
+     * no daily target was reached since, also continue it: the streak is then protected by that many
+     * days. See {@link #spendFreezesOnGapBefore}.
      *
      * <p>Periods are chained by their stored boundaries (each ends where the next begins) rather
      * than recomputed from the time zone, so a run survives a change of time zone.
      */
     @Transactional(readOnly = true)
-    public int getCurrentStreakLength(User user, StreakPeriodType periodType) {
+    public CurrentStreak getCurrentStreak(User user, StreakPeriodType periodType) {
         Instant boundary = windowContaining(user, periodType, clockProvider.now()).start();
-        List<StreakPeriod> completed = streakPeriodRepository.findByUserAndPeriodTypeAndStatusOrderByStartTimeDesc(
-                user, periodType, StreakPeriodStatus.COMPLETED);
+        List<StreakPeriod> run = streakPeriodRepository.findByUserAndPeriodTypeAndStatusInOrderByStartTimeDesc(
+                user, periodType, RUN_STATUSES);
 
         int length = 0;
-        for (StreakPeriod period : completed) {
-            if (length == 0 && period.getStartTime().equals(boundary)) {
-                length++;                                  // the current period, already at its target
-                continue;
+        int protectedDays = 0;
+        int next = 0;
+        if (!run.isEmpty() && run.getFirst().getStartTime().equals(boundary)) {
+            length = 1;                                    // the current period, already at its target
+            next = 1;
+        } else if (periodType == StreakPeriodType.DAILY) {
+            List<Coverage> coverage = coverageOfGapBefore(user, boundary);
+            if (!coverage.isEmpty()) {
+                protectedDays = coverage.size();
+                boundary = coverage.getFirst().window().start();
             }
+        }
+        for (StreakPeriod period : run.subList(next, run.size())) {
             if (!period.getEndTime().equals(boundary)) {
                 break;
             }
-            length++;
+            if (period.getStatus() == StreakPeriodStatus.COMPLETED) {
+                length++;
+            }
             boundary = period.getStartTime();
         }
-        return length;
+        return new CurrentStreak(length, protectedDays);
+    }
+
+    /** See {@link #getCurrentStreak}. */
+    @Transactional(readOnly = true)
+    public int getCurrentStreakLength(User user, StreakPeriodType periodType) {
+        return getCurrentStreak(user, periodType).length();
+    }
+
+    /**
+     * @param length        how many periods in a row reached their target
+     * @param protectedDays missed days currently bridged by freezes that will be spent when the next
+     *                      daily target is reached; 0 when nothing is pending
+     */
+    public record CurrentStreak(int length, int protectedDays) {
     }
 
     /**
@@ -329,10 +365,84 @@ public class StreakService {
         }
         streakPeriodRepository.save(period);
         if (reachedTarget) {
+            if (period.getPeriodType() == StreakPeriodType.DAILY) {
+                spendFreezesOnGapBefore(period);
+            }
             progressionService.awardStreakCompletion(period.getUser(), period.getPeriodType(), period.getId());
         }
 
         return Optional.of(contribution);
+    }
+
+    /**
+     * Spends freezes on the missed days before a daily period that just reached its target, if the
+     * user's freezes cover every one of them; otherwise spends none, and the gap ends the streak. The
+     * gap is only known now: until a target is reached again, missed days may still be followed by
+     * more. Quiet days had no period yet, so one is recorded for each before it is frozen.
+     */
+    private void spendFreezesOnGapBefore(StreakPeriod period) {
+        User user = period.getUser();
+        List<Coverage> coverage = coverageOfGapBefore(user, period.getStartTime());
+        List<StreakPeriod> missed = new ArrayList<>();
+        for (Coverage covered : coverage) {
+            Optional<StreakPeriod> missedPeriod = findOrCreatePeriodIfConfigured(
+                    user, StreakPeriodType.DAILY, covered.window(), covered.window().start());
+            if (missedPeriod.isEmpty() || missedPeriod.get().getStatus() != StreakPeriodStatus.ACTIVE) {
+                return;
+            }
+            missed.add(missedPeriod.get());
+        }
+        Instant now = clockProvider.now();
+        for (int i = 0; i < missed.size(); i++) {
+            StreakPeriod frozen = missed.get(i);
+            frozen.markFrozen();
+            streakPeriodRepository.save(frozen);
+            StreakFreeze freeze = coverage.get(i).freeze();
+            freeze.spendOn(frozen, now);
+            streakFreezeRepository.save(freeze);
+        }
+    }
+
+    /**
+     * The missed daily periods between the last completed or frozen one and {@code start}, in order,
+     * each paired with the freeze that would cover it. Empty when there is no gap, no earlier run to
+     * protect, or the user's unused freezes cannot cover the whole gap, counting only freezes bought
+     * before the day they would cover ended. The oldest eligible freeze covers each day.
+     */
+    private List<Coverage> coverageOfGapBefore(User user, Instant start) {
+        List<StreakFreeze> freezes = streakFreezeRepository.findByUserAndUsedPeriodIsNullOrderByPurchasedAtAscIdAsc(user);
+        if (freezes.isEmpty()) {
+            return List.of();
+        }
+        Optional<StreakPeriod> previous = streakPeriodRepository
+                .findFirstByUserAndPeriodTypeAndStatusInAndEndTimeLessThanEqualOrderByEndTimeDesc(
+                        user, StreakPeriodType.DAILY, RUN_STATUSES, start);
+        if (previous.isEmpty()) {
+            return List.of();
+        }
+
+        List<Coverage> coverage = new ArrayList<>();
+        List<StreakFreeze> unassigned = new ArrayList<>(freezes);
+        Instant cursor = previous.get().getEndTime();
+        while (cursor.isBefore(start)) {
+            StreakPeriodCalculator.PeriodWindow window = windowContaining(user, StreakPeriodType.DAILY, cursor);
+            if (!window.start().equals(cursor) || window.end().isAfter(start)) {
+                return List.of();                          // boundaries that do not line up; never guess
+            }
+            Optional<StreakFreeze> freeze = unassigned.stream()
+                    .filter(candidate -> candidate.canCover(window.end()))
+                    .findFirst();
+            if (freeze.isEmpty()) {
+                return List.of();                          // a longer gap than the freezes owned in time
+            }
+            unassigned.remove(freeze.get());
+            coverage.add(new Coverage(window, freeze.get()));
+            cursor = window.end();
+        }
+        return coverage;
+    }
+
+    private record Coverage(StreakPeriodCalculator.PeriodWindow window, StreakFreeze freeze) {
     }
 
     private StreakPeriod buildPeriod(User user, StreakPeriodType periodType, StreakConfiguration configuration,

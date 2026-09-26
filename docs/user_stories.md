@@ -574,7 +574,7 @@ As a user,
 I want my streak to end when I miss a day or week,  
 so that the streak reflects consecutive effort.
 
-There are no streak freezes.
+A missed day can be covered by streak freezes (US-114).
 
 **Acceptance criteria:**
 
@@ -620,6 +620,36 @@ so that I cannot lower my target to escape a session.
 - Given blocking is released by completing a session or by an override,  
   when the user changes a streak configuration,  
   then the change is accepted.
+
+## **US-114: Protect the daily streak with freezes**
+
+As a user,  
+I want to spend gems on streak freezes that cover a missed day,  
+so that one bad day does not erase a long streak.
+
+**Acceptance criteria:**
+
+- Given the user has at least 10 gems and holds fewer than 2 freezes,  
+  when they buy a freeze,  
+  then 10 gems are deducted and they hold one more freeze.
+- Given the user holds 2 freezes, or has fewer than 10 gems,  
+  when they try to buy one,  
+  then the purchase is refused with the reason.
+- Given the user missed one day and owned a freeze before that day ended,  
+  when they reach the next daily target,  
+  then the freeze is spent, the missed day is recorded as frozen, and the streak continues without counting the frozen day.
+- Given the user missed more days than their freezes can cover,  
+  when they reach the next daily target,  
+  then the streak starts again from one and every freeze is kept.
+- Given the user bought a freeze only after a day they missed had ended,  
+  when they reach the next daily target,  
+  then that day is not covered and the freeze is kept.
+- Given freezes could cover the days missed so far and today's target is not reached yet,  
+  when the streaks page is opened,  
+  then the streak is shown as protected and no freeze has been spent yet.
+- Given the user missed a whole week,  
+  when the weekly streak is evaluated,  
+  then it ends: freezes never cover the weekly streak.
 
 ## **Epic 13: History and statistics**
 

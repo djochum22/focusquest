@@ -17,6 +17,8 @@ const props = defineProps<{
   progress: StreakProgress
   /** Periods in a row that reached their target, as counted by the backend. */
   streakLength: number
+  /** Missed days streak freezes are bridging; only ever set for the daily streak. */
+  protectedDays?: number
   timezone?: string
 }>()
 
@@ -41,7 +43,7 @@ const remainingLabel = computed(() => formatMinutes(Math.ceil(remainingSeconds(p
       <p class="streak-progress__length" data-testid="streak-length">
         <span class="streak-progress__count">{{ streakLength }}</span>{{ ' ' }}<span class="muted">{{ streakUnit(streakLength, progress.periodType) }} in a row</span>
       </p>
-      <p class="muted streak-progress__hint" data-testid="streak-hint">{{ streakHint(streakLength, progress) }}</p>
+      <p class="muted streak-progress__hint" data-testid="streak-hint">{{ streakHint(streakLength, progress, protectedDays) }}</p>
     </div>
 
     <p class="streak-progress__figures">

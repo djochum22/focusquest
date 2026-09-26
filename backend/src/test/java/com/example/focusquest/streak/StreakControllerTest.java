@@ -79,7 +79,8 @@ class StreakControllerTest {
                 DAY_START.plusSeconds(86400), 30, TaskMode.TASK_REQUIRED, null);
         when(streakService.getCurrentProgress(user, StreakPeriodType.DAILY)).thenReturn(Optional.of(daily));
         when(streakService.getCurrentProgress(user, StreakPeriodType.WEEKLY)).thenReturn(Optional.empty());
-        when(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).thenReturn(4);
+        when(streakService.getCurrentStreak(user, StreakPeriodType.DAILY))
+                .thenReturn(new StreakService.CurrentStreak(4, 1));
 
         mockMvc.perform(get("/api/streaks/current"))
                 .andExpect(status().isOk())
@@ -88,6 +89,7 @@ class StreakControllerTest {
                 .andExpect(jsonPath("$.daily.qualifyingSeconds").value(0))
                 .andExpect(jsonPath("$.daily.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.dailyStreak").value(4))
+                .andExpect(jsonPath("$.dailyStreakProtectedDays").value(1))
                 .andExpect(jsonPath("$.weekly").doesNotExist())
                 .andExpect(jsonPath("$.weeklyStreak").doesNotExist());
     }
@@ -100,7 +102,8 @@ class StreakControllerTest {
                 DAY_START.plusSeconds(7 * 86400), 180, TaskMode.TASK_REQUIRED, null);
         when(streakService.getCurrentProgress(user, StreakPeriodType.DAILY)).thenReturn(Optional.of(daily));
         when(streakService.getCurrentProgress(user, StreakPeriodType.WEEKLY)).thenReturn(Optional.of(weekly));
-        when(streakService.getCurrentStreakLength(user, StreakPeriodType.DAILY)).thenReturn(0);
+        when(streakService.getCurrentStreak(user, StreakPeriodType.DAILY))
+                .thenReturn(new StreakService.CurrentStreak(0, 0));
         when(streakService.getCurrentStreakLength(user, StreakPeriodType.WEEKLY)).thenReturn(3);
 
         mockMvc.perform(get("/api/streaks/current"))

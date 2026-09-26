@@ -64,4 +64,23 @@ describe('streakApi', () => {
     expect(config.url).toBe('/api/streak-configurations/1')
     expect(JSON.parse(config.data)).toEqual(request)
   })
+
+  it('fetches the streak-freeze inventory', async () => {
+    const adapter = stubAdapter(200, { owned: 1, maxOwned: 2, price: 10, gems: 4, recentlyUsed: [] })
+
+    const inventory = await streakApi.fetchFreezes()
+
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/me/streak-freezes')
+    expect(inventory.owned).toBe(1)
+  })
+
+  it('buys a freeze with a POST and returns the new inventory', async () => {
+    const adapter = stubAdapter(200, { owned: 2, maxOwned: 2, price: 10, gems: 0, recentlyUsed: [] })
+
+    const inventory = await streakApi.purchaseFreeze()
+
+    expect(adapter.mock.calls[0]![0].method).toBe('post')
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/me/streak-freezes/purchase')
+    expect(inventory.owned).toBe(2)
+  })
 })

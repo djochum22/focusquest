@@ -14,6 +14,7 @@ import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.UserRepository;
 import com.jayway.jsonpath.JsonPath;
@@ -59,6 +60,8 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private StreakContributionRepository streakContributionRepository;
     @Autowired
+    private StreakFreezeRepository streakFreezeRepository;
+    @Autowired
     private SessionPauseRepository sessionPauseRepository;
     @Autowired
     private StreakPeriodRepository streakPeriodRepository;
@@ -86,6 +89,7 @@ public abstract class ApiIntegrationTest {
     void resetDatabaseAndClock() {
         // Children before parents, in foreign-key order.
         streakContributionRepository.deleteAllInBatch();
+        streakFreezeRepository.deleteAllInBatch();
         sessionPauseRepository.deleteAllInBatch();
         streakPeriodRepository.deleteAllInBatch();
         focusSessionRepository.deleteAllInBatch();

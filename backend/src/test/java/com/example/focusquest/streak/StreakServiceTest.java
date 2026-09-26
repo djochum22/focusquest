@@ -45,6 +45,9 @@ class StreakServiceTest {
     private StreakContributionRepository streakContributionRepository;
 
     @Mock
+    private StreakFreezeRepository streakFreezeRepository;
+
+    @Mock
     private ProgressionService progressionService;
 
     private ClockProvider clockProvider;
@@ -55,7 +58,8 @@ class StreakServiceTest {
     void setUp() {
         clockProvider = new ClockProvider(Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
         streakService = new StreakService(streakConfigurationRepository, streakPeriodRepository,
-                streakContributionRepository, new StreakPeriodCalculator(), progressionService, clockProvider);
+                streakContributionRepository, streakFreezeRepository, new StreakPeriodCalculator(), progressionService,
+                clockProvider);
         user = new User("doug", "hash", "Doug", "UTC");
 
         lenient().when(streakPeriodRepository.save(any(StreakPeriod.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -676,8 +680,8 @@ class StreakServiceTest {
     }
 
     private void stubCompleted(StreakPeriodType type, StreakPeriod... periods) {
-        when(streakPeriodRepository.findByUserAndPeriodTypeAndStatusOrderByStartTimeDesc(
-                user, type, StreakPeriodStatus.COMPLETED)).thenReturn(List.of(periods));
+        when(streakPeriodRepository.findByUserAndPeriodTypeAndStatusInOrderByStartTimeDesc(
+                eq(user), eq(type), any())).thenReturn(List.of(periods));
     }
 
     @Test

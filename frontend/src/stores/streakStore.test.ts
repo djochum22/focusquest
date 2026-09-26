@@ -6,6 +6,7 @@ import * as streakApi from '../api/streakApi'
 import type { LoginResponse } from '../types/auth'
 import type { StreakConfiguration, StreakProgress } from '../types/streak'
 import { useAuthStore } from './authStore'
+import { useProgressionStore } from './progressionStore'
 import { useStreakStore } from './streakStore'
 
 vi.mock('../api/streakApi')
@@ -55,7 +56,7 @@ beforeEach(() => {
 describe('streakStore', () => {
   it('loads the current daily and weekly progress', async () => {
     const daily = makeProgress()
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily, weekly: null, dailyStreak: 4, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily, weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     const store = useStreakStore()
 
     await store.fetchCurrent()
@@ -73,6 +74,7 @@ describe('streakStore', () => {
       weekly: makeProgress({ periodType: 'WEEKLY', targetMinutes: 180 }),
       dailyStreak: 2,
       weeklyStreak: 5,
+      dailyStreakProtectedDays: 0,
     })
     const store = useStreakStore()
 
@@ -104,7 +106,7 @@ describe('streakStore', () => {
   })
 
   it('refresh loads both the progress and the configurations', async () => {
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([makeConfiguration()])
     const store = useStreakStore()
 
@@ -116,7 +118,7 @@ describe('streakStore', () => {
 
   it('updates an existing configuration and refreshes the progress', async () => {
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([makeConfiguration()])
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress({ targetMinutes: 45 }), weekly: null, dailyStreak: 0, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress({ targetMinutes: 45 }), weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     const updated = makeConfiguration({ targetMinutes: 45, requiredCategory: 'CODING' })
     vi.mocked(streakApi.updateStreakConfiguration).mockResolvedValue(updated)
     const store = useStreakStore()
@@ -132,7 +134,7 @@ describe('streakStore', () => {
 
   it('creates the configuration when the period type has none', async () => {
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([makeConfiguration()])
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     const created = makeConfiguration({ id: 2, periodType: 'WEEKLY', targetMinutes: 45, requiredCategory: 'CODING' })
     vi.mocked(streakApi.createStreakConfiguration).mockResolvedValue(created)
     const store = useStreakStore()
@@ -172,7 +174,7 @@ describe('streakStore', () => {
 
   it('ignores a second save while one is in flight', async () => {
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([makeConfiguration()])
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: null, weekly: null, dailyStreak: 0, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: null, weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     let finish!: (value: StreakConfiguration) => void
     vi.mocked(streakApi.updateStreakConfiguration).mockReturnValue(new Promise((resolve) => (finish = resolve)))
     const store = useStreakStore()
@@ -187,7 +189,7 @@ describe('streakStore', () => {
   })
 
   it('forgets everything when the user signs out', async () => {
-    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null })
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({ daily: makeProgress(), weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0 })
     vi.mocked(streakApi.fetchStreakConfigurations).mockResolvedValue([makeConfiguration()])
     const auth = useAuthStore()
     vi.mocked(authApi.login).mockResolvedValue(signedIn)
@@ -203,5 +205,39 @@ describe('streakStore', () => {
     expect(store.weeklyStreak).toBeNull()
     expect(store.configurations).toEqual([])
     expect(store.currentLoaded).toBe(false)
+  })
+
+  describe('streak freezes', () => {
+    const inventory = { owned: 1, maxOwned: 2, price: 10, gems: 4, recentlyUsed: [] }
+
+    it('buys a freeze, updates the gem balance and fetches the streak again', async () => {
+      vi.mocked(streakApi.purchaseFreeze).mockResolvedValue(inventory)
+      vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue(
+        { daily: makeProgress(), weekly: null, dailyStreak: 3, weeklyStreak: null, dailyStreakProtectedDays: 1 })
+      const progression = useProgressionStore()
+      progression.loaded = true
+      progression.gems = 14
+      const store = useStreakStore()
+
+      await store.buyFreeze()
+
+      expect(store.freezes).toEqual(inventory)
+      expect(progression.gems).toBe(4)
+      expect(store.dailyProtectedDays).toBe(1)
+      expect(store.buyingFreeze).toBe(false)
+    })
+
+    it('passes a refusal on and keeps the inventory it had', async () => {
+      const failure = new Error('not enough gems')
+      vi.mocked(streakApi.fetchFreezes).mockResolvedValue(inventory)
+      vi.mocked(streakApi.purchaseFreeze).mockRejectedValue(failure)
+      const store = useStreakStore()
+      await store.fetchFreezes()
+
+      await expect(store.buyFreeze()).rejects.toBe(failure)
+
+      expect(store.freezes).toEqual(inventory)
+      expect(store.buyingFreeze).toBe(false)
+    })
   })
 })

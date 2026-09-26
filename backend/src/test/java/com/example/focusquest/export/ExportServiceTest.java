@@ -22,6 +22,7 @@ import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfiguration;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContributionRepository;
+import com.example.focusquest.streak.StreakFreezeRepository;
 import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.streak.StreakPeriodType;
@@ -52,6 +53,8 @@ class ExportServiceTest {
     @Mock
     private StreakContributionRepository streakContributionRepository;
     @Mock
+    private StreakFreezeRepository streakFreezeRepository;
+    @Mock
     private ExperienceTransactionRepository experienceTransactionRepository;
     @Mock
     private GemTransactionRepository gemTransactionRepository;
@@ -67,7 +70,7 @@ class ExportServiceTest {
     void setUp() {
         exportService = new ExportService(focusSessionRepository, sessionPauseRepository,
                 streakConfigurationRepository, streakPeriodRepository, streakContributionRepository,
-                experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
+                streakFreezeRepository, experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
                 allowlistTargetRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
     }
