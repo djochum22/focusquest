@@ -29,7 +29,7 @@ The application helps users complete focused work by combining:
 - Daily and weekly time-based streaks.
 - XP, levels, and later gems.
 - Session history and progress statistics.
-- Optional future computer-vision assistance.
+- Optional camera verification that the user is on task, processed only on the user's computer (planned; see section 21).
 
 ### Central product distinction
 
@@ -60,7 +60,7 @@ Potential future directions include:
 - Support for additional browsers.
 - Multiple operating systems.
 - Cloud synchronization.
-- Computer-vision-assisted focus sessions.
+- Camera-verified focus sessions (the next planned feature; see section 21).
 - Social groups and accountability.
 - More advanced quests, rewards, and skill categories.
 - Mobile-device integrations.
@@ -97,9 +97,8 @@ Potential future directions include:
 
 ### Explicitly outside the initial MVP
 
-- Computer vision.
-- Phone detection.
-- Automatic judgment of whether the user is productive.
+- Computer vision and phone detection. They are planned as an opt-in feature after the MVP (section 21).
+- Automatic judgment of whether the user is productive. Camera verification reports observable signals, such as the user being away or holding a phone, not a judgment of productivity.
 - Cloud video processing.
 - Facial recognition.
 - Keystroke surveillance.
@@ -1045,8 +1044,11 @@ Detailed user stories and acceptance criteria will be created next. They should 
 ### Privacy
 
 - The MVP shall store data locally.
-- The MVP shall not use computer vision.
-- The MVP shall not store camera footage.
+- Camera verification (section 21) shall be opt-in. It shall not run until the user has given consent in Settings, and it can be turned off at any time.
+- Camera frames shall be processed only in memory on the user's computer and shall never be saved to disk, uploaded, or sent to the backend.
+- The application shall not use facial recognition or identify who is in front of the camera.
+- The backend shall store only what the camera observed: the kind of signal, a confidence value and the time interval. These observations are kept with their session, included in the data export, and removed by "Delete all data".
+- The camera shall be on only while a session that uses camera verification is running, not while it is paused or after it ends.
 - The application should not collect browsing history beyond what is needed to enforce selected blocking rules.
 - The application should request only the browser permissions required for website blocking.
 
@@ -1152,36 +1154,36 @@ Detailed user stories and acceptance criteria will be created next. They should 
 - Test local data backup and restoration.
 - Test Chrome extension behavior.
 
-## 21\. Potential future computer-vision feature
+## 21\. Camera verification (planned)
 
-Computer vision is not part of the MVP. It may later become a thesis or experimental feature.
+Camera verification is the next planned feature after the MVP. During a session, a camera checks that the user is doing what the session's task category implies, for example reading a book or facing the screen instead of a phone. It is opt-in, and every frame is processed on the user's own computer.
 
-### Possible research direction
+### How it works
 
-**Privacy-preserving computer vision for detecting interruptions during focused computer work.**
+- **A local companion program.** A separate program on the user's computer (the vision sidecar) reads the camera and analyses each frame in memory. It sends the backend only observations: the kind of signal, a confidence value and the time interval. It pairs with the backend through a token of its own, which works only on the camera endpoints, like the Chrome extension's token.
+- **Per session.** Each new session has a "Verify with camera" switch, which defaults to the choice in Settings. It is available only once the user has given consent. A session without it behaves exactly as today.
+- **Observable signals only.** The camera reports what it can see, not whether the user is productive:
+  - present or away,
+  - facing the screen or facing away,
+  - looking down, as when reading,
+  - a phone visible or in hand,
+  - a book or document visible.
+- **Per category.** Each task category has a profile saying which signals mean on task and which mean off task, how long a signal must last before a warning, how long the grace period after the warning is, and the minimum confidence. Several categories may share a profile. The profiles are defined in the next step of the camera work.
 
-Possible research question:
+### Off-task time
 
-How accurately can a local computer-vision system detect user absence or smartphone usage during a focus session without storing video data?
+- **Warning first.** When off-task signals last long enough, the user is warned at once, by a notification from the companion program and a banner in the web app.
+- **Then subtraction.** If they are still off task when the grace period ends, the time from then until they are back on task is subtracted. The time between the warning and the end of the grace period is never subtracted.
+- **What is affected.** Subtracted time is taken off active focus time. It therefore counts against completing the session (which needs active focus time minus off-task time to reach the planned duration) and against qualifying time for streaks. Paused time is never subtracted.
+- **Disputes.** Until the session is completed, the user can mark an off-task interval as inaccurate. That restores the time and records the label, so the detector's accuracy can be measured.
 
-### Possible future detections
+### Failure
 
-- User present or absent.
-- Face approximately directed toward the screen.
-- Phone-like object visible.
-- Possible interruption intervals.
+- **The companion program stops or the camera is unavailable.** The session goes on unverified and nothing is subtracted. The web app says the session is not being verified. Unlike the extension's heartbeat, a lost camera never interrupts a session.
 
-### Privacy principles
+### Research question
 
-- Opt-in only.
-- Local processing.
-- No raw video upload.
-- No video storage by default.
-- No facial recognition.
-- Store only event types and confidence values.
-- Provide clear consent and controls.
-
-The research should define measurable observable events rather than claiming to identify whether someone is truly productive.
+How accurately can a local computer-vision system detect absence, looking away and smartphone use during a focus session, without storing video? The disputed intervals give labelled examples to measure it against.
 
 ## 22\. Open decisions
 
@@ -1202,6 +1204,8 @@ The following decisions remain open or need more precision:
 13. Exact local authentication mechanism. (Decided: a local username and password (BCrypt) issue a short-lived JWT for the web app. The Chrome extension uses a separate, revocable token that works only on the extension endpoints.)
 14. Data backup and export format. (Decided: the JSON export is the backup. From format 2.0 it holds every stored row and can be restored from Settings; a restore replaces all current data.)
 15. Exact initial task-category list. (Decided: Studying, Coding, Writing, Reading, Work, Planning, Creative work, Administration, Other, and Task-free. Future off-task detection may give several categories the same behaviour profile instead of merging them.)
+16. The camera profile for each task category: its on-task and off-task signals, how long a signal lasts before a warning, the grace period after it, and the minimum confidence (section 21).
+17. Whether a user may change the camera profiles, or only use the defaults.
 
 ## 23\. Current product definition
 

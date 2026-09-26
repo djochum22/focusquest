@@ -141,15 +141,14 @@ The architecture should follow these principles:
 - PostgreSQL for a later multi-user or deployed version.
 - Flyway migrations from the beginning so database evolution is repeatable.
 
-**Future computer vision**
+**Camera verification (planned)**
 
-Computer vision is outside the MVP. If added later:
+Camera verification (requirements specification, section 21) runs in a separate local program, the vision sidecar:
 
-- Python.
-- OpenCV.
-- MediaPipe.
-- PyTorch only if a custom model becomes necessary.
-- Local-first processing; no raw video upload or default storage.
+- Python, OpenCV and MediaPipe; PyTorch only if a custom model becomes necessary.
+- Frames stay in the sidecar's memory. They are never written to disk, uploaded, or sent to the backend.
+- The sidecar sends the backend observations only (signal type, confidence, interval), authenticated with its own token that works only on the camera endpoints.
+- The backend applies the per-category profiles and the warning, grace and subtraction rules; the sidecar only observes.
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 
