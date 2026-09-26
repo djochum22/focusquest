@@ -10,12 +10,12 @@ import {
   startSession,
 } from '../support/flows'
 
-test('a completed session blocks the site while it runs, releases it, and earns XP', async ({ context, page }) => {
+test('a blocked site stays blocked until the daily target is reached, and completed sessions earn XP', async ({ context, page }) => {
   await setUpAccount(page)
   await expectExtensionConnected(page)
   await addBlockedSite(page)
   const site = await openSite(context)
-  await expectSiteOpen(site)   // a rule alone blocks nothing
+  await expectSiteBlocked(site)   // blocked from the start of the day, before any session
 
   await startSession(page, 5)
   await expectSiteBlocked(site)
@@ -30,10 +30,17 @@ test('a completed session blocks the site while it runs, releases it, and earns 
   await page.reload()
   await page.getByRole('button', { name: 'Complete' }).click()
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible()
-  await expectSiteOpen(site)
+  await expectSiteBlocked(site)   // 5 of today's 30 minutes: the daily target is not reached yet
+
+  await startSession(page, 25)
+  await advanceBackendClock(25 * 60)
+  await page.reload()
+  await page.getByRole('button', { name: 'Complete' }).click()
+  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible()
+  await expectSiteOpen(site)      // 30 minutes: the daily target is reached
 
   await page.goto(`${FRONTEND_URL}/streaks`)
-  await expect(page.getByTestId('xp-value')).toHaveText('5')   // 1 XP per planned minute
+  await expect(page.getByTestId('xp-value')).toHaveText('40')   // 5 + 25 for the sessions, 10 for the daily target
 })
 
 test('an abandoned session keeps blocking until the user overrides it at an XP penalty', async ({ context, page }) => {
@@ -70,7 +77,7 @@ test('blocking rules cannot be loosened while a session runs', async ({ page }) 
   await expect(page.getByRole('listitem').filter({ hasText: 'another.example' })).toBeVisible()
 })
 
-test('a planned session survives a reload, blocks nothing until started, and can be changed', async ({ context, page }) => {
+test('a planned session survives a reload and can be changed before it starts', async ({ context, page }) => {
   await setUpAccount(page)
   await expectExtensionConnected(page)
   await addBlockedSite(page)
@@ -82,7 +89,7 @@ test('a planned session survives a reload, blocks nothing until started, and can
   await page.getByRole('button', { name: 'Create session' }).click()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Start session' })).toBeVisible()
-  await expectSiteOpen(site)   // planned is not started
+  await expectSiteBlocked(site)   // by today's unmet target; a planned session changes nothing
 
   // Changing the details deletes it, so a reload shows the empty form.
   await page.getByRole('button', { name: 'Change details' }).click()

@@ -51,13 +51,15 @@ anything already listening on those ports (on CI it always starts its own).
 
 `tests/sessions.spec.ts`:
 
-- First-launch setup, the extension connecting itself, a block rule, and a session that blocks the
-  site while running and paused, then releases it on completion and awards XP.
+- First-launch setup, the extension connecting itself, and a block rule that blocks the site from the
+  start of the day. It stays blocked while a session runs and is paused, and after a completed
+  session that leaves the daily target unmet; a second session that reaches the target releases it.
+  Both completions award XP, plus the daily target's bonus.
 - Abandoning below the daily target keeps the site blocked until a manual override, which is
   recorded with its XP penalty.
 - Rules cannot be loosened while a session runs, but can be tightened.
-- A planned session survives a reload and blocks nothing until it is started; changing its details
-  deletes it, so a reload shows the empty form.
+- A planned session survives a reload and can be started later; changing its details deletes it, so
+  a reload shows the empty form. The site is blocked all along by the unmet daily target.
 
 Each blocking check allows 10 seconds, less than the extension's 30-second check-in, so the tests
 also show that the web app tells the extension about changes straight away.
