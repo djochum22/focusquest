@@ -33,7 +33,7 @@ class ExtensionTokenIntegrationTest extends ApiIntegrationTest {
         assertThat(extensionToken).startsWith("fqx_");
         getAs(extensionToken, "/api/extension/blocking-state")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.enforcementActive").value(false));
+                .andExpect(jsonPath("$.enforcementActive").value(true));   // today's target is unmet
         postJsonAs(extensionToken, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
     }
 

@@ -9,8 +9,9 @@ import java.util.List;
  * Response of {@code GET /api/extension/blocking-state}. When {@code enforcementActive} is false
  * the rule lists are empty and the extension should remove any blocking it has installed.
  *
- * @param sessionId     the enforcing session, or null when not enforcing
- * @param blockingState the enforcing session's stored blocking state, or null when not enforcing
+ * @param sessionId     the enforcing session, or null when not enforcing or when blocking comes from
+ *                      the unmet daily target alone
+ * @param blockingState the enforcing session's stored blocking state, or null when {@code sessionId} is null
  * @param stateVersion  opaque; send it back on heartbeat to learn whether a re-sync is needed
  */
 public record BlockingStateResponse(

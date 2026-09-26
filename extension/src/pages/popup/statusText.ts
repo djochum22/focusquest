@@ -10,7 +10,7 @@ export interface StatusText {
 export function describeStatus(status: SyncStatus): StatusText {
   switch (status) {
     case 'ok':
-      return { headline: 'Connected', detail: 'Blocking follows your focus sessions.', tone: 'ok' }
+      return { headline: 'Connected', detail: 'Sites stay blocked during focus sessions and until today\'s streak target is reached.', tone: 'ok' }
     case 'signed-out':
       return {
         headline: 'Not connected',

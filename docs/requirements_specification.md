@@ -1229,7 +1229,7 @@ The following decisions remain open or need more precision:
 2. Exact daily XP penalty for manual overrides. (Decided: 10 XP.)
 3. Exact gem rewards derived from XP. (Decided: 5 gems per level reached, 1 per daily target and 5 per weekly target.)
 4. What gems can be spent on. (Decided: streak freezes, at 10 gems each; see section 13.)
-5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Provisionally decided: they remain blocked until the daily target is reached, a session is completed, or the user overrides.)
+5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Decided: websites are blocked every day from the start of the day until the daily target is reached, with or without a session, and throughout any running session. Abandoning a session does not change that; overriding a session abandoned today releases blocking for the rest of the day, at an XP penalty.)
 6. The exact behavior when a session crosses midnight or the end of a weekly period. (Decided: its time is split at the boundary, and each part counts toward the period it was spent in.)
 7. Whether weekly progress includes time that also completed a daily streak. (Decided: yes. Every qualifying minute counts toward both the daily and the weekly period it falls in.)
 8. Whether a paused interval spanning midnight is split across periods when finalized. (Decided: yes, the same way as active time.)

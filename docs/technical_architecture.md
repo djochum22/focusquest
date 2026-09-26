@@ -1015,7 +1015,7 @@ POST /api/extension/heartbeat
 ```
 
 - **`blocking-state`** returns `enforcementActive`, `sessionId`, `blockingState`, `stateVersion`, `generatedAt`, and the active `blockRules` and `allowRules`. Each rule carries its `targetType`, canonical `targetValue`, pre-split `host` and `path` (null for a domain rule), and `displayName`. When enforcement is not active, both rule lists are empty and the extension should remove any blocking it has installed.
-- **`current-session`** returns what the blocked page shows: session id, status, blocking state, task description, planned/active/remaining seconds, start time, and today's daily streak progress (`qualifyingSeconds`, `targetSeconds`, `status`). It returns 204 No Content when nothing is being enforced. `dailyStreak` is null until time has first been credited that day.
+- **`current-session`** returns what the blocked page shows: session id, status, blocking state, task description, planned/active/remaining seconds, start time, and today's daily streak progress (`qualifyingSeconds`, `targetSeconds`, `status`). It returns 204 No Content when nothing is being enforced. When sites are blocked only by the unmet daily target, the session fields are null and the seconds are 0. `dailyStreak` shows zero progress before time is first credited that day.
 - **`heartbeat`** accepts an optional `{ "stateVersion": "..." }` and returns `serverTime`, `enforcementActive`, `sessionId`, the current `stateVersion` and `refreshRequired`. The extension calls it periodically and re-fetches `blocking-state` only when `refreshRequired` is true. It also records the check-in on the user's running session (`lastHeartbeatAt`), after first checking the gap since the previous one, so a heartbeat that ends a long silence interrupts the session and returns the released state in the same response.
 - `stateVersion` is a fingerprint of the enforcement flag, the enforcing session and its blocking state, and the active rules. It changes exactly when the extension must re-synchronize, and is not affected by a pause or resume, which do not change blocking.
 
@@ -1418,29 +1418,30 @@ An abandoned session:
 - Grants no session-completion XP.
 - Keeps recorded active and finalized paused time for streak progress if the session qualifies.
 - Releases websites immediately only when the daily target has already been reached, counting the time credited by this abandonment.
-- Otherwise maintains enforcement until a new session is completed, or a manual override of that abandoned session. Starting a new session supersedes the abandoned one.
+- Otherwise keeps websites blocked until today's daily target is reached, or the user overrides that abandoned session. Starting a new session supersedes the abandoned one.
 
 **Manual override rule**
 
 A manual override:
 
-- Releases website blocking immediately, with blocking state `OVERRIDE_USED`.
-- Is allowed only for a session that is already ABANDONED and still holding blocking (blocking state `ACTIVE`), that is the user's latest started session, while today's daily target is unmet. It is refused for ACTIVE, PAUSED, PLANNED and COMPLETED sessions and cannot be applied twice.
+- Releases website blocking immediately and for the rest of the day (or until another session starts), with blocking state `OVERRIDE_USED`. The next day starts blocked again.
+- Is allowed only for a session that is already ABANDONED and still holding blocking (blocking state `ACTIVE`), that was abandoned today and is the user's latest started session, while today's daily target is unmet. It is refused for ACTIVE, PAUSED, PLANNED and COMPLETED sessions and cannot be applied twice.
 - Sets overrideUsed = true on the abandoned session. The session's time was already credited to the streak when it was abandoned, so an override credits nothing further.
 - Applies an XP penalty as a negative `ExperienceTransaction`, once per session. The amount is a placeholder (10) set in `focusquest.xp.manual-override-penalty`.
 - Stores the audit trail as `overrideUsed`, the blocking state and the transaction (a dedicated `BlockingOverride` record is planned).
 
 **Enforcement and release rule**
 
-Whether the extension must block is derived from the status of the user's most recently started session, not from the stored blocking state alone:
+Websites are blocked from the start of each day until the daily target is reached, whether or not a session has been started, and throughout any running session. `BlockingService.isEnforcementActive` decides it from today's daily period and the user's most recently started session:
 
-| Latest session | Enforcing? |
-| -------------- | ---------- |
-| ACTIVE or PAUSED | Yes |
-| COMPLETED | No; completing sets `RELEASED` |
-| INTERRUPTED | No; sets `TECHNICAL_RELEASE`, so a technical failure never locks the user out. Resuming it enforces again |
-| ABANDONED | Yes, unless the blocking state is no longer `ACTIVE` (released or overridden) or today's daily target has been reached |
-| PLANNED / none | No |
+| Latest session | Enforcing? | Holds enforcement? |
+| -------------- | ---------- | ------------------ |
+| ACTIVE or PAUSED | Yes, even once the daily target is reached | Yes |
+| ABANDONED today, blocking `ACTIVE` | Yes, until the daily target is reached | Yes |
+| ABANDONED today and overridden | No, for the rest of the day | No |
+| COMPLETED, INTERRUPTED, PLANNED, none, or abandoned on an earlier day | Yes, until the daily target is reached | No |
+
+A session that *holds* enforcement (`BlockingService.findEnforcingSession`) is the one the extension's blocked page reports, and while one exists the configuration lock (section 10) and the streak-settings, deletion and restore locks apply. Blocking that comes from the unmet daily target alone has no session: `sessionId` is null, and the rules can still be edited, so a mistaken rule can be fixed during the day. Completing a session sets `RELEASED` and an interruption sets `TECHNICAL_RELEASE`; either way the session lets go, and only the unmet daily target can keep sites blocked.
 
 When a session is abandoned, the blocking state is set to `RELEASED` if the daily target is reached afterwards, otherwise it stays `ACTIVE`. The backend keeps one blocking configuration per user (the active block and allowlist rules) rather than a per-session snapshot; the configuration lock in section 10 stops it being loosened during enforcement.
 

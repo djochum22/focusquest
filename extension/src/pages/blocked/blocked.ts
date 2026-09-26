@@ -74,7 +74,10 @@ function renderTimer(): void {
   const timer = byId('timer')
   const label = byId('timer-label')
 
-  if (session.status === 'ACTIVE') {
+  if (session.sessionId === null) {
+    timer.textContent = ''
+    label.textContent = 'Sites stay blocked until today\'s streak target is reached.'
+  } else if (session.status === 'ACTIVE') {
     const elapsed = (Date.now() - receivedAt) / 1000
     timer.textContent = formatClock(session.remainingFocusSeconds - elapsed)
     label.textContent = 'remaining in this focus session'
@@ -105,7 +108,9 @@ function renderSession(next: CurrentSessionResponse | null, blockedUrl: string |
   }
 
   byId('heading').textContent = 'This site is blocked'
-  byId('task').textContent = next.taskDescription
+  const task = byId('task')
+  task.textContent = next.taskDescription ?? ''
+  task.hidden = next.taskDescription === null
   renderTimer()
 
   const streak = byId('streak')

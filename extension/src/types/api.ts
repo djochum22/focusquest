@@ -46,17 +46,20 @@ export interface DailyStreakProgress {
   status: StreakPeriodStatus
 }
 
-/** GET /api/extension/current-session (204 No Content when nothing is enforced). */
+/**
+ * GET /api/extension/current-session (204 No Content when nothing is enforced). The session fields
+ * are null when sites are blocked only because today's daily target is not yet reached.
+ */
 export interface CurrentSessionResponse {
-  sessionId: number
-  status: SessionStatus
-  blockingState: BlockingStateName
-  taskDescription: string
-  plannedFocusMinutes: number
+  sessionId: number | null
+  status: SessionStatus | null
+  blockingState: BlockingStateName | null
+  taskDescription: string | null
+  plannedFocusMinutes: number | null
   activeFocusSeconds: number
   remainingFocusSeconds: number
-  startedAt: string
+  startedAt: string | null
   generatedAt: string
-  /** Null until time has first been credited today. */
+  /** Today's progress toward the daily target; null only if it could not be read. */
   dailyStreak: DailyStreakProgress | null
 }

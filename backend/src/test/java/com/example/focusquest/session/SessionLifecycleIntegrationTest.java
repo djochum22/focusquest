@@ -140,7 +140,7 @@ class SessionLifecycleIntegrationTest {
     }
 
     @Test
-    void completingCreditsTheStreakReleasesBlockingAndStopsEnforcement() {
+    void completingCreditsTheStreakAndReleasesTheSessionButAnUnmetDailyTargetKeepsSitesBlocked() {
         configureDailyTarget(30);
         FocusSession session = newStartedSession(5);
         advance(60);
@@ -157,11 +157,14 @@ class SessionLifecycleIntegrationTest {
         StreakPeriod period = dailyPeriod();
         assertThat(period.getQualifyingSeconds()).isEqualTo(6 * 60 + 30); // 360s active + 30s paused
         assertThat(period.getStatus()).isEqualTo(StreakPeriodStatus.ACTIVE);
-        assertThat(enforcing()).isFalse();
+        assertThat(blockingService.findEnforcingSession(user)).isEmpty();
+        BlockingSnapshot afterComplete = blockingService.getBlockingSnapshot(user);
+        assertThat(afterComplete.enforcementActive()).isTrue();
+        assertThat(afterComplete.session()).isNull();
     }
 
     @Test
-    void abandoningBelowTheDailyTargetKeepsBlockingAndACompletedSessionLaterReleasesIt() {
+    void abandoningBelowTheDailyTargetKeepsBlockingUntilALaterSessionReachesIt() {
         configureDailyTarget(30);
         FocusSession abandoned = newStartedSession(10);
         advance(120);
@@ -177,9 +180,9 @@ class SessionLifecycleIntegrationTest {
         assertThat(afterAbandon.session().getId()).isEqualTo(abandoned.getId());
 
         advance(10);
-        FocusSession next = newStartedSession(5);
+        FocusSession next = newStartedSession(28);
         assertThat(blockingService.getBlockingSnapshot(user).session().getId()).isEqualTo(next.getId());
-        advance(5 * 60);
+        advance(28 * 60);   // 2 + 28 minutes reaches the 30-minute target
         sessionService.completeSession(next.getId(), user.getUsername());
 
         assertThat(enforcing()).isFalse();

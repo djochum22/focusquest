@@ -43,7 +43,10 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
         mockMvc.perform(get("/api/auth/setup-status")).andExpect(jsonPath("$.setupRequired").value(false));
         getAs(token, "/api/auth/me").andExpect(status().isOk()).andExpect(jsonPath("$.username").value("doug"));
         getAs(token, SESSIONS + "/current").andExpect(status().isNoContent());
-        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
+        // Sites are blocked from the start, before any session, until the daily target is reached.
+        getAs(token, "/api/extension/blocking-state")
+                .andExpect(jsonPath("$.enforcementActive").value(true))
+                .andExpect(jsonPath("$.sessionId").doesNotExist());
 
         // Plan, start and run a 30-minute session (the default daily target) with one pause.
         long id = createSession(token, 30);
@@ -76,7 +79,7 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.blockingState").value("RELEASED"))
                 .andExpect(jsonPath("$.completionXpAwarded").value(true));
 
-        // Everything downstream reflects the completion.
+        // Everything downstream reflects the completion, which reached the daily target.
         getAs(token, SESSIONS + "/current").andExpect(status().isNoContent());
         getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
         getAs(token, SESSIONS + "/history")
@@ -99,6 +102,10 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
         long finished = createAndStartSession(token, 20);
         advance(20 * 60);
         postAs(token, SESSIONS + "/" + finished + "/complete").andExpect(status().isOk());   // 20 XP; 20 of 30 minutes
+        // Completed, but still short of the daily target, so sites stay blocked without a session.
+        getAs(token, "/api/extension/blocking-state")
+                .andExpect(jsonPath("$.enforcementActive").value(true))
+                .andExpect(jsonPath("$.sessionId").doesNotExist());
 
         advance(60);
         long abandoned = createAndStartSession(token, 10);
@@ -125,6 +132,10 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_SESSION_STATE"));
         getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(20 * 60 + 2 * 60));
+
+        // The override lasts for the rest of the day; the next day starts blocked again.
+        advance(24 * 60 * 60);
+        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(true));
     }
 
     @Test
@@ -151,7 +162,10 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
         // The browser is closed for ten minutes; the next heartbeat reveals the gap.
         advance(10 * 60);
         postJsonAs(token, "/api/extension/heartbeat", "{}").andExpect(status().isOk());
-        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
+        // The session lets go of blocking; only the unmet daily target keeps sites blocked.
+        getAs(token, "/api/extension/blocking-state")
+                .andExpect(jsonPath("$.enforcementActive").value(true))
+                .andExpect(jsonPath("$.sessionId").doesNotExist());
         getAs(token, SESSIONS + "/current")
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.status").value("INTERRUPTED"))
@@ -284,7 +298,7 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.status").value("PLANNED"))
                 .andExpect(jsonPath("$.plannedFocusMinutes").value(25));
         getAs(token, SESSIONS + "/current").andExpect(status().isNoContent());
-        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(false));
+        getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.sessionId").doesNotExist());
 
         // Creating another replaces it, so there is only ever one.
         long second = createSession(token, 30);

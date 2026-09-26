@@ -17,8 +17,8 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>()
     @cancel="emit('cancel')"
   >
     <p>
-      Leaving this session will unblock the selected websites, but it will apply an XP penalty to
-      today's progress.
+      Leaving this session will unblock the selected websites for the rest of today, but it will
+      apply an XP penalty to today's progress.
     </p>
     <p>
       The session stays abandoned and earns no completion XP, and the time you already focused still

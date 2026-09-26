@@ -37,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 class BlockingServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-01-15T09:00:00Z");
+    private static final Instant ABANDONED_AT = NOW.minusSeconds(3600);
 
     @Mock
     private BlockedTargetRepository blockedTargetRepository;
@@ -69,6 +70,7 @@ class BlockingServiceTest {
         lenient().when(session.getStatus()).thenReturn(status);
         lenient().when(session.getBlockingState()).thenReturn(blockingState);
         lenient().when(session.isOverrideUsed()).thenReturn(overrideUsed);
+        lenient().when(session.getAbandonedAt()).thenReturn(status == SessionStatus.ABANDONED ? ABANDONED_AT : null);
         return session;
     }
 
@@ -78,6 +80,14 @@ class BlockingServiceTest {
 
     private void noSessionEver() {
         when(sessionService.findLatestStartedSession(user)).thenReturn(Optional.empty());
+    }
+
+    private void dailyTargetReached(boolean reached) {
+        when(streakService.isDailyTargetReached(user)).thenReturn(reached);
+    }
+
+    private void abandonedToday(boolean today) {
+        when(streakService.isInCurrentDailyPeriod(user, ABANDONED_AT)).thenReturn(today);
     }
 
     private void enforcementIsActive() {
@@ -297,18 +307,30 @@ class BlockingServiceTest {
     class Enforcement {
 
         @Test
-        void noEnforcementWhenTheUserNeverStartedASession() {
+        void blockingIsOnFromTheStartOfTheDayBeforeAnySessionWhileTheDailyTargetIsUnmet() {
             noSessionEver();
+            dailyTargetReached(false);
 
+            assertThat(blockingService.isEnforcementActive(user)).isTrue();
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
         }
 
         @Test
-        void activeSessionEnforces() {
+        void noBlockingWithoutASessionOnceTheDailyTargetIsReached() {
+            noSessionEver();
+            dailyTargetReached(true);
+
+            assertThat(blockingService.isEnforcementActive(user)).isFalse();
+        }
+
+        @Test
+        void activeSessionEnforcesEvenOnceTheDailyTargetIsReached() {
             FocusSession active = session(SessionStatus.ACTIVE, BlockingState.ACTIVE, false);
             latestSessionIs(active);
 
+            assertThat(blockingService.isEnforcementActive(user)).isTrue();
             assertThat(blockingService.findEnforcingSession(user)).containsSame(active);
+            verify(streakService, never()).isDailyTargetReached(any());
         }
 
         @Test
@@ -316,63 +338,97 @@ class BlockingServiceTest {
             FocusSession paused = session(SessionStatus.PAUSED, BlockingState.ACTIVE, false);
             latestSessionIs(paused);
 
+            assertThat(blockingService.isEnforcementActive(user)).isTrue();
             assertThat(blockingService.findEnforcingSession(user)).containsSame(paused);
         }
 
         @Test
-        void completedSessionReleasesEvenThoughItsStoredBlockingStateStillSaysActive() {
+        void completedSessionNoLongerHoldsBlockingButTheUnmetDailyTargetKeepsItOn() {
             latestSessionIs(session(SessionStatus.COMPLETED, BlockingState.ACTIVE, false));
+            dailyTargetReached(false);
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
+            assertThat(blockingService.isEnforcementActive(user)).isTrue();
         }
 
         @Test
-        void interruptedSessionReleasesSoATechnicalFailureCannotLockTheUserOut() {
+        void completedSessionThatReachedTheDailyTargetReleasesBlocking() {
+            latestSessionIs(session(SessionStatus.COMPLETED, BlockingState.RELEASED, false));
+            dailyTargetReached(true);
+
+            assertThat(blockingService.isEnforcementActive(user)).isFalse();
+        }
+
+        @Test
+        void interruptedSessionDoesNotHoldBlocking() {
             latestSessionIs(session(SessionStatus.INTERRUPTED, BlockingState.ACTIVE, false));
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
         }
 
         @Test
-        void plannedSessionDoesNotEnforce() {
+        void plannedSessionDoesNotHoldBlocking() {
             latestSessionIs(session(SessionStatus.PLANNED, null, false));
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
         }
 
         @Test
-        void abandonedSessionKeepsEnforcingWhileTheDailyTargetIsNotReached() {
+        void sessionAbandonedTodayHoldsBlockingWhileTheDailyTargetIsNotReached() {
             FocusSession abandoned = session(SessionStatus.ABANDONED, BlockingState.ACTIVE, false);
             latestSessionIs(abandoned);
-            when(streakService.isDailyTargetReached(user)).thenReturn(false);
+            abandonedToday(true);
+            dailyTargetReached(false);
 
             assertThat(blockingService.findEnforcingSession(user)).containsSame(abandoned);
         }
 
         @Test
+        void sessionAbandonedOnAnEarlierDayNoLongerHoldsBlocking() {
+            latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.ACTIVE, false));
+            abandonedToday(false);
+
+            assertThat(blockingService.findEnforcingSession(user)).isEmpty();
+        }
+
+        @Test
         void abandonedSessionReleasesOnceTheDailyTargetIsReached() {
             latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.ACTIVE, false));
+            abandonedToday(true);
             when(streakService.isDailyTargetReached(user)).thenReturn(true);
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
+            assertThat(blockingService.isEnforcementActive(user)).isFalse();
         }
 
         @Test
-        void abandonedSessionReleasesAfterAManualOverride() {
+        void anOverrideTodayReleasesBlockingForTheRestOfTheDay() {
             latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.OVERRIDE_USED, true));
+            abandonedToday(true);
+            dailyTargetReached(false);
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
+            assertThat(blockingService.isEnforcementActive(user)).isFalse();
         }
 
         @Test
-        void abandonedSessionWithAnExplicitReleaseDoesNotEnforce() {
+        void anOverrideOnAnEarlierDayDoesNotReleaseToday() {
+            latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.OVERRIDE_USED, true));
+            abandonedToday(false);
+            dailyTargetReached(false);
+
+            assertThat(blockingService.isEnforcementActive(user)).isTrue();
+        }
+
+        @Test
+        void abandonedSessionWithAnExplicitReleaseDoesNotHoldBlocking() {
             latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.RELEASED, false));
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
         }
 
         @Test
-        void abandonedSessionWithATechnicalReleaseDoesNotEnforce() {
+        void abandonedSessionWithATechnicalReleaseDoesNotHoldBlocking() {
             latestSessionIs(session(SessionStatus.ABANDONED, BlockingState.TECHNICAL_RELEASE, false));
 
             assertThat(blockingService.findEnforcingSession(user)).isEmpty();
@@ -385,6 +441,7 @@ class BlockingServiceTest {
         @Test
         void whenNotEnforcingTheSnapshotCarriesNoRules() {
             noSessionEver();
+            dailyTargetReached(true);
 
             BlockingSnapshot snapshot = blockingService.getBlockingSnapshot(user);
 
@@ -414,6 +471,21 @@ class BlockingServiceTest {
         }
 
         @Test
+        void anUnmetDailyTargetAloneEnforcesTheActiveRulesWithoutASession() {
+            noSessionEver();
+            dailyTargetReached(false);
+            List<BlockedTarget> blockRules = List.of(blocked("youtube.com"));
+            when(blockedTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user)).thenReturn(blockRules);
+            when(allowlistTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user)).thenReturn(List.of());
+
+            BlockingSnapshot snapshot = blockingService.getBlockingSnapshot(user);
+
+            assertThat(snapshot.enforcementActive()).isTrue();
+            assertThat(snapshot.session()).isNull();
+            assertThat(snapshot.blockRules()).isEqualTo(blockRules);
+        }
+
+        @Test
         void stateVersionIsStableForTheSameStateAndChangesWhenTheStateChanges() {
             enforcementIsActive();
             when(blockedTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user)).thenReturn(List.of(blocked("reddit.com")));
@@ -435,8 +507,9 @@ class BlockingServiceTest {
             when(allowlistTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user)).thenReturn(List.of());
             String enforcing = blockingService.getBlockingSnapshot(user).stateVersion();
 
-            FocusSession completed = session(SessionStatus.COMPLETED, BlockingState.ACTIVE, false);
+            FocusSession completed = session(SessionStatus.COMPLETED, BlockingState.RELEASED, false);
             when(sessionService.findLatestStartedSession(user)).thenReturn(Optional.of(completed));
+            dailyTargetReached(true);
 
             assertThat(blockingService.getBlockingSnapshot(user).stateVersion()).isNotEqualTo(enforcing);
         }
@@ -447,7 +520,8 @@ class BlockingServiceTest {
 
         @Test
         void emptyWhenNothingIsBeingEnforced() {
-            latestSessionIs(session(SessionStatus.COMPLETED, BlockingState.ACTIVE, false));
+            latestSessionIs(session(SessionStatus.COMPLETED, BlockingState.RELEASED, false));
+            dailyTargetReached(true);
 
             assertThat(blockingService.getCurrentSession(user)).isEmpty();
         }
@@ -459,10 +533,11 @@ class BlockingServiceTest {
             when(active.activeSecondsAt(NOW)).thenReturn(600L);
             latestSessionIs(active);
             StreakPeriod daily = mock(StreakPeriod.class);
-            when(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).thenReturn(Optional.of(daily));
+            when(streakService.getCurrentProgress(user, StreakPeriodType.DAILY)).thenReturn(Optional.of(daily));
 
             CurrentSessionSnapshot snapshot = blockingService.getCurrentSession(user).orElseThrow();
 
+            assertThat(snapshot.session()).isSameAs(active);
             assertThat(snapshot.activeFocusSeconds()).isEqualTo(600);
             assertThat(snapshot.remainingFocusSeconds()).isEqualTo(900);
             assertThat(snapshot.dailyStreakPeriod()).isSameAs(daily);
@@ -470,17 +545,32 @@ class BlockingServiceTest {
         }
 
         @Test
-        void remainingTimeNeverGoesNegativeAndStreakIsNullWhenNotConfigured() {
+        void remainingTimeNeverGoesNegativeAndStreakIsNullWhenItCannotBeRead() {
             FocusSession active = session(SessionStatus.ACTIVE, BlockingState.ACTIVE, false);
             when(active.getPlannedFocusMinutes()).thenReturn(5);
             when(active.activeSecondsAt(NOW)).thenReturn(999L);
             latestSessionIs(active);
-            when(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).thenReturn(Optional.empty());
+            when(streakService.getCurrentProgress(user, StreakPeriodType.DAILY)).thenReturn(Optional.empty());
 
             CurrentSessionSnapshot snapshot = blockingService.getCurrentSession(user).orElseThrow();
 
             assertThat(snapshot.remainingFocusSeconds()).isZero();
             assertThat(snapshot.dailyStreakPeriod()).isNull();
+        }
+
+        @Test
+        void withoutASessionReportsOnlyTodaysProgressTowardTheDailyTarget() {
+            noSessionEver();
+            dailyTargetReached(false);
+            StreakPeriod daily = mock(StreakPeriod.class);
+            when(streakService.getCurrentProgress(user, StreakPeriodType.DAILY)).thenReturn(Optional.of(daily));
+
+            CurrentSessionSnapshot snapshot = blockingService.getCurrentSession(user).orElseThrow();
+
+            assertThat(snapshot.session()).isNull();
+            assertThat(snapshot.activeFocusSeconds()).isZero();
+            assertThat(snapshot.remainingFocusSeconds()).isZero();
+            assertThat(snapshot.dailyStreakPeriod()).isSameAs(daily);
         }
     }
 

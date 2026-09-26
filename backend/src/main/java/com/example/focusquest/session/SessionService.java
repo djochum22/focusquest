@@ -262,7 +262,8 @@ public class SessionService {
     }
 
     /**
-     * Completing a session always releases website blocking, and pays its completion XP once,
+     * Completing a session always releases its hold on website blocking (sites stay blocked while
+     * today's daily target is unmet), and pays its completion XP once,
      * after the streak has been credited so that a streak bonus it triggers is paid first.
      */
     @Transactional
@@ -301,7 +302,7 @@ public class SessionService {
     /**
      * Abandoning keeps the time already recorded as streak progress. Website blocking is released
      * only if that progress brought today's daily streak to its target; otherwise it stays active
-     * until the user completes a session or overrides. Abandoning an interrupted session leaves its
+     * until the target is reached or the user overrides. Abandoning an interrupted session leaves its
      * blocking released: the interruption already settled its time and let the user out.
      */
     @Transactional
@@ -335,9 +336,10 @@ public class SessionService {
      * Manually releases website blocking that an abandoned session is still holding. The session
      * must already be ABANDONED, so its intervals are settled and its time is credited to the
      * streak before anything is overridden; override never ends or alters a running session. It
-     * must also be the user's latest started session with blocking still ACTIVE and today's daily
-     * target not yet reached, because that is exactly when blocking is being enforced. The user
-     * takes an XP penalty, once per session.
+     * must also be the user's latest started session, abandoned today with blocking still ACTIVE,
+     * and today's daily target not yet reached, because that is exactly when the session is holding
+     * enforcement. The override releases blocking for the rest of the day, or until another session
+     * starts. The user takes an XP penalty, once per session.
      */
     @Transactional
     public FocusSession overrideSession(Long sessionId, String username) {
@@ -351,6 +353,7 @@ public class SessionService {
         }
         if (session.getBlockingState() != BlockingState.ACTIVE
                 || !isLatestStartedSession(session)
+                || !streakService.isInCurrentDailyPeriod(session.getUser(), session.getAbandonedAt())
                 || streakService.isDailyTargetReached(session.getUser())) {
             throw new InvalidSessionStateException("Website blocking is not being enforced for this session");
         }
@@ -443,7 +446,8 @@ public class SessionService {
     /**
      * Interrupts a running session whose extension heartbeat has lapsed, and reports whether it did.
      * Time up to the last heartbeat is kept and credited to the streak; the unverifiable time after
-     * it is dropped. Blocking is released, so a technical failure never locks the user out.
+     * it is dropped. The session's hold on blocking is released, so a technical failure never keeps
+     * the user blocked beyond what the unmet daily target already does.
      * Detection is armed when the session starts or resumes with the extension alive, or otherwise
      * at the extension's first check-in for the session.
      */

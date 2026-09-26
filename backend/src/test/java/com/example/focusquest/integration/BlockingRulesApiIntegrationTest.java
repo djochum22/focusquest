@@ -94,32 +94,33 @@ class BlockingRulesApiIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
-    void activeRulesReachTheExtensionOnlyWhileASessionIsEnforcing() throws Exception {
+    void activeRulesReachTheExtensionUntilTheDailyTargetIsReached() throws Exception {
         String token = setUpAccount("doug", "UTC");
         long youtube = createRule(token, BLOCKED, "youtube.com");
         createRule(token, BLOCKED, "example.com");
         postJsonAs(token, BLOCKED, json("targetValue", "inactive.com", "active", false)).andExpect(status().isCreated());
         createRule(token, ALLOWLIST, "example.com/docs");
 
-        // Nothing is blocked until a session runs.
-        getAs(token, EXTENSION_STATE)
-                .andExpect(jsonPath("$.enforcementActive").value(false))
-                .andExpect(jsonPath("$.blockRules", empty()))
-                .andExpect(jsonPath("$.allowRules", empty()));
-
-        long session = createAndStartSession(token, 30);
+        // Blocked from the start of the day, before any session, because the daily target is unmet.
         getAs(token, EXTENSION_STATE)
                 .andExpect(jsonPath("$.enforcementActive").value(true))
+                .andExpect(jsonPath("$.sessionId").doesNotExist())
                 .andExpect(jsonPath("$.blockRules[*].targetValue").value(contains("youtube.com", "example.com")))
                 .andExpect(jsonPath("$.blockRules[0].host").value("youtube.com"))
                 .andExpect(jsonPath("$.allowRules[*].targetValue").value(contains("example.com/docs")))
                 .andExpect(jsonPath("$.allowRules[0].host").value("example.com"))
                 .andExpect(jsonPath("$.allowRules[0].path").value("/docs"));
 
+        long session = createAndStartSession(token, 30);
+        getAs(token, EXTENSION_STATE)
+                .andExpect(jsonPath("$.enforcementActive").value(true))
+                .andExpect(jsonPath("$.sessionId").value(session))
+                .andExpect(jsonPath("$.blockRules[*].targetValue").value(contains("youtube.com", "example.com")));
+
         advance(30 * 60);
         postAs(token, "/api/focus-sessions/" + session + "/complete").andExpect(status().isOk());
 
-        // Released again, and the rules are still there for next time.
+        // The session reached the daily target: released, and the rules are still there for tomorrow.
         getAs(token, EXTENSION_STATE)
                 .andExpect(jsonPath("$.enforcementActive").value(false))
                 .andExpect(jsonPath("$.blockRules", empty()));

@@ -40,7 +40,8 @@ async function onStart() {
     <ErrorMessage :message="submitError" />
     <SessionMeta :session="session.planned" />
     <p class="muted ready__note">
-      Your session is ready. Starting it begins the timer and turns website blocking on.
+      Your session is ready. Starting it begins the timer. Websites stay blocked while it runs and
+      until today's daily streak is reached.
     </p>
     <div class="ready__actions">
       <AppButton variant="secondary" :disabled="session.busy" @click="session.discardPlanned">

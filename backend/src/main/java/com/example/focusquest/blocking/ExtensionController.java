@@ -32,7 +32,7 @@ public class ExtensionController {
         return BlockingStateResponse.from(blockingService.getBlockingSnapshot(currentUser(principal)));
     }
 
-    /** 204 No Content when no session is currently being enforced. */
+    /** 204 No Content when websites are not currently blocked. */
     @GetMapping("/current-session")
     public ResponseEntity<CurrentSessionResponse> currentSession(@AuthenticationPrincipal UserDetails principal) {
         return blockingService.getCurrentSession(currentUser(principal))

@@ -746,7 +746,10 @@ class SessionServiceTest {
 
     // --- manual override ---
 
-    /** Abandons a fresh 10-minute session with blocking left active, and makes it the latest started session. */
+    /**
+     * Abandons a fresh 10-minute session with blocking left active, and makes it the latest started
+     * session, abandoned today.
+     */
     private FocusSession abandonWithBlockingStillActive() {
         FocusSession session = createAndStartSession(10);
         advanceClockBy(120);
@@ -754,6 +757,7 @@ class SessionServiceTest {
         sessionService.abandonSession(SESSION_ID);
         lenient().when(focusSessionRepository.findFirstByUserAndStartedAtIsNotNullOrderByStartedAtDesc(user))
                 .thenReturn(Optional.of(session));
+        lenient().when(streakService.isInCurrentDailyPeriod(user, session.getAbandonedAt())).thenReturn(true);
         return session;
     }
 
@@ -845,6 +849,19 @@ class SessionServiceTest {
                 .isInstanceOf(InvalidSessionStateException.class)
                 .hasMessageContaining("not being enforced");
 
+        verify(experienceService, never()).applyManualOverridePenalty(any(), any());
+    }
+
+    @Test
+    void overrideIsRefusedForASessionAbandonedOnAnEarlierDay() {
+        FocusSession session = abandonWithBlockingStillActive();
+        when(streakService.isInCurrentDailyPeriod(user, session.getAbandonedAt())).thenReturn(false);
+
+        assertThatThrownBy(() -> sessionService.overrideSession(SESSION_ID, "doug"))
+                .isInstanceOf(InvalidSessionStateException.class)
+                .hasMessageContaining("not being enforced");
+
+        assertThat(session.isOverrideUsed()).isFalse();
         verify(experienceService, never()).applyManualOverridePenalty(any(), any());
     }
 

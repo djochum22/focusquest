@@ -3,10 +3,12 @@ package com.example.focusquest.blocking;
 import com.example.focusquest.session.BlockingState;
 import com.example.focusquest.session.FocusSession;
 import com.example.focusquest.session.SessionService;
+import com.example.focusquest.session.SessionStatus;
 import com.example.focusquest.shared.exception.DuplicateRuleException;
 import com.example.focusquest.shared.exception.InvalidRuleException;
 import com.example.focusquest.shared.exception.ResourceNotFoundException;
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodType;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
@@ -51,7 +53,7 @@ public class BlockingService {
 
     // --- blocked targets ---
     //
-    // While enforcement is active the blocking configuration may only get stricter: adding a block
+    // While a session holds enforcement the blocking configuration may only get stricter: adding a block
     // rule is allowed, but editing or deleting one (which could unblock a site) is refused.
 
     @Transactional(readOnly = true)
@@ -107,19 +109,34 @@ public class BlockingService {
     // --- enforcement and extension state ---
 
     /**
-     * The session currently holding website enforcement, if any.
+     * Whether websites are blocked right now. Blocking is on from the start of each day until the
+     * daily streak target is reached, and throughout any running session:
      *
      * <ul>
-     *   <li>ACTIVE and PAUSED sessions enforce; pausing never releases blocking.</li>
-     *   <li>An ABANDONED session keeps enforcing until the daily streak target is reached, unless
-     *       its blocking was explicitly released or overridden. Only the user's latest started
-     *       session is considered, so starting a new session supersedes an old abandoned one.</li>
-     *   <li>COMPLETED and INTERRUPTED sessions release blocking. An interruption is a technical
-     *       failure, and it must not lock the user out of the web.</li>
+     *   <li>ACTIVE and PAUSED sessions always enforce, even once the daily target is reached;
+     *       pausing never releases blocking.</li>
+     *   <li>Otherwise blocking is on while today's daily target is unmet, whether or not a session
+     *       was ever started. Completing a session that leaves the target unmet keeps it on.</li>
+     *   <li>The one way out before the target is reached is overriding a session abandoned today,
+     *       which releases blocking for the rest of the day, or until a new session starts.</li>
      * </ul>
-     *
-     * <p>This is derived from session status rather than read from the stored blocking state alone,
-     * because the session module does not yet record RELEASED on completion.
+     */
+    @Transactional(readOnly = true)
+    public boolean isEnforcementActive(User user) {
+        Optional<FocusSession> latest = sessionService.findLatestStartedSession(user);
+        if (latest.filter(this::isRunning).isPresent()) {
+            return true;
+        }
+        return !streakService.isDailyTargetReached(user)
+                && latest.filter(session -> isOverriddenToday(user, session)).isEmpty();
+    }
+
+    /**
+     * The session holding website enforcement, if any: a running session, or one abandoned today
+     * whose blocking has not been released or overridden while today's daily target is unmet.
+     * Enforcement can be active without one (see {@link #isEnforcementActive}); this is the session
+     * the blocked page reports, and while it exists the blocking and streak configuration cannot
+     * be loosened.
      */
     @Transactional(readOnly = true)
     public Optional<FocusSession> findEnforcingSession(User user) {
@@ -129,14 +146,13 @@ public class BlockingService {
     @Transactional(readOnly = true)
     public BlockingSnapshot getBlockingSnapshot(User user) {
         Instant now = clockProvider.now();
-        Optional<FocusSession> enforcing = findEnforcingSession(user);
-        if (enforcing.isEmpty()) {
+        if (!isEnforcementActive(user)) {
             return new BlockingSnapshot(false, null, List.of(), List.of(), fingerprint(false, null, List.of(), List.of()), now);
         }
 
         List<BlockedTarget> blockRules = blockedTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user);
         List<AllowlistTarget> allowRules = allowlistTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user);
-        FocusSession session = enforcing.get();
+        FocusSession session = findEnforcingSession(user).orElse(null);
         return new BlockingSnapshot(true, session, blockRules, allowRules,
                 fingerprint(true, session, blockRules, allowRules), now);
     }
@@ -152,18 +168,24 @@ public class BlockingService {
         return getBlockingSnapshot(user);
     }
 
-    /** The enforcing session with live progress, or empty when nothing is being enforced. */
-    @Transactional(readOnly = true)
+    /**
+     * What the blocked page shows while enforcement is active: the enforcing session with live
+     * progress, if there is one, and today's daily streak progress. Empty when nothing is enforced.
+     */
+    @Transactional
     public Optional<CurrentSessionSnapshot> getCurrentSession(User user) {
+        if (!isEnforcementActive(user)) {
+            return Optional.empty();
+        }
         Instant now = clockProvider.now();
-        return findEnforcingSession(user).map(session -> {
-            long activeSeconds = session.activeSecondsAt(now);
-            // Settled off-task time only; the web app shows the provisional part as it happens.
-            long remainingSeconds = Math.max(0,
-                    session.getPlannedFocusMinutes() * 60L - (activeSeconds - session.getOffTaskSeconds()));
-            return new CurrentSessionSnapshot(session, activeSeconds, remainingSeconds,
-                    streakService.findCurrentPeriod(user, StreakPeriodType.DAILY).orElse(null), now);
-        });
+        StreakPeriod dailyProgress = streakService.getCurrentProgress(user, StreakPeriodType.DAILY).orElse(null);
+        return Optional.of(findEnforcingSession(user)
+                .map(session -> {
+                    long activeSeconds = session.activeSecondsAt(now);
+                    long remainingSeconds = Math.max(0, session.getPlannedFocusMinutes() * 60L - activeSeconds);
+                    return new CurrentSessionSnapshot(session, activeSeconds, remainingSeconds, dailyProgress, now);
+                })
+                .orElseGet(() -> new CurrentSessionSnapshot(null, 0, 0, dailyProgress, now)));
     }
 
     /**
@@ -189,9 +211,18 @@ public class BlockingService {
             case ACTIVE, PAUSED -> true;
             case ABANDONED -> session.getBlockingState() == BlockingState.ACTIVE
                     && !session.isOverrideUsed()
+                    && streakService.isInCurrentDailyPeriod(user, session.getAbandonedAt())
                     && !streakService.isDailyTargetReached(user);
             case PLANNED, COMPLETED, INTERRUPTED -> false;
         };
+    }
+
+    private boolean isRunning(FocusSession session) {
+        return session.getStatus() == SessionStatus.ACTIVE || session.getStatus() == SessionStatus.PAUSED;
+    }
+
+    private boolean isOverriddenToday(User user, FocusSession session) {
+        return session.isOverrideUsed() && streakService.isInCurrentDailyPeriod(user, session.getAbandonedAt());
     }
 
     // --- shared rule CRUD ---
@@ -248,6 +279,8 @@ public class BlockingService {
         return displayName == null || displayName.isBlank() ? rule.value() : displayName.trim();
     }
 
+    // Locked only while a session holds enforcement: blocking that comes from the daily target
+    // alone lasts all day, and the user must still be able to correct their rules during it.
     private void requireConfigurationNotLocked(User user) {
         if (findEnforcingSession(user).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,

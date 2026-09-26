@@ -10,17 +10,18 @@ import java.time.Instant;
 
 /**
  * Response of {@code GET /api/extension/current-session}: what the blocked page shows. Only the
- * fields the page needs are exposed.
+ * fields the page needs are exposed. The session fields are null when blocking comes from the
+ * unmet daily target alone, with no session holding it.
  *
- * @param dailyStreak today's daily streak progress, or null until time has first been credited today
- *                    (every user has a daily streak configuration, so it is never "not configured")
+ * @param dailyStreak today's daily streak progress, with zero progress before time is first
+ *                    credited today; null only if the daily configuration could not be read
  */
 public record CurrentSessionResponse(
         Long sessionId,
         SessionStatus status,
         BlockingState blockingState,
         String taskDescription,
-        int plannedFocusMinutes,
+        Integer plannedFocusMinutes,
         long activeFocusSeconds,
         long remainingFocusSeconds,
         Instant startedAt,
@@ -38,14 +39,14 @@ public record CurrentSessionResponse(
     public static CurrentSessionResponse from(CurrentSessionSnapshot snapshot) {
         FocusSession session = snapshot.session();
         return new CurrentSessionResponse(
-                session.getId(),
-                session.getStatus(),
-                session.getBlockingState(),
-                session.getTaskDescription(),
-                session.getPlannedFocusMinutes(),
+                session == null ? null : session.getId(),
+                session == null ? null : session.getStatus(),
+                session == null ? null : session.getBlockingState(),
+                session == null ? null : session.getTaskDescription(),
+                session == null ? null : session.getPlannedFocusMinutes(),
                 snapshot.activeFocusSeconds(),
                 snapshot.remainingFocusSeconds(),
-                session.getStartedAt(),
+                session == null ? null : session.getStartedAt(),
                 snapshot.generatedAt(),
                 snapshot.dailyStreakPeriod() == null ? null : DailyStreakProgress.from(snapshot.dailyStreakPeriod()));
     }

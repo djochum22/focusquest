@@ -20,11 +20,11 @@ const outcome = computed(() => {
 // What the user most needs to know after ending early: are the websites still blocked?
 const blockingNote = computed(() => {
   const { status, blockingState, overrideUsed } = props.session
-  if (status === 'COMPLETED') return 'Well done. Website blocking has been released.'
-  if (overrideUsed) return 'Website blocking has been released and an XP penalty was applied.'
+  if (status === 'COMPLETED') return "Well done. Website blocking lifts once today's daily streak is reached."
+  if (overrideUsed) return 'Website blocking has been released for the rest of today and an XP penalty was applied.'
   if (blockingState === 'RELEASED') return "Website blocking has been released because today's daily streak is complete."
   if (blockingState === 'ACTIVE') {
-    return "Websites stay blocked until today's daily streak is reached or you complete a session. You can also override the blocking now, at an XP penalty."
+    return "Websites stay blocked until today's daily streak is reached. You can also override the blocking for the rest of today, at an XP penalty."
   }
   return null
 })
