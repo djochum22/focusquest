@@ -46,6 +46,18 @@ export const useCameraStore = defineStore('camera', () => {
 
   const setVerifyNewSessionsByDefault = (value: boolean) => save(settings.value?.enabled ?? false, value)
 
+  /** Pairs the companion program and returns its token, to show once. The settings are fetched again. */
+  async function pairCompanion(): Promise<string> {
+    const token = await cameraApi.pairCompanion()
+    await fetch().catch(() => {})
+    return token
+  }
+
+  async function unpairCompanion() {
+    await cameraApi.unpairCompanion()
+    await fetch().catch(() => {})
+  }
+
   function reset() {
     settings.value = null
     profiles.value = []
@@ -61,5 +73,5 @@ export const useCameraStore = defineStore('camera', () => {
     },
   )
 
-  return { settings, profiles, saving, fetch, fetchProfiles, turnOn, turnOff, setVerifyNewSessionsByDefault, reset }
+  return { settings, profiles, saving, fetch, fetchProfiles, pairCompanion, unpairCompanion, turnOn, turnOff, setVerifyNewSessionsByDefault, reset }
 })

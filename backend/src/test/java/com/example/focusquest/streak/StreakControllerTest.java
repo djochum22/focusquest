@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.focusquest.auth.ExtensionCredentialService;
+import com.example.focusquest.vision.CompanionCredentialService;
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
@@ -60,6 +61,11 @@ class StreakControllerTest {
 
     @MockitoBean
     private ExtensionCredentialService extensionCredentialService;
+
+
+    @MockitoBean
+
+    private CompanionCredentialService companionCredentialService;
 
     private User user;
 

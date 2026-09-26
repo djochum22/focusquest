@@ -11,6 +11,14 @@ public record CameraSettingsResponse(
         boolean enabled,
         int consentVersion,
         Instant consentedAt,
-        boolean verifyNewSessionsByDefault
+        boolean verifyNewSessionsByDefault,
+        Companion companion
 ) {
+
+    /**
+     * The camera companion program: whether one is paired and since when, when it last reported, and
+     * whether that was recent enough to count as connected.
+     */
+    public record Companion(boolean paired, Instant pairedAt, Instant lastSeenAt, boolean connected) {
+    }
 }

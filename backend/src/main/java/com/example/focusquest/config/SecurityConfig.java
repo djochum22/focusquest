@@ -62,6 +62,9 @@ public class SecurityConfig {
                     }
                     // The extension's own token (ROLE_EXTENSION) reaches only the endpoints it synchronizes with.
                     auth.requestMatchers("/api/extension/**").hasAnyRole("USER", "EXTENSION");
+                    // Only the paired camera companion program (ROLE_COMPANION) may report what the
+                    // camera saw; not even the signed-in web app can, and it reaches nothing else.
+                    auth.requestMatchers("/api/companion/**").hasRole("COMPANION");
                     auth.anyRequest().hasRole("USER");
                 })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

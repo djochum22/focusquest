@@ -434,6 +434,8 @@ com.example.focusquest
     OffTaskService.java               (implements session.OffTaskAccounting)
     OffTaskInterval.java, OffTaskDispute.java
     OffTaskController.java
+    CompanionCredentialService.java   (the companion program's scoped token and when it last reported)
+    CompanionService.java, CompanionController.java
 
   shared/
     exception/
@@ -969,6 +971,10 @@ PUT    /api/me/camera-settings
 GET    /api/camera/profiles
 GET    /api/focus-sessions/{id}/off-task
 POST   /api/focus-sessions/{id}/off-task/disputes
+POST   /api/me/companion-token
+DELETE /api/me/companion-token
+POST   /api/companion/heartbeat          (companion token only)
+POST   /api/companion/observations       (companion token only)
 GET    /api/export
 POST   /api/me/data/restore
 DELETE /api/me/data
@@ -980,15 +986,28 @@ DELETE /api/me/data
 - **`GET /api/camera/profiles`** returns what the camera checks for each task category, one entry per category in declaration order: `{ "category", "workArea", "checks": [{ "signal", "warningAfterSeconds" }], "graceSeconds", "minConfidence" }`. `workArea` is `SCREEN`, `SCREEN_OR_DESK` or `ANYWHERE`; `checks` lists `AWAY`, `PHONE` and, unless the work area is `ANYWHERE`, `LOOKING_AWAY`. The work area of each category is fixed in `CameraProfiles`; the timings and minimum confidence come from `focusquest.camera.*` in `application.yml` and are the same for every category. The profiles are the same for every user, but the route still needs sign-in. The settings page lists them, grouped by identical rules, in a collapsible section of `CameraVerificationCard`.
 - **Camera-verified sessions.** `POST /api/focus-sessions` takes an optional `cameraVerification`. Omitted, it takes the user's default: on if camera verification is on and new sessions use it by default. Asking for it while camera verification is off is `400`. The session DTO carries `cameraVerification` and `offTaskSeconds`, the settled plus provisional off-task time, and `remainingFocusSeconds` counts it.
 - **`GET /api/focus-sessions/{id}/off-task`** returns `{ "sessionId", "state", "offTaskSeconds", "current", "episodes" }`.
-  - `state` is `NOT_VERIFIED`, `NOT_RUNNING`, `ON_TASK`, `OFF_TASK`, `WARNED` or `DEDUCTING`. An episode seen within the last 15 seconds counts as going on, and it is `current`.
+  - `state` is `NOT_VERIFIED`, `NOT_RUNNING`, `NOT_CONNECTED`, `ON_TASK`, `OFF_TASK`, `WARNED` or `DEDUCTING`. An episode seen within the last 15 seconds counts as going on, and it is `current`.
   - Each episode is `{ "startedAt", "endedAt", "warnedAt", "deductionStartedAt", "deductedSeconds", "disputed" }`. `deductedSeconds` counts active time only: what is settled plus what is provisional in the stretch not credited yet.
 - **`POST /api/focus-sessions/{id}/off-task/disputes`** takes `{ "episodeStartedAt" }` and returns the same status.
   - `404` for an episode that does not exist.
   - `400` for a completed session, or one the camera does not check.
   - Disputing twice changes nothing.
-- **Observations** reach `OffTaskService.recordObservations`. Its endpoint arrives with the companion program's own token. The service accepts:
-  - only running, camera-verified sessions of a user with camera verification on, otherwise `400`/`409`;
+- **Pairing the companion program.** `POST /api/me/companion-token` issues its token, `{ "token" }`. The token starts `fqc_` and replaces any earlier one; only its SHA-256 hash is stored, in `companion_credentials`. `DELETE` unpairs it.
+  - The filter authenticates a `fqc_` token with `ROLE_COMPANION` only. `SecurityConfig` lets that role reach `/api/companion/**` and nothing else.
+  - Unlike the extension's routes, `/api/companion/**` refuses the web app's JWT and the extension's token with `403`: only the paired program may report what the camera saw.
+  - "Delete all data" removes the pairing; export and restore leave it out, like the extension token.
+- **`POST /api/companion/heartbeat`** records that the program reported and returns `{ "cameraOn", "sessionId", "profile", "state", "warnedAt", "deductionStartsAt" }`.
+  - `cameraOn` is true only while the user's current session is ACTIVE, camera-verified, and camera verification is on. Only then are the other fields set.
+  - `profile` is the category's `CameraProfileResponse`: what to look for. `state` with `warnedAt` and `deductionStartsAt` is what the program needs to show the warning.
+- **`POST /api/companion/observations`** takes `{ "sessionId", "observations": [{ "clientEventId", "signal", "confidence", "startedAt", "observedUntil" }] }`. It counts as a heartbeat and returns the same answer. The observations go to `OffTaskService.recordObservations`, which accepts:
+  - only running, camera-verified sessions of the user, with camera verification on (`404` for another user's session, otherwise `400`/`409`);
   - at most 200 observations at a time, none claiming a time more than 5 seconds ahead of the backend's clock.
+
+  Sending a `clientEventId` again extends that stretch. Changing its signal or start is refused.
+- **Connected.** The program counts as connected if it reported within the last 30 seconds (`CompanionCredentialService.CONNECTED_WITHIN`).
+  - `GET /api/me/camera-settings` includes `companion`: `{ "paired", "pairedAt", "lastSeenAt", "connected" }`.
+  - The off-task status includes `companionConnected`. Its state is `NOT_CONNECTED` while a camera-verified session runs and nothing is reporting.
+  - The settings page pairs and unpairs in `CameraVerificationCard`. It shows the code once, with a copy button, and whether the program is connected.
 
   Sending a `clientEventId` again extends that stretch. Changing its signal or start is refused.
 

@@ -47,6 +47,7 @@ public class OffTaskService implements OffTaskAccounting {
     private final OffTaskDisputeRepository disputeRepository;
     private final CameraProfiles cameraProfiles;
     private final CameraSettingsService cameraSettingsService;
+    private final CompanionCredentialService companionCredentialService;
     private final ClockProvider clockProvider;
     private final Duration mergeGap;
 
@@ -55,6 +56,7 @@ public class OffTaskService implements OffTaskAccounting {
                           OffTaskDisputeRepository disputeRepository,
                           CameraProfiles cameraProfiles,
                           CameraSettingsService cameraSettingsService,
+                          CompanionCredentialService companionCredentialService,
                           ClockProvider clockProvider,
                           @Value("${focusquest.camera.merge-gap}") Duration mergeGap) {
         if (mergeGap.isNegative()) {
@@ -65,6 +67,7 @@ public class OffTaskService implements OffTaskAccounting {
         this.disputeRepository = disputeRepository;
         this.cameraProfiles = cameraProfiles;
         this.cameraSettingsService = cameraSettingsService;
+        this.companionCredentialService = companionCredentialService;
         this.clockProvider = clockProvider;
         this.mergeGap = mergeGap;
     }
@@ -195,7 +198,7 @@ public class OffTaskService implements OffTaskAccounting {
     public OffTaskStatusResponse status(FocusSession session, Instant now, Optional<TimeRange> uncreditedStretch,
                                         long offTaskSeconds) {
         if (!session.isCameraVerification()) {
-            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, 0, null, List.of());
+            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, false, 0, null, List.of());
         }
         Set<Instant> disputed = disputedEpisodeStarts(session);
         Map<Instant, List<OffTaskInterval>> settledByEpisode = new HashMap<>();
@@ -226,10 +229,11 @@ public class OffTaskService implements OffTaskAccounting {
         });
         responses.sort(Comparator.comparing(OffTaskStatusResponse.EpisodeResponse::startedAt));
 
+        boolean connected = companionCredentialService.isConnected(session.getUser());
         OffTaskStatusResponse.EpisodeResponse current = null;
         OffTaskState state = OffTaskState.NOT_RUNNING;
         if (session.getStatus() == SessionStatus.ACTIVE) {
-            state = OffTaskState.ON_TASK;
+            state = connected ? OffTaskState.ON_TASK : OffTaskState.NOT_CONNECTED;
             if (!responses.isEmpty()) {
                 OffTaskStatusResponse.EpisodeResponse latest = responses.getLast();
                 if (!latest.disputed() && !latest.endedAt().isBefore(now.minus(ONGOING_WITHIN))) {
@@ -239,7 +243,7 @@ public class OffTaskService implements OffTaskAccounting {
                 }
             }
         }
-        return new OffTaskStatusResponse(session.getId(), state, offTaskSeconds, current, responses);
+        return new OffTaskStatusResponse(session.getId(), state, connected, offTaskSeconds, current, responses);
     }
 
     private List<OffTaskCalculator.Episode> episodes(FocusSession session, Instant horizon) {

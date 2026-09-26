@@ -48,6 +48,37 @@ async function onTurnOn() {
 
 const onTurnOff = () => run(camera.turnOff)
 
+/** The token just issued, shown once until the card is left or the program is unpaired. */
+const pairingToken = ref<string | null>(null)
+const copied = ref(false)
+const pairing = ref(false)
+
+async function onPair() {
+  copied.value = false
+  pairing.value = true
+  await run(async () => {
+    pairingToken.value = await camera.pairCompanion()
+  })
+  pairing.value = false
+}
+
+async function onUnpair() {
+  pairingToken.value = null
+  await run(camera.unpairCompanion)
+}
+
+async function onCopy() {
+  if (!pairingToken.value) return
+  try {
+    await navigator.clipboard.writeText(pairingToken.value)
+    copied.value = true
+  } catch {
+    copied.value = false
+  }
+}
+
+const companion = computed(() => camera.settings?.companion ?? null)
+
 function onDefaultChange(event: Event) {
   void run(() => camera.setVerifyNewSessionsByDefault((event.target as HTMLInputElement).checked))
 }
@@ -94,6 +125,41 @@ function onDefaultChange(event: Event) {
         Use the camera for new sessions by default
       </label>
       <p class="muted camera__hint">You can still switch it off for a single session when you plan it.</p>
+
+      <section class="camera__companion" aria-labelledby="companion-heading">
+        <h3 id="companion-heading" class="camera__subheading">Companion program</h3>
+        <p class="muted camera__hint">
+          The companion program runs on this computer and reads the camera. Pair it once with a code.
+        </p>
+        <template v-if="companion?.paired">
+          <p class="camera__companion-status" data-testid="companion-status">
+            Paired {{ formatDateTime(companion.pairedAt, auth.user?.timezone) }}.
+            <template v-if="companion.connected"><strong class="camera__connected">Connected.</strong></template>
+            <template v-else-if="companion.lastSeenAt">
+              Not connected; last seen {{ formatDateTime(companion.lastSeenAt, auth.user?.timezone) }}.
+            </template>
+            <template v-else>It has not connected yet.</template>
+          </p>
+        </template>
+        <div v-if="pairingToken" class="camera__token">
+          <label class="camera__token-label" for="companion-token">Pairing code</label>
+          <div class="camera__token-row">
+            <input id="companion-token" :value="pairingToken" readonly class="camera__token-input" />
+            <AppButton variant="secondary" @click="onCopy">{{ copied ? 'Copied' : 'Copy' }}</AppButton>
+          </div>
+          <p class="muted camera__hint">
+            Enter it in the companion program when it asks for a pairing code. It is shown only once;
+            pairing again makes a new one and the old one stops working.
+          </p>
+        </div>
+        <div class="camera__actions">
+          <AppButton variant="secondary" :loading="pairing" @click="onPair">
+            {{ companion?.paired ? 'Pair again' : 'Pair the companion program' }}
+          </AppButton>
+          <AppButton v-if="companion?.paired" variant="secondary" @click="onUnpair">Unpair</AppButton>
+        </div>
+      </section>
+
       <div>
         <AppButton variant="secondary" :loading="camera.saving" @click="onTurnOff">
           Turn off camera verification
@@ -178,6 +244,47 @@ function onDefaultChange(event: Event) {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.95rem;
+}
+.camera__companion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.camera__subheading {
+  margin: 0;
+  font-size: 1rem;
+}
+.camera__companion-status {
+  margin: 0;
+}
+.camera__connected {
+  color: var(--success);
+}
+.camera__token {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.camera__token-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.camera__token-row {
+  display: flex;
+  gap: 0.5rem;
+}
+.camera__token-input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+.camera__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .camera__option {
   display: flex;

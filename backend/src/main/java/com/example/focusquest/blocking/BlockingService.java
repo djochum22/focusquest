@@ -182,7 +182,9 @@ public class BlockingService {
         return Optional.of(findEnforcingSession(user)
                 .map(session -> {
                     long activeSeconds = session.activeSecondsAt(now);
-                    long remainingSeconds = Math.max(0, session.getPlannedFocusMinutes() * 60L - activeSeconds);
+                    // Settled off-task time only; the web app shows the provisional part as it happens.
+                    long remainingSeconds = Math.max(0,
+                            session.getPlannedFocusMinutes() * 60L - (activeSeconds - session.getOffTaskSeconds()));
                     return new CurrentSessionSnapshot(session, activeSeconds, remainingSeconds, dailyProgress, now);
                 })
                 .orElseGet(() -> new CurrentSessionSnapshot(null, 0, 0, dailyProgress, now)));

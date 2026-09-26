@@ -22,10 +22,13 @@ public class CameraSettingsService {
     private static final boolean DEFAULT_VERIFY_NEW_SESSIONS = true;
 
     private final CameraSettingsRepository cameraSettingsRepository;
+    private final CompanionCredentialService companionCredentialService;
     private final ClockProvider clockProvider;
 
-    public CameraSettingsService(CameraSettingsRepository cameraSettingsRepository, ClockProvider clockProvider) {
+    public CameraSettingsService(CameraSettingsRepository cameraSettingsRepository,
+                                 CompanionCredentialService companionCredentialService, ClockProvider clockProvider) {
         this.cameraSettingsRepository = cameraSettingsRepository;
+        this.companionCredentialService = companionCredentialService;
         this.clockProvider = clockProvider;
     }
 
@@ -33,7 +36,8 @@ public class CameraSettingsService {
     public CameraSettingsResponse get(User user) {
         return cameraSettingsRepository.findByUser(user)
                 .map(this::toResponse)
-                .orElse(new CameraSettingsResponse(false, CONSENT_VERSION, null, DEFAULT_VERIFY_NEW_SESSIONS));
+                .orElse(new CameraSettingsResponse(false, CONSENT_VERSION, null, DEFAULT_VERIFY_NEW_SESSIONS,
+                        companion(user)));
     }
 
     @Transactional
@@ -63,6 +67,13 @@ public class CameraSettingsService {
     private CameraSettingsResponse toResponse(CameraSettings settings) {
         boolean enabled = settings.isEnabled(CONSENT_VERSION);
         return new CameraSettingsResponse(enabled, CONSENT_VERSION, enabled ? settings.getConsentedAt() : null,
-                settings.isVerifyNewSessions());
+                settings.isVerifyNewSessions(), companion(settings.getUser()));
+    }
+
+    private CameraSettingsResponse.Companion companion(User user) {
+        return companionCredentialService.find(user)
+                .map(credential -> new CameraSettingsResponse.Companion(true, credential.getCreatedAt(),
+                        credential.getLastSeenAt(), companionCredentialService.isConnected(user)))
+                .orElse(new CameraSettingsResponse.Companion(false, null, null, false));
     }
 }

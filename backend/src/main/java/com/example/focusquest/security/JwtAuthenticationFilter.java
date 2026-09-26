@@ -1,6 +1,7 @@
 package com.example.focusquest.security;
 
 import com.example.focusquest.auth.ExtensionCredentialService;
+import com.example.focusquest.vision.CompanionCredentialService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,13 +28,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final ExtensionCredentialService extensionCredentialService;
+    private final CompanionCredentialService companionCredentialService;
 
     public JwtAuthenticationFilter(JwtService jwtService,
                                     UserDetailsService userDetailsService,
-                                    ExtensionCredentialService extensionCredentialService) {
+                                    ExtensionCredentialService extensionCredentialService,
+                                    CompanionCredentialService companionCredentialService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
         this.extensionCredentialService = extensionCredentialService;
+        this.companionCredentialService = companionCredentialService;
     }
 
     @Override
@@ -51,6 +55,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token.startsWith(ExtensionCredentialService.TOKEN_PREFIX)) {
             authenticateExtension(token, request);
+            filterChain.doFilter(request, response);
+            return;
+        }
+        if (token.startsWith(CompanionCredentialService.TOKEN_PREFIX)) {
+            authenticateScoped(companionCredentialService.findUsername(token).orElse(null), "ROLE_COMPANION", request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -75,18 +84,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /** An extension token authenticates as its user but with ROLE_EXTENSION only, never ROLE_USER. */
     private void authenticateExtension(String token, HttpServletRequest request) {
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+        authenticateScoped(extensionCredentialService.findUsername(token).orElse(null), "ROLE_EXTENSION", request);
+    }
+
+    /**
+     * Authenticates a scoped token's user with that single role and never ROLE_USER, so it reaches only
+     * the routes SecurityConfig opens to the role. Does nothing for an unknown token.
+     */
+    private void authenticateScoped(String username, String role, HttpServletRequest request) {
+        if (username == null || SecurityContextHolder.getContext().getAuthentication() != null) {
             return;
         }
-        extensionCredentialService.findUsername(token).ifPresent(username -> {
-            UserDetails principal = User.withUsername(username)
-                    .password("")
-                    .authorities(List.of(new SimpleGrantedAuthority("ROLE_EXTENSION")))
-                    .build();
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authToken);
-        });
+        UserDetails principal = User.withUsername(username)
+                .password("")
+                .authorities(List.of(new SimpleGrantedAuthority(role)))
+                .build();
+        UsernamePasswordAuthenticationToken authToken =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
     }
 }

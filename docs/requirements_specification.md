@@ -1216,6 +1216,7 @@ The timings and the minimum confidence are configuration, to be tuned once real 
 ### Failure
 
 - **The companion program stops or the camera is unavailable.** The session goes on unverified and nothing is subtracted. The web app says the session is not being verified. Unlike the extension's heartbeat, a lost camera never interrupts a session.
+- **What counts as connected.** The companion program reports at least every few seconds. It counts as connected if it reported within the last 30 seconds. Only the paired program can report observations; neither the web app nor the extension can.
 
 ### Research question
 

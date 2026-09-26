@@ -15,7 +15,8 @@ import org.springframework.context.annotation.Import;
  * Loads the application's real {@link SecurityConfig} into a {@code @WebMvcTest} slice. Without it
  * the slice silently falls back to Spring Boot's default security (HTTP basic, CSRF enabled), which
  * neither matches production nor lets state-changing requests through. The test class must still
- * provide {@code @MockitoBean} instances of {@code JwtService}, {@code UserDetailsService} and {@code ExtensionCredentialService}, which
+ * provide {@code @MockitoBean} instances of {@code JwtService}, {@code UserDetailsService}, {@code ExtensionCredentialService} and
+ * {@code CompanionCredentialService}, which
  * the JWT filter depends on.
  */
 @Target(ElementType.TYPE)

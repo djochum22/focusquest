@@ -46,4 +46,21 @@ describe('cameraApi', () => {
     expect(adapter.mock.calls[0]![0].url).toBe('/api/camera/profiles')
     expect(profiles[0]!.workArea).toBe('SCREEN')
   })
+
+  it('pairs the companion with a POST and returns its token', async () => {
+    const adapter = stubAdapter(200, { token: 'fqc_abc' })
+
+    expect(await cameraApi.pairCompanion()).toBe('fqc_abc')
+    expect(adapter.mock.calls[0]![0].method).toBe('post')
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/me/companion-token')
+  })
+
+  it('unpairs it with a DELETE', async () => {
+    const adapter = stubAdapter(204)
+
+    await cameraApi.unpairCompanion()
+
+    expect(adapter.mock.calls[0]![0].method).toBe('delete')
+    expect(adapter.mock.calls[0]![0].url).toBe('/api/me/companion-token')
+  })
 })

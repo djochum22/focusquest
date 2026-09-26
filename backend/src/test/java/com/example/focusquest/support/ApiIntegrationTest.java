@@ -19,6 +19,7 @@ import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.user.UserRepository;
 import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.CompanionCredentialRepository;
 import com.example.focusquest.vision.OffTaskDisputeRepository;
 import com.example.focusquest.vision.OffTaskIntervalRepository;
 import com.jayway.jsonpath.JsonPath;
@@ -84,6 +85,8 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private CameraSettingsRepository cameraSettingsRepository;
     @Autowired
+    private CompanionCredentialRepository companionCredentialRepository;
+    @Autowired
     private CameraObservationRepository cameraObservationRepository;
     @Autowired
     private OffTaskIntervalRepository offTaskIntervalRepository;
@@ -115,6 +118,7 @@ public abstract class ApiIntegrationTest {
         allowlistTargetRepository.deleteAllInBatch();
         cameraSettingsRepository.deleteAllInBatch();
         extensionCredentialRepository.deleteAllInBatch();
+        companionCredentialRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 
         originalClock = clockProvider.getClock();

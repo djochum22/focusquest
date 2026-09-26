@@ -8,7 +8,10 @@ import CameraVerificationCard from './CameraVerificationCard.vue'
 
 vi.mock('../../api/cameraApi')
 
-const off: CameraSettings = { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true }
+const unpaired = { paired: false, pairedAt: null, lastSeenAt: null, connected: false }
+const off: CameraSettings = {
+  enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true, companion: unpaired,
+}
 const on: CameraSettings = { ...off, enabled: true, consentedAt: '2026-03-10T09:00:00Z' }
 
 const profiles: CameraProfile[] = [
@@ -115,5 +118,56 @@ describe('CameraVerificationCard', () => {
     expect(wrapper.find('details').exists()).toBe(false)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('I have read this and agree')
+  })
+
+  describe('companion program', () => {
+    const paired = (connected: boolean, lastSeenAt: string | null): CameraSettings => ({
+      ...on, companion: { paired: true, pairedAt: '2026-03-10T09:00:00Z', lastSeenAt, connected },
+    })
+
+    it('pairs the program and shows the code once, ready to copy', async () => {
+      vi.mocked(cameraApi.pairCompanion).mockResolvedValue('fqc_secret')
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+      const wrapper = await mountCard(on)
+      vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(paired(false, null))
+
+      await button(wrapper, 'Pair the companion program').trigger('click')
+      await flushPromises()
+
+      expect((wrapper.get('#companion-token').element as HTMLInputElement).value).toBe('fqc_secret')
+      expect(wrapper.get('[data-testid="companion-status"]').text()).toContain('It has not connected yet.')
+      await button(wrapper, 'Copy').trigger('click')
+      await flushPromises()
+      expect(writeText).toHaveBeenCalledWith('fqc_secret')
+      expect(button(wrapper, 'Copied')).toBeDefined()
+    })
+
+    it('says when the program is connected', async () => {
+      const wrapper = await mountCard(paired(true, '2026-03-10T09:05:00Z'))
+
+      expect(wrapper.get('[data-testid="companion-status"]').text()).toContain('Connected.')
+      expect(wrapper.find('#companion-token').exists()).toBe(false)
+      expect(button(wrapper, 'Pair again')).toBeDefined()
+    })
+
+    it('says when it was last seen once it is gone', async () => {
+      const wrapper = await mountCard(paired(false, '2026-03-10T09:05:00Z'))
+
+      expect(wrapper.get('[data-testid="companion-status"]').text()).toMatch(/Not connected; last seen .*2026/)
+    })
+
+    it('unpairs the program', async () => {
+      vi.mocked(cameraApi.unpairCompanion).mockResolvedValue()
+      const wrapper = await mountCard(paired(true, '2026-03-10T09:05:00Z'))
+      vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(on)
+
+      await button(wrapper, 'Unpair').trigger('click')
+      await flushPromises()
+
+      expect(cameraApi.unpairCompanion).toHaveBeenCalledTimes(1)
+      expect(wrapper.find('[data-testid="companion-status"]').exists()).toBe(false)
+      expect(button(wrapper, 'Pair the companion program')).toBeDefined()
+    })
   })
 })

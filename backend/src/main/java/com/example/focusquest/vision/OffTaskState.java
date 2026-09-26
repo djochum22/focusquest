@@ -6,6 +6,8 @@ public enum OffTaskState {
     NOT_VERIFIED,
     /** The session is not running (planned, paused or ended), so nothing is being checked. */
     NOT_RUNNING,
+    /** The session is running but the companion program has not reported lately: nothing is being checked. */
+    NOT_CONNECTED,
     /** No off-task signal is being seen, or the episode going on was disputed. */
     ON_TASK,
     /** An off-task signal is being seen, not yet for long enough to warn. */

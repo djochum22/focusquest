@@ -16,6 +16,7 @@ import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserRepository;
 import com.example.focusquest.vision.CameraObservationRepository;
 import com.example.focusquest.vision.CameraSettingsRepository;
+import com.example.focusquest.vision.CompanionCredentialRepository;
 import com.example.focusquest.vision.OffTaskDisputeRepository;
 import com.example.focusquest.vision.OffTaskIntervalRepository;
 import org.springframework.http.HttpStatus;
@@ -49,6 +50,7 @@ public class DataDeletionService {
     private final CameraObservationRepository cameraObservationRepository;
     private final OffTaskIntervalRepository offTaskIntervalRepository;
     private final OffTaskDisputeRepository offTaskDisputeRepository;
+    private final CompanionCredentialRepository companionCredentialRepository;
     private final UserRepository userRepository;
 
     public DataDeletionService(BlockingService blockingService,
@@ -67,6 +69,7 @@ public class DataDeletionService {
                                 CameraObservationRepository cameraObservationRepository,
                                 OffTaskIntervalRepository offTaskIntervalRepository,
                                 OffTaskDisputeRepository offTaskDisputeRepository,
+                                CompanionCredentialRepository companionCredentialRepository,
                                 UserRepository userRepository) {
         this.blockingService = blockingService;
         this.streakContributionRepository = streakContributionRepository;
@@ -84,6 +87,7 @@ public class DataDeletionService {
         this.cameraObservationRepository = cameraObservationRepository;
         this.offTaskIntervalRepository = offTaskIntervalRepository;
         this.offTaskDisputeRepository = offTaskDisputeRepository;
+        this.companionCredentialRepository = companionCredentialRepository;
         this.userRepository = userRepository;
     }
 
@@ -92,6 +96,7 @@ public class DataDeletionService {
         requireBlockingReleased(user, "Data cannot be deleted while website blocking is active");
         deleteActivity(user);
         extensionCredentialRepository.deleteAllByUser(user);
+        companionCredentialRepository.deleteAllByUser(user);
         userRepository.deleteById(user.getId());
     }
 

@@ -9,6 +9,18 @@ export interface CameraSettings {
   consentVersion: number
   consentedAt: string | null
   verifyNewSessionsByDefault: boolean
+  companion: CompanionStatus
+}
+
+/**
+ * The camera companion program: whether one is paired and since when, when it last reported, and
+ * whether that was recent enough (30 seconds) to count as connected.
+ */
+export interface CompanionStatus {
+  paired: boolean
+  pairedAt: string | null
+  lastSeenAt: string | null
+  connected: boolean
 }
 
 /** Mirrors the backend `UpdateCameraSettingsRequest`. `consentVersion` is needed only to turn it on. */
