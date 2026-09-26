@@ -96,6 +96,22 @@ public class StreakPeriod {
         this.freezeConsumed = false;
     }
 
+    /** Rebuilds a period from a backup, exactly as it was recorded. Only restoring a data export uses it. */
+    public static StreakPeriod restore(User user, Long configurationSnapshotId, StreakPeriodType periodType,
+                                       Instant startTime, Instant endTime, int targetMinutes,
+                                       TaskMode requiredTaskMode, TaskCategory requiredCategory,
+                                       long qualifyingSeconds, long overtimeSeconds, StreakPeriodStatus status,
+                                       boolean freezeConsumed, Instant completedAt) {
+        StreakPeriod period = new StreakPeriod(user, configurationSnapshotId, periodType, startTime, endTime,
+                targetMinutes, requiredTaskMode, requiredCategory);
+        period.qualifyingSeconds = qualifyingSeconds;
+        period.overtimeSeconds = overtimeSeconds;
+        period.status = status;
+        period.freezeConsumed = freezeConsumed;
+        period.completedAt = completedAt;
+        return period;
+    }
+
     // Domain mutators. Package-private: only StreakService may drive period state, which
     // keeps transition and eligibility rules centralized in the service layer.
 

@@ -38,6 +38,18 @@ describe('settingsApi', () => {
     expect(data.schemaVersion).toBe('1.1')
   })
 
+  it('restores a backup by posting it', async () => {
+    const adapter = stubAdapter(204, '')
+    const backup = { exportedAt: '2026-01-01T00:00:00Z', schemaVersion: '2.0', focusSessions: [] }
+
+    await settingsApi.restoreData(backup)
+
+    const config = adapter.mock.calls[0]![0]
+    expect(config.method).toBe('post')
+    expect(config.url).toBe('/api/me/data/restore')
+    expect(JSON.parse(config.data as string)).toEqual(backup)
+  })
+
   it('deletes all data with a DELETE on the caller\'s data', async () => {
     const adapter = stubAdapter(204, '')
 

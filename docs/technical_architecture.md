@@ -417,7 +417,9 @@ com.example.focusquest
   export/
     ExportService.java
     ExportController.java
-    LocalDataExportDto.java
+    LocalDataExportDto.java           (and the *Backup records it is made of)
+    RestoreService.java
+    RestoreController.java
     DataDeletionService.java
     DataDeletionController.java
 
@@ -442,7 +444,7 @@ Implementation notes on the structure above:
 
 - Request and response DTOs live next to their controller rather than in `dto/` subpackages, and are mapped with a static `from(...)` factory instead of a `SessionMapper`.
 - Not implemented yet: `WebConfig`, `TimeCalculationService`. `UserController` delegates to `ProfileService` (same package), which needs the streak and blocking modules and so is kept out of `UserService`.
-- The export and deletion services read and delete other modules' data through those modules' repositories (`deleteAllByUser` and `findByUser...` queries) rather than through their services, since they need every row, not the filtered views the services expose.
+- The export, restore and deletion services read, write and delete other modules' data through those modules' repositories (`deleteAllByUser` and `findByUser...` queries) rather than through their services, since they need every row, not the filtered views the services expose.
 
 **Layering rules**
 
@@ -649,7 +651,7 @@ Keep API calls inside api/ modules or stores rather than putting fetch logic dir
 - While website blocking is being enforced the settings forms are disabled and a notice says why. The page infers this from the session store (a running or paused session, or an abandoned one still holding blocking); the backend refuses the change with `409` regardless, and its message is shown if the page guessed wrong.
 - The daily streak always exists, so its form always edits; the weekly form creates the streak the first time and edits it afterwards. The store picks create or update from whether a configuration for that period type is loaded, and re-loads the configurations when a save fails, so a weekly streak added from another tab does not send the next save down the wrong path. The view tells the user that a change applies only to periods that have not started.
 - `GemDisplay` takes a `balance` and shows "Not available" for `null`, which is only the case before the progression request has finished, so the card never shows a made-up zero.
-- `SettingsView` edits the display name and time zone (the username is shown read-only). The time zone select is disabled, with a note, while blocking is enforced, inferred from the session store as on the streaks page; the backend's `409` is what enforces it. Otherwise a note says a new time zone takes effect from the next day and week. It downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`), and deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
+- `SettingsView` edits the display name and time zone (the username is shown read-only). The time zone select is disabled, with a note, while blocking is enforced, inferred from the session store as on the streaks page; the backend's `409` is what enforces it. Otherwise a note says a new time zone takes effect from the next day and week. It downloads the export as `focusquest-export-YYYY-MM-DD.json` (`utils/download.ts`). "Restore from file" reads a chosen file (`readBackupFile` in `settingsStore.ts` only checks it looks like an export), asks for confirmation naming the backup's date, posts it, then reloads the signed-in user and resets the session store so every view shows the restored data; a refusal is shown with the backend's message. It deletes all data behind a confirmation dialog whose default focus is "Keep my data". After a successful deletion the store signs the user out, which clears the other stores, and the view routes to `/setup`. If the backend refuses (blocking is active) the user stays signed in and sees the backend's message.
 - Not built yet: `StreakHistory` and `XpHistory`. `FreezeInventory` will not be built, since there are no freezes.
 
 **Frontend security behavior**
@@ -822,7 +824,7 @@ The extension foundation is built (see `extension/README.md` for how to load and
 The user never copies a token. Signing the extension in is a handoff from the web app:
 
 - **A separate credential, not the web app's JWT.** `POST /api/auth/extension-token` (JWT required) issues an opaque random token prefixed `fqx_`. The backend stores only its SHA-256 hash, in `extension_credentials` (one row per user; issuing again replaces the old token, and `DELETE /api/auth/extension-token` revokes it). Because it is not a JWT it survives backend restarts even without `FOCUSQUEST_JWT_SECRET`, and it does not expire after 60 minutes, so a session of any length stays visible to the extension.
-- **Scoped.** `JwtAuthenticationFilter` authenticates an `fqx_` token with `ROLE_EXTENSION` only. `SecurityConfig` lets that role reach `/api/extension/**` and nothing else; every other route needs `ROLE_USER`. A leaked extension token can read the blocking rules and current session but cannot start sessions, read history, export or delete data, or mint tokens. Deleting all data removes it too.
+- **Scoped.** `JwtAuthenticationFilter` authenticates an `fqx_` token with `ROLE_EXTENSION` only. `SecurityConfig` lets that role reach `/api/extension/**` and nothing else; every other route needs `ROLE_USER`. A leaked extension token can read the blocking rules and current session but cannot start sessions, read history, export, restore or delete data, or mint tokens. Deleting all data removes it too.
 - **Handoff.** The extension's manifest lists the web app's origin under `externally_connectable`, and pins its id with a `key` so the id is the same on every machine (`heccfmagjlcnoaodleaclgbbdlpibphf`; the web app can override it with `VITE_EXTENSION_ID`). The web app sends `focusquest.status`, `focusquest.connect`, `focusquest.disconnect` and `focusquest.sync` messages with `chrome.runtime.sendMessage`; the service worker (`externalMessages.ts`) checks the sender's origin again, accepts only `fqx_` tokens, stores the token in `chrome.storage.local`, runs a sync and replies with the result. The web app never stores the extension token.
 - **Automatic.** After sign-in, `AppShell` asks the extension for its state and connects it if it is installed but not connected (once per page load, and never after the user disconnected it on purpose). Settings has Connect, Reconnect and Disconnect buttons.
 - **Visible state.** A toolbar badge shows a red `!` when the extension is not connected and a grey `?` when it cannot reach the backend; the popup explains and links to Settings.
@@ -947,12 +949,14 @@ Implemented: `GET /api/me/progression`, which returns `{ "totalXp", "level", "le
 ```
 PUT    /api/me/profile
 GET    /api/export
+POST   /api/me/data/restore
 DELETE /api/me/data
 ```
 
 - **`PUT /api/me/profile`** takes `{ "displayName", "timezone" }` (both required, at most 100 and 50 characters; the username cannot be changed) and returns the updated `UserDto`. An unknown time zone is `400` ("Unknown time zone"). Changing the time zone is refused with `409 CONFLICT` while website blocking is being enforced (section 13), like streak settings, because moving midnight could end the day early and release blocking. The display name can always be changed. A new time zone takes effect from the next daily and weekly period (see "Daily and weekly boundaries" in section 13); session timestamps are instants and are not changed.
 
-- **`export`** returns everything held for the caller as one JSON document: `exportedAt`, `schemaVersion` (currently `1.2`), `user` (never the password hash), `focusSessions`, `streakConfigurations`, `streakPeriods`, `experienceTransactions`, `gemTransactions`, `blockedTargets` and `allowlistTargets`. New kinds of data get a new schema version.
+- **`export`** returns everything held for the caller as one JSON document, complete enough to restore: `exportedAt`, `schemaVersion` (currently `2.0`), `user` (never the password hash), `focusSessions`, `sessionPauses`, `streakConfigurations`, `streakPeriods`, `streakContributions`, `experienceTransactions`, `gemTransactions`, `blockedTargets` and `allowlistTargets`. Records carry their stored values, including the streak bookkeeping on sessions (`streakCreditedActiveSeconds`, `streakCreditedPausedSeconds`) and each period's `configurationId` and `freezeConsumed`, and refer to one another by the exported ids. A session's times are the stored totals, so a session still running at export time leaves out its segment in progress. New kinds of data get a new schema version and must be restored too.
+- **`POST /api/me/data/restore`** takes an export and replaces all of the caller's data with it, returning 204. The account's username, password and extension token are kept; the display name and time zone come from the backup. Rows get new ids and the references between them are rewritten, including ledger entries' `referenceId` for `FOCUS_SESSION` and `STREAK_PERIOD` (a `LEVEL` reference is a level number and is kept). A session that was `ACTIVE` or `PAUSED` in the backup comes back `INTERRUPTED` with blocking `TECHNICAL_RELEASE`, and its open pause is closed with zero length, as if the extension had gone silent: it can be resumed or abandoned. The restore is all or nothing. It is refused with `400` for a schema version other than the current one (exports before `2.0` lack pauses and contributions), an unknown time zone, missing or repeated ids, a reference to a record not in the file, duplicate rows the database would reject, or a missing required value; and with `409 CONFLICT` while website blocking is being enforced, for the same reason as deletion.
 - **`DELETE /api/me/data`** deletes all of the caller's sessions, pauses, streak contributions, periods and configurations, XP and gem transactions, block and allowlist rules, and the account itself, and returns 204. The next launch is first-time setup, and the old token is rejected with 401. It is refused with `409 CONFLICT` while website blocking is being enforced (section 13); otherwise it would be a way to release blocking without the override penalty. The user must end the session, or abandon it and override, first.
 
 **Extension-specific API**
@@ -1286,8 +1290,14 @@ Responsibilities:
 
 Responsibilities:
 
-- Export all local data as JSON.
-- Support a full local backup.
+- Export all local data as JSON, complete enough to restore.
+
+**RestoreService**
+
+Responsibilities:
+
+- Replace the user's data with an export, rewriting the references between rows to the new ids.
+- Refuse a file it cannot restore, or any restore while blocking is enforced, without changing anything.
 
 **DataDeletionService**
 
@@ -1414,6 +1424,9 @@ Use:
   - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, sessions and pauses split across midnight and the start of the week, overtime, and configuration validation.
   - `ProfileApiIntegrationTest`: editing the display name and time zone, validation, the time-zone lock while blocking is enforced, and a new time zone taking effect from the next day and week without breaking the streak.
   - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, password and time zone limits, CORS, response headers, and secrets in the logs.
+  - `RetriedRequestApiIntegrationTest`: each session transition sent a second time is refused and changes nothing, compared through the full export and the progression: no time moved or credited twice, no reward or penalty repeated.
+- `RestartRecoveryIntegrationTest` stops and starts the whole application against the same database file in a temporary directory: completed work and a paused session survive, a session the extension was watching when the application went down is interrupted at its last heartbeat, and one run without the extension keeps running.
+- `export/RestoreIntegrationTest` restores exports against a real database: a round trip reproduces everything but the ids, references point at the restored rows, a running session comes back interrupted, and every refusal (blocking enforced, older format, broken reference, duplicate, unknown time zone, missing value) leaves the data as it was.
 - Controller slice tests that load the real security configuration (`@WithRealSecurityConfig`); without it a `@WebMvcTest` silently runs under Spring Boot's default security.
 - Testcontainers with PostgreSQL before migration or production deployment.
 

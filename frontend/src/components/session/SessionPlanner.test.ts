@@ -73,12 +73,15 @@ describe('SessionPlanner', () => {
 
   it('lets the user go back and change the details before starting', async () => {
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
+    vi.mocked(sessionApi.deletePlannedSession).mockResolvedValue()
     const wrapper = mountPlanner()
     await createTaskSession(wrapper)
 
     await button(wrapper, 'Change details')!.trigger('click')
+    await flushPromises()
 
     expect(wrapper.find('form').exists()).toBe(true)
+    expect(sessionApi.deletePlannedSession).toHaveBeenCalledWith(planned.id)
     expect(sessionApi.startSession).not.toHaveBeenCalled()
     wrapper.unmount()
   })

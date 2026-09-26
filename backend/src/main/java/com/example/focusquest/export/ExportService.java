@@ -7,29 +7,29 @@ import com.example.focusquest.progression.ExperienceTransactionRepository;
 import com.example.focusquest.progression.ExperienceTransactionResponse;
 import com.example.focusquest.progression.GemTransactionRepository;
 import com.example.focusquest.progression.GemTransactionResponse;
-import com.example.focusquest.session.FocusSessionDto;
 import com.example.focusquest.session.FocusSessionRepository;
+import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfigurationRepository;
-import com.example.focusquest.streak.StreakConfigurationResponse;
+import com.example.focusquest.streak.StreakContributionRepository;
 import com.example.focusquest.streak.StreakPeriodRepository;
-import com.example.focusquest.streak.StreakProgressResponse;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserDto;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-
 /** Builds the full local data export for a user. See {@link LocalDataExportDto}. */
 @Service
 public class ExportService {
 
-    static final String SCHEMA_VERSION = "1.2";
+    /** 2.0 made the export a complete backup that can be restored; older exports cannot be. */
+    static final String SCHEMA_VERSION = "2.0";
 
     private final FocusSessionRepository focusSessionRepository;
+    private final SessionPauseRepository sessionPauseRepository;
     private final StreakConfigurationRepository streakConfigurationRepository;
     private final StreakPeriodRepository streakPeriodRepository;
+    private final StreakContributionRepository streakContributionRepository;
     private final ExperienceTransactionRepository experienceTransactionRepository;
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
@@ -37,16 +37,20 @@ public class ExportService {
     private final ClockProvider clockProvider;
 
     public ExportService(FocusSessionRepository focusSessionRepository,
+                          SessionPauseRepository sessionPauseRepository,
                           StreakConfigurationRepository streakConfigurationRepository,
                           StreakPeriodRepository streakPeriodRepository,
+                          StreakContributionRepository streakContributionRepository,
                           ExperienceTransactionRepository experienceTransactionRepository,
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
                           ClockProvider clockProvider) {
         this.focusSessionRepository = focusSessionRepository;
+        this.sessionPauseRepository = sessionPauseRepository;
         this.streakConfigurationRepository = streakConfigurationRepository;
         this.streakPeriodRepository = streakPeriodRepository;
+        this.streakContributionRepository = streakContributionRepository;
         this.experienceTransactionRepository = experienceTransactionRepository;
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
@@ -56,17 +60,20 @@ public class ExportService {
 
     @Transactional(readOnly = true)
     public LocalDataExportDto exportLocalData(User user) {
-        Instant now = clockProvider.now();
         return new LocalDataExportDto(
-                now,
+                clockProvider.now(),
                 SCHEMA_VERSION,
                 UserDto.from(user),
                 focusSessionRepository.findByUserOrderByIdAsc(user).stream()
-                        .map(session -> FocusSessionDto.from(session, now)).toList(),
+                        .map(SessionBackup::from).toList(),
+                sessionPauseRepository.findBySessionUserOrderByIdAsc(user).stream()
+                        .map(SessionPauseBackup::from).toList(),
                 streakConfigurationRepository.findByUserOrderByIdAsc(user).stream()
-                        .map(StreakConfigurationResponse::from).toList(),
+                        .map(StreakConfigurationBackup::from).toList(),
                 streakPeriodRepository.findByUserOrderByStartTimeAsc(user).stream()
-                        .map(StreakProgressResponse::from).toList(),
+                        .map(StreakPeriodBackup::from).toList(),
+                streakContributionRepository.findByStreakPeriodUserOrderByIdAsc(user).stream()
+                        .map(StreakContributionBackup::from).toList(),
                 experienceTransactionRepository.findByUserOrderByIdAsc(user).stream()
                         .map(ExperienceTransactionResponse::from).toList(),
                 gemTransactionRepository.findByUserOrderByIdAsc(user).stream()

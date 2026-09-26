@@ -14,3 +14,11 @@ export async function exportData(): Promise<LocalDataExport> {
 export async function deleteAllData(): Promise<void> {
   await apiClient.delete('/api/me/data')
 }
+
+/**
+ * Replaces all of the user's data with a backup made by {@link exportData}. The backend refuses
+ * (409) while website blocking is being enforced and (400) a file it cannot restore.
+ */
+export async function restoreData(backup: LocalDataExport): Promise<void> {
+  await apiClient.post('/api/me/data/restore', backup)
+}

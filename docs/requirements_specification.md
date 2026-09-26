@@ -991,9 +991,11 @@ PUT /api/me/profile
 
 GET /api/export
 
+POST /api/me/data/restore
+
 DELETE /api/me/data
 
-`PUT /api/me/profile` changes the display name and time zone. A new time zone takes effect from the next daily and weekly period, and changing it is refused while website blocking is active. `GET /api/export` returns all of the caller's data as JSON. `DELETE /api/me/data` deletes all of it, including the account, and is refused while website blocking is active. See the technical architecture (section 10).
+`PUT /api/me/profile` changes the display name and time zone. A new time zone takes effect from the next daily and weekly period, and changing it is refused while website blocking is active. `GET /api/export` returns all of the caller's data as JSON, complete enough to be a backup. `POST /api/me/data/restore` replaces all of it with such a backup, keeping the account's sign-in, and is refused while website blocking is active. `DELETE /api/me/data` deletes all of it, including the account, and is refused while website blocking is active. See the technical architecture (section 10).
 
 ## 18\. Acceptance-criteria themes
 
@@ -1186,7 +1188,7 @@ The following decisions remain open or need more precision:
 11. Whether the MVP supports an emergency release distinct from a manual override.
 12. Exact Chrome extension-to-application communication method. (Decided: the extension polls authenticated REST endpoints, with a lightweight heartbeat that signals when to re-fetch.)
 13. Exact local authentication mechanism.
-14. Data backup and export format.
+14. Data backup and export format. (Decided: the JSON export is the backup. From format 2.0 it holds every stored row and can be restored from Settings; a restore replaces all current data.)
 15. Exact initial task-category list.
 
 ## 23\. Current product definition

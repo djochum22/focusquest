@@ -83,9 +83,14 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(request)
   }
 
+  /** Reloads the signed-in user, for when their profile changed outside {@link updateProfile}. */
+  async function refreshUser() {
+    user.value = await authApi.fetchCurrentUser()
+  }
+
   function logout() {
     clearSession()
   }
 
-  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, updateProfile, logout }
+  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, updateProfile, refreshUser, logout }
 })

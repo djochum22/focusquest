@@ -10,7 +10,9 @@ import FormField from '../components/common/FormField.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useExtensionStore } from '../stores/extensionStore'
 import { useSessionStore } from '../stores/sessionStore'
-import { useSettingsStore } from '../stores/settingsStore'
+import { readBackupFile, useSettingsStore } from '../stores/settingsStore'
+import type { LocalDataExport } from '../types/settings'
+import { formatDateTime } from '../utils/dateTime'
 import { isOverridable } from '../utils/sessionState'
 import { DISPLAY_NAME_MAX, hasErrors, validateProfile, type FieldErrors, type ProfileForm } from '../utils/validation'
 
@@ -51,6 +53,10 @@ const timezoneLocked = computed(
 
 const exportError = ref<string | null>(null)
 const exportedFile = ref<string | null>(null)
+const backupInput = ref<HTMLInputElement | null>(null)
+const pendingBackup = ref<LocalDataExport | null>(null)
+const restoreError = ref<string | null>(null)
+const restoredFrom = ref<string | null>(null)
 const deleteError = ref<string | null>(null)
 const confirmingDelete = ref(false)
 const extensionError = ref<string | null>(null)
@@ -104,6 +110,36 @@ async function onExport() {
     exportedFile.value = await settings.exportData()
   } catch (error) {
     exportError.value = getErrorMessage(error)
+  }
+}
+
+async function onBackupChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // so choosing the same file again still fires change
+  if (!file) return
+  restoreError.value = null
+  restoredFrom.value = null
+  try {
+    pendingBackup.value = await readBackupFile(file)
+  } catch (error) {
+    restoreError.value = getErrorMessage(error)
+  }
+}
+
+async function onConfirmRestore() {
+  const backup = pendingBackup.value
+  if (!backup) return
+  try {
+    await settings.restoreData(backup)
+    restoredFrom.value = formatDateTime(backup.exportedAt, auth.user?.timezone)
+    profile.displayName = auth.user?.displayName ?? profile.displayName
+    profile.timezone = auth.user?.timezone ?? profile.timezone
+  } catch (error) {
+    // Typically "blocking is active" or a file the backend cannot restore.
+    restoreError.value = getErrorMessage(error)
+  } finally {
+    pendingBackup.value = null
   }
 }
 
@@ -223,6 +259,31 @@ async function onConfirmDelete() {
         </div>
       </section>
 
+      <section class="card" aria-labelledby="restore-heading">
+        <h2 id="restore-heading" class="settings__heading">Restore from a backup</h2>
+        <p class="muted settings__text">
+          Replace everything in FocusQuest with an exported file. Your sign-in and Chrome extension
+          connection stay as they are. Restoring is not possible while website blocking is active.
+        </p>
+        <ErrorMessage :message="restoreError" />
+        <p v-if="restoredFrom" class="settings__done" role="status">
+          Restored the backup from {{ restoredFrom }}.
+        </p>
+        <div>
+          <input
+            ref="backupInput"
+            type="file"
+            accept="application/json,.json"
+            aria-label="Backup file"
+            hidden
+            @change="onBackupChosen"
+          />
+          <AppButton variant="secondary" :loading="settings.restoring" @click="backupInput?.click()">
+            {{ settings.restoring ? 'Restoring…' : 'Restore from file' }}
+          </AppButton>
+        </div>
+      </section>
+
       <section class="card settings__danger" aria-labelledby="delete-heading">
         <h2 id="delete-heading" class="settings__heading">Delete all data</h2>
         <p class="muted settings__text">
@@ -238,6 +299,23 @@ async function onConfirmDelete() {
         </div>
       </section>
     </div>
+
+    <ConfirmDialog
+      :open="pendingBackup !== null"
+      title="Replace all data with this backup?"
+      confirm-label="Replace my data"
+      cancel-label="Keep current data"
+      danger
+      :loading="settings.restoring"
+      @confirm="onConfirmRestore"
+      @cancel="pendingBackup = null"
+    >
+      <p>
+        Your sessions, streaks, XP, gems and blocking rules will be replaced by the backup from
+        {{ pendingBackup ? formatDateTime(pendingBackup.exportedAt, auth.user?.timezone) : '' }}. This cannot be undone.
+      </p>
+      <p>Export your current data first if you might want it back.</p>
+    </ConfirmDialog>
 
     <ConfirmDialog
       :open="confirmingDelete"

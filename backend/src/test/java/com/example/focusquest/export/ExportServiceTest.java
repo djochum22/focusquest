@@ -15,11 +15,13 @@ import com.example.focusquest.progression.GemTransactionRepository;
 import com.example.focusquest.progression.GemTransactionType;
 import com.example.focusquest.session.FocusSession;
 import com.example.focusquest.session.FocusSessionRepository;
+import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakConfiguration;
 import com.example.focusquest.streak.StreakConfigurationRepository;
+import com.example.focusquest.streak.StreakContributionRepository;
 import com.example.focusquest.streak.StreakPeriod;
 import com.example.focusquest.streak.StreakPeriodRepository;
 import com.example.focusquest.streak.StreakPeriodType;
@@ -42,9 +44,13 @@ class ExportServiceTest {
     @Mock
     private FocusSessionRepository focusSessionRepository;
     @Mock
+    private SessionPauseRepository sessionPauseRepository;
+    @Mock
     private StreakConfigurationRepository streakConfigurationRepository;
     @Mock
     private StreakPeriodRepository streakPeriodRepository;
+    @Mock
+    private StreakContributionRepository streakContributionRepository;
     @Mock
     private ExperienceTransactionRepository experienceTransactionRepository;
     @Mock
@@ -59,8 +65,9 @@ class ExportServiceTest {
 
     @BeforeEach
     void setUp() {
-        exportService = new ExportService(focusSessionRepository, streakConfigurationRepository,
-                streakPeriodRepository, experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
+        exportService = new ExportService(focusSessionRepository, sessionPauseRepository,
+                streakConfigurationRepository, streakPeriodRepository, streakContributionRepository,
+                experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
                 allowlistTargetRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
     }
@@ -98,6 +105,9 @@ class ExportServiceTest {
         assertThat(result.focusSessions().get(0).taskDescription()).isEqualTo("Write");
         assertThat(result.streakConfigurations()).hasSize(1);
         assertThat(result.streakPeriods()).hasSize(1);
+        assertThat(result.streakPeriods().get(0).freezeConsumed()).isFalse();
+        assertThat(result.sessionPauses()).isEmpty();
+        assertThat(result.streakContributions()).isEmpty();
         assertThat(result.experienceTransactions()).extracting("amount").containsExactly(-10);
         assertThat(result.gemTransactions()).extracting("amount").containsExactly(5);
         assertThat(result.blockedTargets()).extracting("targetValue").containsExactly("youtube.com");

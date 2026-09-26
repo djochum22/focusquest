@@ -46,6 +46,15 @@ public class SessionPause {
         this.finalized = false;
     }
 
+    /** Rebuilds a finalized pause from a backup, exactly as it was recorded. Only restoring a data export uses it. */
+    public static SessionPause restore(FocusSession session, Instant startedAt, Instant endedAt, long durationSeconds) {
+        SessionPause pause = new SessionPause(session, startedAt);
+        pause.endedAt = endedAt;
+        pause.durationSeconds = durationSeconds;
+        pause.finalized = true;
+        return pause;
+    }
+
     void finalizePause(Instant endedAt) {
         this.endedAt = endedAt;
         this.durationSeconds = Duration.between(startedAt, endedAt).getSeconds();

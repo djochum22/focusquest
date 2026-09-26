@@ -69,11 +69,24 @@ public class DataDeletionService {
 
     @Transactional
     public void deleteAllData(User user) {
-        if (blockingService.findEnforcingSession(user).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Data cannot be deleted while website blocking is active");
-        }
+        requireBlockingReleased(user, "Data cannot be deleted while website blocking is active");
+        deleteActivity(user);
+        extensionCredentialRepository.deleteAllByUser(user);
+        userRepository.deleteById(user.getId());
+    }
 
+    /** Refuses with 409 while website blocking is being enforced for the user. */
+    void requireBlockingReleased(User user, String message) {
+        if (blockingService.findEnforcingSession(user).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
+        }
+    }
+
+    /**
+     * Deletes all of the user's sessions, streaks, ledgers and blocking rules, keeping the account
+     * and the extension's credential. Runs inside the caller's transaction.
+     */
+    void deleteActivity(User user) {
         // Children before parents, in foreign-key order.
         streakContributionRepository.deleteAllByUser(user);
         sessionPauseRepository.deleteAllByUser(user);
@@ -84,7 +97,5 @@ public class DataDeletionService {
         gemTransactionRepository.deleteAllByUser(user);
         blockedTargetRepository.deleteAllByUser(user);
         allowlistTargetRepository.deleteAllByUser(user);
-        extensionCredentialRepository.deleteAllByUser(user);
-        userRepository.deleteById(user.getId());
     }
 }

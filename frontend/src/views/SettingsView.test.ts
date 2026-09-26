@@ -149,13 +149,83 @@ describe('SettingsView', () => {
     wrapper.unmount()
   })
 
+  describe('restoring a backup', () => {
+    const backupJson = '{"exportedAt":"2026-03-10T12:00:00Z","schemaVersion":"2.0"}'
+
+    async function chooseFile(wrapper: Awaited<ReturnType<typeof mountView>>['wrapper'], text: string) {
+      const input = wrapper.get<HTMLInputElement>('input[type="file"]')
+      Object.defineProperty(input.element, 'files', {
+        value: [new File([text], 'backup.json', { type: 'application/json' })],
+        configurable: true,
+      })
+      await input.trigger('change')
+      await flushPromises()
+    }
+
+    it('asks before replacing anything', async () => {
+      const { wrapper } = await mountView()
+
+      await chooseFile(wrapper, backupJson)
+
+      expect(document.querySelector('dialog[open]')?.textContent).toContain('Replace all data with this backup?')
+      expect(document.querySelector('dialog[open]')?.textContent).toContain('Mar 10, 2026')
+      expect(settingsApi.restoreData).not.toHaveBeenCalled()
+      dialogButton('Keep current data')!.click()
+      await flushPromises()
+      expect(settingsApi.restoreData).not.toHaveBeenCalled()
+      wrapper.unmount()
+    })
+
+    it('restores after confirmation and shows the restored profile', async () => {
+      vi.mocked(settingsApi.restoreData).mockResolvedValue()
+      vi.mocked(authApi.fetchCurrentUser).mockResolvedValue(
+        { id: 1, username: 'doug', displayName: 'Restored Doug', timezone: 'Europe/Berlin', createdAt: '' })
+      const { wrapper } = await mountView()
+      await chooseFile(wrapper, backupJson)
+
+      dialogButton('Replace my data')!.click()
+      await flushPromises()
+
+      expect(settingsApi.restoreData).toHaveBeenCalledWith({ exportedAt: '2026-03-10T12:00:00Z', schemaVersion: '2.0' })
+      expect(wrapper.get('[role="status"]').text()).toContain('Restored the backup from')
+      expect(wrapper.get<HTMLInputElement>('input[autocomplete="name"]').element.value).toBe('Restored Doug')
+      wrapper.unmount()
+    })
+
+    it('says so when the file is not a backup, without asking', async () => {
+      const { wrapper } = await mountView()
+
+      await chooseFile(wrapper, 'hello')
+
+      expect(wrapper.get('[role="alert"]').text()).toContain('not a FocusQuest backup')
+      expect(document.querySelector('dialog[open]')).toBeNull()
+      wrapper.unmount()
+    })
+
+    it('shows the backend message when the restore is refused', async () => {
+      vi.mocked(settingsApi.restoreData).mockRejectedValue(Object.assign(new Error('bad'), {
+        isAxiosError: true,
+        response: { status: 409, data: { code: 'CONFLICT', message: 'Data cannot be restored while website blocking is active' } },
+      }))
+      const { wrapper } = await mountView()
+      await chooseFile(wrapper, backupJson)
+
+      dialogButton('Replace my data')!.click()
+      await flushPromises()
+
+      expect(wrapper.get('[role="alert"]').text()).toContain('while website blocking is active')
+      expect(document.querySelector('dialog[open]')).toBeNull()
+      wrapper.unmount()
+    })
+  })
+
   it('does not delete anything until the user confirms', async () => {
     const { wrapper } = await mountView()
 
     await button(wrapper, 'Delete all data')!.trigger('click')
     await flushPromises()
 
-    expect(document.querySelector('dialog')?.hasAttribute('open')).toBe(true)
+    expect(document.querySelector('dialog[open]')?.textContent).toContain('Delete all data?')
     expect(settingsApi.deleteAllData).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -167,7 +237,7 @@ describe('SettingsView', () => {
     dialogButton('Keep my data')!.click()
     await flushPromises()
 
-    expect(document.querySelector('dialog')?.hasAttribute('open')).toBe(false)
+    expect(document.querySelector('dialog[open]')).toBeNull()
     expect(settingsApi.deleteAllData).not.toHaveBeenCalled()
     expect(useAuthStore().isAuthenticated).toBe(true)
     wrapper.unmount()
@@ -205,7 +275,7 @@ describe('SettingsView', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('while website blocking is active')
     expect(useAuthStore().isAuthenticated).toBe(true)
     expect(router.currentRoute.value.name).toBe('settings')
-    expect(document.querySelector('dialog')?.hasAttribute('open')).toBe(false)
+    expect(document.querySelector('dialog[open]')).toBeNull()
     wrapper.unmount()
   })
 

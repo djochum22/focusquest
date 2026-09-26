@@ -12,6 +12,8 @@ public interface StreakContributionRepository extends JpaRepository<StreakContri
 
     List<StreakContribution> findByStreakPeriod(StreakPeriod streakPeriod);
 
+    List<StreakContribution> findByStreakPeriodUserOrderByIdAsc(User user);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from StreakContribution c where c.streakPeriod in (select p from StreakPeriod p where p.user = :user)")
     void deleteAllByUser(@Param("user") User user);

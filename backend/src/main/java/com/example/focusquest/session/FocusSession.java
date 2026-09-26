@@ -119,6 +119,39 @@ public class FocusSession {
         this.createdAt = createdAt;
     }
 
+    /**
+     * Rebuilds an ended or planned session from a backup, exactly as it was recorded. Only restoring
+     * a data export uses it; every other session is built by the constructor and moved on by
+     * SessionService. A running session cannot be rebuilt: the restore turns it into an interrupted one.
+     */
+    public static FocusSession restore(User user, String taskDescription, TaskMode taskMode,
+                                       TaskCategory taskCategory, int plannedFocusMinutes,
+                                       long activeFocusSeconds, long finalizedPausedSeconds, long overtimeSeconds,
+                                       SessionStatus status, BlockingState blockingState, Instant startedAt,
+                                       Instant completedAt, Instant abandonedAt, boolean overrideUsed,
+                                       boolean completionXpAwarded, Instant createdAt,
+                                       long streakCreditedActiveSeconds, long streakCreditedPausedSeconds) {
+        if (status == SessionStatus.ACTIVE || status == SessionStatus.PAUSED) {
+            throw new IllegalArgumentException("A running session cannot be restored as running");
+        }
+        FocusSession session = new FocusSession(user, taskDescription, taskMode, taskCategory,
+                plannedFocusMinutes, createdAt);
+        session.activeFocusSeconds = activeFocusSeconds;
+        session.finalizedPausedSeconds = finalizedPausedSeconds;
+        session.recalculateQualifyingSeconds();
+        session.overtimeSeconds = overtimeSeconds;
+        session.status = status;
+        session.blockingState = blockingState;
+        session.startedAt = startedAt;
+        session.completedAt = completedAt;
+        session.abandonedAt = abandonedAt;
+        session.overrideUsed = overrideUsed;
+        session.completionXpAwarded = completionXpAwarded;
+        session.streakCreditedActiveSeconds = streakCreditedActiveSeconds;
+        session.streakCreditedPausedSeconds = streakCreditedPausedSeconds;
+        return session;
+    }
+
     // Domain mutators. Package-private: only SessionService may drive state transitions,
     // which keeps transition validation centralized in the service layer.
 
@@ -306,5 +339,15 @@ public class FocusSession {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    /** Part of {@code activeFocusSeconds} already credited to the streak. Exported for backups. */
+    public long getStreakCreditedActiveSeconds() {
+        return streakCreditedActiveSeconds;
+    }
+
+    /** Part of {@code finalizedPausedSeconds} already credited to the streak. Exported for backups. */
+    public long getStreakCreditedPausedSeconds() {
+        return streakCreditedPausedSeconds;
     }
 }
