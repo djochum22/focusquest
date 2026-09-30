@@ -1188,7 +1188,7 @@ The work area is where the user may look and still be on task. Looking down at t
 
 The timings are the same for every category:
 
-- **Warnings.** The user is warned once they have been away for 3 minutes, had a phone in hand for 20 seconds, or looked away for 60 seconds.
+- **Warnings.** The user is warned once they have been away for 90 seconds, had a phone in hand for 20 seconds, or looked away for 60 seconds.
 - **Grace period.** If they are still off task 60 seconds after the warning, subtraction starts.
 - **Minimum confidence.** Observations below a confidence of 0.7 are ignored.
 

@@ -92,8 +92,8 @@ function onDefaultChange(event: Event) {
       turn it on.
     </p>
     <p class="camera__notice" role="note">
-      The companion program cannot read a camera yet: it only replays a scripted test, to try the
-      warnings out. Until real detection exists, no camera is used.
+      So far the companion program only checks that you are at your desk. It does not yet notice
+      looking away or a phone.
     </p>
     <ErrorMessage :message="error" />
 

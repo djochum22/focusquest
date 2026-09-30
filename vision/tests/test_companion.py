@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from focusquest_companion.api import BackendClock, BackendUnavailable, Rejected, Unauthorized
 from focusquest_companion.companion import Companion
-from focusquest_companion.detector import PHONE, ScriptedDetector, parse_script
+from focusquest_companion.detector import PHONE, Detection, DetectorUnavailable, ScriptedDetector, parse_script
 from focusquest_companion.notifications import TerminalNotifier, WarningPresenter
 
 from support import T0, FakeWall, off, watching
@@ -32,6 +32,28 @@ class FakeClient:
             raise answer
         # The answer's serverTime is the backend's clock: here, the same as the wall's.
         return answer(self.wall()) if callable(answer) else answer
+
+
+class FlakyDetector:
+    """Fails to open, or stops seeing, as the test says."""
+
+    def __init__(self):
+        self.opens_fail = False
+        self.detect_fails = False
+        self.opened = 0
+
+    def open(self, now):
+        if self.opens_fail:
+            raise DetectorUnavailable("Cannot open camera 0.")
+        self.opened += 1
+
+    def detect(self, now):
+        if self.detect_fails:
+            raise DetectorUnavailable("The camera stopped sending pictures.")
+        return Detection()
+
+    def close(self):
+        pass
 
 
 class CompanionTest(unittest.TestCase):
@@ -128,6 +150,37 @@ class CompanionTest(unittest.TestCase):
         with self.assertRaises(Unauthorized):
             self.companion.run(threading.Event(), frame_interval=0)
         self.assertFalse(self.companion.camera_open)
+
+
+    def test_a_camera_that_cannot_open_is_tried_again_at_each_report(self):
+        self.detector = FlakyDetector()
+        self.detector.opens_fail = True
+        self.companion = Companion(self.client, self.detector,
+                                   WarningPresenter(TerminalNotifier(self.notified.append)),
+                                   BackendClock(self.wall), log=self.lines.append)
+        self.second(lambda now: watching(server_time=now))
+        self.second(lambda now: watching(server_time=now))
+        self.assertFalse(self.companion.camera_open)
+        self.assertEqual(sum("Cannot open camera 0." in line for line in self.lines), 1)
+
+        self.detector.opens_fail = False
+        self.second(lambda now: watching(server_time=now))
+        self.assertTrue(self.companion.camera_open)
+
+    def test_a_camera_that_stops_is_closed_and_opened_again(self):
+        self.detector = FlakyDetector()
+        self.companion = Companion(self.client, self.detector,
+                                   WarningPresenter(TerminalNotifier(self.notified.append)),
+                                   BackendClock(self.wall), log=self.lines.append)
+        self.second(lambda now: watching(server_time=now))
+        self.detector.detect_fails = True
+        self.second()
+        self.assertFalse(self.companion.camera_open)
+        self.assertIn("The camera stopped sending pictures. The session is not being checked; trying again.", self.lines)
+
+        self.detector.detect_fails = False
+        self.second(lambda now: watching(server_time=now))
+        self.assertEqual(self.detector.opened, 2)
 
 
 if __name__ == "__main__":

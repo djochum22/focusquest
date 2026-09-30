@@ -25,10 +25,15 @@ class Detection:
     signals: Mapping[str, float] = field(default_factory=dict)
 
 
+class DetectorUnavailable(Exception):
+    """The detector cannot see: no camera, no permission to use it, or no frames coming from it."""
+
+
 class Detector(Protocol):
     """Opened while a camera-verified session runs, and closed as soon as it stops.
 
     Frames exist only between ``open`` and ``close``, in memory: never saved, uploaded or sent.
+    ``open`` and ``detect`` raise :class:`DetectorUnavailable` when there is nothing to see.
     """
 
     def open(self, now: datetime) -> None: ...

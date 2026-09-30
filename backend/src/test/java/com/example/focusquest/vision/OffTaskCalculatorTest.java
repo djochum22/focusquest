@@ -8,14 +8,14 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The camera rules of section 21 with the default timings: phone 20 s, looking away 60 s, away 3 min, grace 60 s. */
+/** The camera rules of section 21 with the default timings: phone 20 s, looking away 60 s, away 90 s, grace 60 s. */
 class OffTaskCalculatorTest {
 
     private static final Instant T0 = Instant.parse("2026-03-10T09:00:00Z");
     private static final Duration MERGE_GAP = Duration.ofSeconds(5);
     private static final Instant FAR = T0.plusSeconds(3600);
 
-    private final CameraProfiles profiles = new CameraProfiles(Duration.ofMinutes(3), Duration.ofSeconds(20),
+    private final CameraProfiles profiles = new CameraProfiles(Duration.ofSeconds(90), Duration.ofSeconds(20),
             Duration.ofSeconds(60), Duration.ofSeconds(60), 0.7);
     private final CameraProfile coding = profiles.forCategory(TaskCategory.CODING);
 
@@ -62,9 +62,9 @@ class OffTaskCalculatorTest {
         assertThat(episodes(coding, seen(OffTaskSignal.LOOKING_AWAY, 0, 59)).getFirst().warnedAt()).isNull();
         assertThat(episodes(coding, seen(OffTaskSignal.LOOKING_AWAY, 0, 60)).getFirst().warnedAt())
                 .isEqualTo(T0.plusSeconds(60));
-        assertThat(episodes(coding, seen(OffTaskSignal.AWAY, 0, 179)).getFirst().warnedAt()).isNull();
-        assertThat(episodes(coding, seen(OffTaskSignal.AWAY, 0, 180)).getFirst().warnedAt())
-                .isEqualTo(T0.plusSeconds(180));
+        assertThat(episodes(coding, seen(OffTaskSignal.AWAY, 0, 89)).getFirst().warnedAt()).isNull();
+        assertThat(episodes(coding, seen(OffTaskSignal.AWAY, 0, 90)).getFirst().warnedAt())
+                .isEqualTo(T0.plusSeconds(90));
     }
 
     @Test

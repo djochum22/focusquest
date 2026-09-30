@@ -19,9 +19,12 @@ The original plan had two phases. Phase A closed out the MVP. Phase B built ever
 | B6 | Companion pairing: `fqc_` token, heartbeat and observation endpoints, connected status | `ea88436` |
 | B7 | Warnings in the web app within 5 seconds (polling), with a countdown and "Not accurate?" | `0036c5e` |
 | B8 | Camera in the session screens: "Verify with camera" switch, net focused time, history episodes | `285eed3` |
-| B9 | The companion program (`vision/`), with a scripted fake detector; `serverTime` in the companion's answers | See `git log -- vision/` |
-| B10 | End-to-end tests that drive a session through the real companion program | See `git log -- vision/` |
-| **C1** | **The real detector** | **Next** |
+| B9 | The companion program (`vision/`), with a scripted fake detector; `serverTime` in the companion's answers | `03e4877` |
+| B10 | End-to-end tests that drive a session through the real companion program | `03e4877` |
+| C1a | Real camera, presence only: webcam capture, MediaPipe face detection, `--preview` | Not committed yet |
+| **C1b** | **Looking away: head pose, with calibration** | **Next** |
+| C1c | Phone in hand | |
+| C1d | Smoothing, label mode, accuracy measurements, tuning | |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
@@ -37,9 +40,16 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - `ScriptedDetector` replays a timeline such as `"present 60s, phone 90s"`, from each time the detector opens. `run` requires `--script` until the real detector exists, and the Settings notice says so.
 - `e2e/tests/camera.spec.ts` pairs it through Settings and runs it: warning, subtraction, dispute, camera closed on pause, and the session going on unverified when it stops.
 
-## Next: the real detector (C1)
+## The real detector (C1)
 
-Python with OpenCV and MediaPipe, plus PyTorch only if a custom model becomes necessary. It implements `Detector` in `vision/src/focusquest_companion/detector.py` (`open`, `detect`, `close`), and `run` gets a way to choose it instead of `--script`. It needs to detect three things:
+Python with OpenCV and MediaPipe, plus PyTorch only if a custom model becomes necessary. It is `CameraDetector` in `vision/src/focusquest_companion/camera.py`, behind the same `Detector` interface as the script, chosen with `run --camera`.
+
+**Built (C1a).** A webcam read on a background thread that keeps only the latest frame; MediaPipe's BlazeFace (short range), downloaded once to `~/.cache/focusquest/models` and checked against a pinned SHA-256; no face at 0.5 or above is `AWAY`, with confidence 1 minus the best face's score; `--preview` shows the frame and what was found. `--camera` picks the Mac's built-in camera by name even when an iPhone is connected as a Continuity Camera: OpenCV numbers cameras by unique ID, and `system_profiler` gives each camera's name and unique ID, so the number is looked up at each opening. A camera that cannot open or stops sending frames is retried at each report.
+
+- **MediaPipe version:** 1.0.1 aborts on macOS when the face detector starts (in its Metal helper, even with the CPU delegate), so the `camera` extra pins `mediapipe<1`. 0.10.35 works.
+- **Checked** on MediaPipe's sample portrait (present, face 0.92) and a blank frame (away), not yet on a live webcam.
+
+**Next (C1b onwards).** It needs to detect three things:
 
 - presence (someone in front of the camera, or away);
 - head pose against the category's work area (looking away);
@@ -61,6 +71,8 @@ Then tune the timings and minimum confidence (`focusquest.camera.*` in `backend/
 - Observations that arrive after their stretch of time was settled change nothing already settled.
 - Users cannot edit the camera profiles yet; this was decided (requirements §22, #17).
 - When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
+- A head turned far to the side can lose the face entirely, which counts as away rather than looking away. The away warning takes 90 seconds, so a short turn does not matter; C1b's head pose should tell the two apart.
+- While the camera cannot be used, the companion still reports, so the web app shows the session as checked. Nothing is observed, so nothing is subtracted, but the spec says the web app should say it is not being verified. This needs a camera-unavailable flag in the heartbeat and an off-task state for it.
 - Operating-system notifications cannot count down, so the companion sends a reminder 10 seconds before the time stops counting instead.
 
 ## Working in this repository

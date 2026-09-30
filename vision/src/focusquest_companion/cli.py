@@ -8,10 +8,11 @@ import sys
 import threading
 from pathlib import Path
 
-from . import config
+from . import config, models
 from .api import DEFAULT_BACKEND_URL, BackendClient, BackendClock, BackendError, Unauthorized
+from .cameras import CameraChoice, list_cameras
 from .companion import Companion
-from .detector import ScriptedDetector, parse_script
+from .detector import DetectorUnavailable, ScriptedDetector, parse_script
 from .notifications import SystemNotifier, TerminalNotifier, WarningPresenter
 
 TOKEN_PREFIX = "fqc_"
@@ -32,11 +33,17 @@ def main(argv: list[str] | None = None) -> int:
 
     commands.add_parser("unpair", help="forget the pairing on this computer")
 
+    commands.add_parser("cameras", help="list the cameras, and which one --camera uses")
+
     run = commands.add_parser("run", help="watch during camera-verified sessions")
-    run.add_argument("--script", required=True,
-                     help="replay a timeline instead of reading a camera, e.g. 'present 60s, phone 90s'. "
-                          "Required until real detection exists.")
-    run.add_argument("--loop", action="store_true", help="start the script over when it ends")
+    source = run.add_mutually_exclusive_group(required=True)
+    source.add_argument("--camera", nargs="?", const="built-in", metavar="CAMERA",
+                        help="watch with a camera: the computer's built-in one, or CAMERA, part of a name "
+                             "(see `cameras`) or a number. Checks presence only so far.")
+    source.add_argument("--script", help="replay a timeline instead of reading a camera, e.g. 'present 60s, phone 90s'")
+    run.add_argument("--preview", action="store_true",
+                     help="with --camera: show what the camera sees and what it found, in a window")
+    run.add_argument("--loop", action="store_true", help="with --script: start the script over when it ends")
     run.add_argument("--no-notifications", action="store_true",
                      help="write warnings to the terminal instead of showing notifications")
 
@@ -48,7 +55,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "unpair":
             print("Forgot the pairing." if config.forget(path) else "Not paired.")
             return 0
-        return _run(path, args.script, args.loop, args.no_notifications)
+        if args.command == "cameras":
+            return _cameras()
+        if args.preview and args.script is not None:
+            parser.error("--preview only works with --camera")
+        return _run(path, args, args.no_notifications)
     except BackendError as error:
         print(error, file=sys.stderr)
         return 1
@@ -70,25 +81,32 @@ def _pair(path: Path, code: str | None, backend_url: str) -> int:
     return 0
 
 
-def _run(path: Path, script: str, loop: bool, no_notifications: bool) -> int:
+def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
     pairing = config.load(path)
     if pairing is None:
         print("Not paired yet. Run `focusquest-companion pair` with the code from Settings.", file=sys.stderr)
         return 2
-    try:
-        detector = ScriptedDetector(parse_script(script), loop=loop)
-    except ValueError as error:
-        print(error, file=sys.stderr)
-        return 2
-
     log = _flushing_print
+    if args.script is not None:
+        try:
+            detector = ScriptedDetector(parse_script(args.script), loop=args.loop)
+        except ValueError as error:
+            print(error, file=sys.stderr)
+            return 2
+        source = "replaying a script instead of a camera"
+    else:
+        detector = _camera_detector(args.camera, args.preview, log)
+        if detector is None:
+            return 2
+        source = f"{CameraChoice.parse(args.camera).describe()}, checking presence only so far"
+
     notifier = TerminalNotifier(log) if no_notifications else SystemNotifier(log)
     companion = Companion(BackendClient(pairing.backend_url, pairing.token), detector,
                           WarningPresenter(notifier), BackendClock(), log=log)
     stop = threading.Event()
     for number in (signal.SIGINT, signal.SIGTERM):
         signal.signal(number, lambda *_: stop.set())
-    log(f"Connected to {pairing.backend_url}, replaying a script instead of a camera. Stop with Ctrl+C.")
+    log(f"Connected to {pairing.backend_url}, {source}. Stop with Ctrl+C.")
     try:
         companion.run(stop)
     except Unauthorized:
@@ -97,6 +115,43 @@ def _run(path: Path, script: str, loop: bool, no_notifications: bool) -> int:
         return 1
     log("Stopped.")
     return 0
+
+
+def _cameras() -> int:
+    cameras = list_cameras()
+    if cameras is None:
+        print("Cameras can only be listed on macOS. `--camera` uses camera 0; `--camera 1` the next.")
+        return 0
+    if not cameras:
+        print("No cameras found.")
+        return 1
+    try:
+        default = CameraChoice().resolve(cameras).index
+    except DetectorUnavailable:
+        default = None
+    for camera in cameras:
+        print(f"{camera.index}  {camera.name}{'   (used by --camera)' if camera.index == default else ''}")
+    return 0
+
+
+def _camera_detector(wanted: str, preview: bool, log):
+    try:
+        from .camera import CameraDetector, MediaPipeFaces, Preview, Webcam
+        import cv2  # noqa: F401  (checked here, used once the camera opens)
+        import mediapipe  # noqa: F401
+    except ImportError:
+        print("The camera needs OpenCV and MediaPipe. From vision/, run:\n"
+              "  python3 -m venv .venv && .venv/bin/pip install -e '.[camera]'\n"
+              "and start the program with .venv/bin/focusquest-companion.", file=sys.stderr)
+        return None
+    try:
+        face_model = models.ensure(models.FACE_DETECTOR, log=log)
+    except models.ModelError as error:
+        print(error, file=sys.stderr)
+        return None
+    choice = CameraChoice.parse(wanted)
+    webcam = Webcam(lambda: choice.resolve(list_cameras()), log)
+    return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), Preview() if preview else None)
 
 
 def _flushing_print(line: str) -> None:

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class CameraProfilesTest {
 
-    private static final Duration AWAY = Duration.ofMinutes(3);
+    private static final Duration AWAY = Duration.ofSeconds(90);
     private static final Duration PHONE = Duration.ofSeconds(20);
     private static final Duration LOOKING_AWAY = Duration.ofSeconds(60);
     private static final Duration GRACE = Duration.ofSeconds(60);

@@ -18,7 +18,7 @@ import org.springframework.test.web.servlet.ResultActions;
 /**
  * Camera verification end to end: observations become off-task episodes, and their time is
  * subtracted from the session and the streak (requirements specification, section 21). The default
- * timings apply: phone 20 s, looking away 60 s, away 3 min, grace 60 s. Observations arrive as the
+ * timings apply: phone 20 s, looking away 60 s, away 90 s, grace 60 s. Observations arrive as the
  * paired companion program sends them, with its own token.
  */
 class OffTaskApiIntegrationTest extends ApiIntegrationTest {

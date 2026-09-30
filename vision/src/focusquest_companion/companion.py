@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Callable
 
 from .api import BackendClient, BackendClock, BackendUnavailable, CompanionState, Rejected
-from .detector import Detector
+from .detector import Detector, DetectorUnavailable
 from .notifications import WarningPresenter, seconds_left
 from .observations import ObservationTracker
 
@@ -20,6 +20,9 @@ REPORT_INTERVAL_SECONDS = 2.0
 class Companion:
     """Watches only while the backend's last answer said ``cameraOn``, and closes the camera as soon as
     it does not, or as soon as the backend cannot be reached: nothing is watched that nobody asked for.
+
+    A camera that cannot be opened, or stops sending pictures, is tried again at each report. Until
+    then nothing is observed, so nothing can be subtracted.
     """
 
     def __init__(self, client: BackendClient, detector: Detector, presenter: WarningPresenter,
@@ -37,6 +40,8 @@ class Companion:
         self._camera_open = False
         self._reachable = True
         self._next_report = 0.0
+        #: Why the detector cannot see, while it cannot; said once, not at every retry.
+        self._unavailable: str | None = None
         #: The state last written to the terminal, "OFF" while nothing is watched.
         self._described: str | None = None
 
@@ -65,7 +70,13 @@ class Companion:
         if not self._camera_open or self._state is None or self._state.profile is None:
             return
         now = self._clock.now()
-        for signal in self._tracker.update(self._detector.detect(now), now, self._state.profile.signals):
+        try:
+            detection = self._detector.detect(now)
+        except DetectorUnavailable as error:
+            self._say_unavailable(error)
+            self._close_camera()
+            return
+        for signal in self._tracker.update(detection, now, self._state.profile.signals):
             self._log(f"Seeing: {_name(signal)}.")
 
     def report(self) -> None:
@@ -107,16 +118,26 @@ class Companion:
             self._close_camera()
         self._state = state
         if watch and not self._camera_open:
-            self._detector.open(self._clock.now())
-            self._camera_open = True
-            self._session_id = state.session_id
-            checks = ", ".join(_name(signal) for signal in sorted(state.profile.signals))
-            self._log(f"Camera on for session {state.session_id} ({state.profile.category}): checking {checks}.")
+            try:
+                self._detector.open(self._clock.now())
+            except DetectorUnavailable as error:
+                self._say_unavailable(error)
+            else:
+                self._unavailable = None
+                self._camera_open = True
+                self._session_id = state.session_id
+                checks = ", ".join(_name(signal) for signal in sorted(state.profile.signals))
+                self._log(f"Camera on for session {state.session_id} ({state.profile.category}): checking {checks}.")
         described = state.state if state.camera_on else "OFF"
         if described != self._described:
             self._log(_describe(state, self._clock.now()))
             self._described = described
         self._presenter.show(state, self._clock.now())
+
+    def _say_unavailable(self, error: DetectorUnavailable) -> None:
+        if str(error) != self._unavailable:
+            self._log(f"{error} The session is not being checked; trying again.")
+        self._unavailable = str(error)
 
     def _close_camera(self) -> None:
         if not self._camera_open:

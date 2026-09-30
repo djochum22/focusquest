@@ -43,7 +43,7 @@ describe('CameraVerificationCard', () => {
     const wrapper = await mountCard(off)
 
     for (const point of CAMERA_CONSENT_POINTS) expect(wrapper.text()).toContain(point)
-    expect(wrapper.text()).toContain('The companion program cannot read a camera yet')
+    expect(wrapper.text()).toContain('So far the companion program only checks that you are at your desk.')
     expect(button(wrapper, 'Turn on camera verification').attributes('disabled')).toBeDefined()
   })
 

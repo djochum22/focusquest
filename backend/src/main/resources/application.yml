@@ -69,7 +69,7 @@ focusquest:
   camera:
     # How long each off-task signal must last before the user is warned.
     warning-after:
-      away: 3m
+      away: 90s
       phone: 20s
       looking-away: 60s
     # After a warning, how long before off-task time starts being subtracted.

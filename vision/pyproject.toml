@@ -8,8 +8,15 @@ version = "0.1.0"
 description = "FocusQuest's camera companion program: checks that you stay on task, on your own computer"
 readme = "README.md"
 requires-python = ">=3.11"
-# Standard library only, until the real detector brings OpenCV and MediaPipe.
+# The scripted detector needs only the standard library; a real camera needs the `camera` extra.
 dependencies = []
+
+[project.optional-dependencies]
+camera = [
+    "opencv-python>=4.10",
+    # 1.0.1 aborts on macOS when the face detector starts (its Metal helper); 0.10.35 works.
+    "mediapipe>=0.10.30,<1",
+]
 
 [project.scripts]
 focusquest-companion = "focusquest_companion.cli:main"

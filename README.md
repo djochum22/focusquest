@@ -9,7 +9,7 @@ you stay on task. Design documents are in [`docs/`](docs/).
 | Backend API | [`backend/`](backend/) | Java 21, Spring Boot 4, H2, Flyway, JWT |
 | Web app | [`frontend/`](frontend/README.md) | Vue 3, TypeScript, Vite, Pinia |
 | Chrome extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript |
-| Camera companion | [`vision/`](vision/README.md) | Python 3.11+, standard library only for now |
+| Camera companion | [`vision/`](vision/README.md) | Python 3.11+; OpenCV and MediaPipe for the camera |
 
 ## Prerequisites
 
@@ -65,8 +65,9 @@ in. The full steps, including how to add sites to block, are in [`extension/READ
 
 **4. Camera companion** (optional)
 
-It cannot read a camera yet: it replays a scripted timeline, to try camera verification out. Turn
-camera verification on in Settings, pair, and run it; see [`vision/README.md`](vision/README.md).
+With a webcam it checks, so far, only that you are at your desk; it can also replay a scripted
+timeline, to try the warnings out. Turn camera verification on in Settings, pair, and run it; see
+[`vision/README.md`](vision/README.md).
 
 ## Run the tests
 
