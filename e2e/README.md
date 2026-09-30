@@ -1,7 +1,7 @@
 # End-to-end tests
 
 Playwright tests that drive the whole product the way a user does: the Vue web app, the real Spring
-Boot backend and the Chrome extension, together in Chromium.
+Boot backend, the Chrome extension and the camera companion program, together in Chromium.
 
 ## Run them
 
@@ -12,6 +12,9 @@ npm install
 npm run install-browser                  # once: Playwright's Chromium (about 100 MB)
 npm test                                 # or: npm run test:headed, to watch
 ```
+
+The camera tests also need Python 3.11 or newer as `python3` (or set `FOCUSQUEST_PYTHON`); the
+companion program needs nothing installed.
 
 `npm test` starts everything it needs and stops it afterwards. The first run takes a minute or two
 while Gradle starts the backend. After a failure, `npx playwright show-report` opens the report,
@@ -28,6 +31,7 @@ up, and it never touches `backend/data/`.
 | Web app | http://localhost:15173 | `npm run dev -- --port 15173`, pointed at the backend above |
 | A site to block | http://distraction.example:15180 | `support/siteServer.mjs` on 127.0.0.1 |
 | Extension | loaded into Chromium | built by `support/globalSetup.ts` into `.extension/` |
+| Camera companion | talks to the backend above | `support/companion.ts`, per test, with a scripted detector |
 
 - **The backend** runs from the test sources (`backend/src/test/java/com/example/e2e`) with the `e2e`
   profile (`backend/src/test/resources/application-e2e.yml`): an in-memory database, and two hooks the
@@ -60,6 +64,16 @@ anything already listening on those ports (on CI it always starts its own).
 - Rules cannot be loosened while a session runs, but can be tightened.
 - A planned session survives a reload and can be started later; changing its details deletes it, so
   a reload shows the empty form. The site is blocked all along by the unmet daily target.
+
+`tests/camera.spec.ts` runs the companion program (`vision/`) for real, with a scripted detector in
+place of a camera, paired through Settings:
+
+- A phone in hand for over 20 seconds warns, in the web app and in the program; 60 seconds later the
+  time stops counting. "Not accurate?" gives the time back, and pausing closes the camera.
+- When the program stops, the session goes on, and the web app says the camera is not checking it.
+
+The program stamps observations in the backend's clock, so moving the clock forward makes a stretch
+of phone last longer at once.
 
 Each blocking check allows 10 seconds, less than the extension's 30-second check-in, so the tests
 also show that the web app tells the extension about changes straight away.

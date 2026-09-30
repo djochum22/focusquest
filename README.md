@@ -1,19 +1,22 @@
 # FocusQuest
 
 A local-first focus app: a Spring Boot backend, a Vue web app and a Chrome extension that blocks
-distracting sites during a focus session. Design documents are in [`docs/`](docs/).
+distracting sites during a focus session, with an optional camera companion program that checks
+you stay on task. Design documents are in [`docs/`](docs/).
 
 | Part | Folder | Stack |
 | --- | --- | --- |
 | Backend API | [`backend/`](backend/) | Java 21, Spring Boot 4, H2, Flyway, JWT |
 | Web app | [`frontend/`](frontend/README.md) | Vue 3, TypeScript, Vite, Pinia |
 | Chrome extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript |
+| Camera companion | [`vision/`](vision/README.md) | Python 3.11+, standard library only for now |
 
 ## Prerequisites
 
 - JDK 21 (Gradle is bundled as `./gradlew`)
 - Node.js 20 or newer, with npm
 - Chrome 120 or newer, to use the extension
+- Python 3.11 or newer, for the camera companion and its tests
 
 ## Run the full application locally
 
@@ -60,9 +63,14 @@ npm run build
 Then load `extension/dist` in `chrome://extensions` (Developer mode, **Load unpacked**) and sign it
 in. The full steps, including how to add sites to block, are in [`extension/README.md`](extension/README.md).
 
+**4. Camera companion** (optional)
+
+It cannot read a camera yet: it replays a scripted timeline, to try camera verification out. Turn
+camera verification on in Settings, pair, and run it; see [`vision/README.md`](vision/README.md).
+
 ## Run the tests
 
-Everything at once (backend, frontend and extension, with type-checks):
+Everything at once (backend, frontend and extension, with type-checks, and the camera companion):
 
 ```bash
 ./scripts/test-all.sh
@@ -79,7 +87,8 @@ Or each suite on its own:
 | Frontend | `cd frontend && npm test` | Vitest; `npm run test:watch` while developing |
 | Frontend type-check | `cd frontend && npx vue-tsc -b` | `npm run build` also runs it |
 | Extension | `cd extension && npm test` | Vitest; `npm run typecheck` for types |
-| End-to-end | `cd e2e && npm test` | Playwright: web app, backend and extension together in Chromium. Setup in [`e2e/README.md`](e2e/README.md) |
+| Camera companion | `cd vision && PYTHONPATH=src:tests python3 -m unittest discover -s tests` | Standard library only; nothing to install |
+| End-to-end | `cd e2e && npm test` | Playwright: web app, backend, extension and camera companion together in Chromium. Setup in [`e2e/README.md`](e2e/README.md) |
 
 Gradle skips a test task whose inputs have not changed. Add `--rerun-tasks` to force a full run.
 The HTML report of a backend run is `backend/build/reports/tests/test/index.html`.

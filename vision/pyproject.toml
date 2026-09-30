@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "focusquest-companion"
+version = "0.1.0"
+description = "FocusQuest's camera companion program: checks that you stay on task, on your own computer"
+readme = "README.md"
+requires-python = ">=3.11"
+# Standard library only, until the real detector brings OpenCV and MediaPipe.
+dependencies = []
+
+[project.scripts]
+focusquest-companion = "focusquest_companion.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -52,17 +52,17 @@ public class CompanionService {
     }
 
     private CompanionStateResponse state(User user) {
+        Instant now = clockProvider.now();
         FocusSession session = sessionService.findCurrentSession(user).orElse(null);
         if (session == null || session.getStatus() != SessionStatus.ACTIVE || !session.isCameraVerification()
                 || !cameraSettingsService.isEnabled(user)) {
-            return CompanionStateResponse.off();
+            return CompanionStateResponse.off(now);
         }
-        Instant now = clockProvider.now();
         OffTaskStatusResponse status = offTaskService.status(session, now,
                 sessionService.uncreditedActiveStretch(session, now), sessionService.offTaskSecondsAt(session, now));
         OffTaskStatusResponse.EpisodeResponse current = status.current();
         return new CompanionStateResponse(true, session.getId(),
                 CameraProfileResponse.from(cameraProfiles.forCategory(session.getTaskCategory())), status.state(),
-                current == null ? null : current.warnedAt(), status.deductionStartsAt());
+                current == null ? null : current.warnedAt(), status.deductionStartsAt(), now);
     }
 }

@@ -74,7 +74,8 @@ class CompanionApiIntegrationTest extends ApiIntegrationTest {
 
         heartbeat(companion)
                 .andExpect(jsonPath("$.cameraOn").value(false))
-                .andExpect(jsonPath("$.profile").doesNotExist());
+                .andExpect(jsonPath("$.profile").doesNotExist())
+                .andExpect(jsonPath("$.serverTime").value(clockProvider.now().toString()));
 
         cameraSettings(true);
         long id = createAndStartSession(token, 30);                       // camera by default, WRITING

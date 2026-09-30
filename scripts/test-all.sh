@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Runs every test suite: backend (JUnit), frontend and extension (Vitest), plus type-checks.
+# Runs every test suite: backend (JUnit), frontend and extension (Vitest), plus type-checks, and the
+# camera companion (unittest).
 # Usage: ./scripts/test-all.sh   (from anywhere)
 #        FOCUSQUEST_E2E=1 ./scripts/test-all.sh   also runs the Playwright end-to-end suite
 set -euo pipefail
@@ -13,6 +14,9 @@ echo "==> Frontend (type-check, Vitest)"
 
 echo "==> Extension (type-check, Vitest)"
 (cd "$root/extension" && npm ci --silent && npm run typecheck && npm test)
+
+echo "==> Camera companion (unittest)"
+(cd "$root/vision" && PYTHONPATH=src:tests python3 -m unittest discover -s tests)
 
 if [[ "${FOCUSQUEST_E2E:-}" == "1" ]]; then
   echo "==> End-to-end (Playwright)"

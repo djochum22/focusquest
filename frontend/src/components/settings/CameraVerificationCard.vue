@@ -92,8 +92,8 @@ function onDefaultChange(event: Event) {
       turn it on.
     </p>
     <p class="camera__notice" role="note">
-      The companion program that reads the camera is not available yet. Until it is, turning this on
-      only records your choice; no camera is used.
+      The companion program cannot read a camera yet: it only replays a scripted test, to try the
+      warnings out. Until real detection exists, no camera is used.
     </p>
     <ErrorMessage :message="error" />
 

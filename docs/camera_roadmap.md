@@ -11,7 +11,7 @@ The original plan had two phases. Phase A closed out the MVP. Phase B built ever
 | A1 | Open decisions in requirements §22 settled: XP, gems, penalty, completion, categories and more | `96c670f` |
 | A2 | Streak freezes: 10 gems each, at most 2, daily only, only for whole gaps, bridge without counting (requirements §13) | `96c670f` |
 | A3 | Complete export, and restore from Settings; tests for retried requests and for restarts | `272d453` |
-| A4 | Wider end-to-end coverage | **Open.** Only 4 Playwright tests; `dba2126` updated them for daily blocking |
+| A4 | Wider end-to-end coverage | **Open.** 6 Playwright tests: 4 for sessions and blocking (`dba2126` updated them for daily blocking), 2 for the camera (B10) |
 | B1 | Specification and privacy rules for camera verification | `97afff4` |
 | B2 | Consent in Settings, versioned (`CameraSettingsService.CONSENT_VERSION` and `utils/cameraConsent.ts` must match) | `2c99a93` |
 | B3 | Per-category camera profiles: work area, warning timings, grace, minimum confidence | `eb6e2e7` |
@@ -19,32 +19,27 @@ The original plan had two phases. Phase A closed out the MVP. Phase B built ever
 | B6 | Companion pairing: `fqc_` token, heartbeat and observation endpoints, connected status | `ea88436` |
 | B7 | Warnings in the web app within 5 seconds (polling), with a countdown and "Not accurate?" | `0036c5e` |
 | B8 | Camera in the session screens: "Verify with camera" switch, net focused time, history episodes | `285eed3` |
-| **B9** | **The companion program itself, with a scripted fake detector** | **Next** |
-| B10 | An end-to-end test that drives a session through a fake companion | With B9 |
+| B9 | The companion program (`vision/`), with a scripted fake detector; `serverTime` in the companion's answers | See `git log -- vision/` |
+| B10 | End-to-end tests that drive a session through the real companion program | See `git log -- vision/` |
+| **C1** | **The real detector** | **Next** |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
-## Next: the companion program (B9)
+## The companion program (B9 and B10)
 
-Build a new top-level `vision/` Python project, with a `pyproject.toml`. It runs on the user's computer next to the backend (`http://127.0.0.1:8080`).
+`vision/` is a Python 3.11 project with no dependencies yet; `vision/README.md` says how to pair and run it and how it works.
 
-- **Pairing.** The user clicks "Pair the companion program" in Settings, under Camera verification, and pastes the `fqc_…` code into the program. The program stores it locally and sends it as `Authorization: Bearer fqc_…`. The token works only on `/api/companion/**`.
-- **Heartbeat.**
-  - Call `POST /api/companion/heartbeat` every few seconds. The program counts as connected if it was heard from within the last 30 seconds.
-  - The answer is `{ cameraOn, sessionId, profile, state, warnedAt, deductionStartsAt }`.
-  - Open the camera only while `cameraOn` is true, and close it as soon as it is false (paused, ended, or camera verification turned off).
-  - `profile` says which signals to look for (`AWAY`, `PHONE`, `LOOKING_AWAY`) and the work area (`SCREEN`, `SCREEN_OR_DESK`, `ANYWHERE`).
-- **Observations.**
-  - Send `POST /api/companion/observations` with `{ sessionId, observations: [{ clientEventId, signal, confidence, startedAt, observedUntil }] }`.
-  - Each observation is one continuous stretch of one signal. Send the same `clientEventId` again with a later `observedUntil` to extend the stretch while it lasts; its signal and start cannot change.
-  - At most 200 observations per request, none more than 5 seconds ahead of the backend's clock. The answer is the same as the heartbeat's, and the request also counts as a heartbeat.
-- **Warning.** When the answer's `state` is `WARNED`, show an operating-system notification that counts down to `deductionStartsAt`. When it is `DEDUCTING`, say that the time is not counting.
-- **Detector.** Define a `Detector` interface, and a `ScriptedDetector` that replays a timeline, for example "present for 60 s, then a phone for 90 s". It lets the whole pipeline, and B10's end-to-end test, run before any vision model exists. The real detector later goes behind the same interface.
-- **Privacy.** Frames are processed in memory only: never saved to disk, never uploaded, never sent to the backend. There is no facial recognition. Requirements §19 and §21 are binding.
+- It reports every 2 seconds (observations if there are any the backend has not heard, otherwise a heartbeat) and looks once a second.
+- It opens the detector only while the answer says `cameraOn`, and closes it when it does not, or when the backend cannot be reached.
+- Observations are stamped in the backend's clock, from the new `serverTime` in each answer. That keeps them within the backend's 5-second tolerance whatever this computer's clock says, and lets the end-to-end suite move the backend's clock.
+- A stretch ends at the first moment its signal is not seen, and its confidence is the lowest seen during it. Only the category's signals are reported.
+- Warnings become system notifications (macOS `osascript`, Linux `notify-send`): one when warned, a reminder 10 seconds before the time stops counting, and one when it stops and starts counting again.
+- `ScriptedDetector` replays a timeline such as `"present 60s, phone 90s"`, from each time the detector opens. `run` requires `--script` until the real detector exists, and the Settings notice says so.
+- `e2e/tests/camera.spec.ts` pairs it through Settings and runs it: warning, subtraction, dispute, camera closed on pause, and the session going on unverified when it stops.
 
-## After that: the real detector
+## Next: the real detector (C1)
 
-Python with OpenCV and MediaPipe, plus PyTorch only if a custom model becomes necessary. It needs to detect three things:
+Python with OpenCV and MediaPipe, plus PyTorch only if a custom model becomes necessary. It implements `Detector` in `vision/src/focusquest_companion/detector.py` (`open`, `detect`, `close`), and `run` gets a way to choose it instead of `--script`. It needs to detect three things:
 
 - presence (someone in front of the camera, or away);
 - head pose against the category's work area (looking away);
@@ -57,7 +52,7 @@ Then tune the timings and minimum confidence (`focusquest.camera.*` in `backend/
 - **Camera rules** (off-task signals, profiles, warning then subtraction, when time is settled, disputes, failure behaviour): requirements specification §21.
 - **Privacy:** §19.
 - **Freezes and streak loss:** §13.
-- **Open questions and their answers:** §22. #5, on how long an abandoned session's websites stay blocked, is still marked provisional, and the daily-blocking change may have settled it; check.
+- **Open questions and their answers:** §22. #5, on how long an abandoned session's websites stay blocked, was settled by the daily-blocking change.
 - **Off-task time model, companion endpoints, token scoping and the web app pieces:** technical architecture. Search for "Off-task time model", "Pairing the companion program" and "Off-task warnings in the web app".
 
 ## Known limits
@@ -65,10 +60,12 @@ Then tune the timings and minimum confidence (`focusquest.camera.*` in `backend/
 - Where off-task time crosses midnight or the start of the week, the day split can be off by up to a second.
 - Observations that arrive after their stretch of time was settled change nothing already settled.
 - Users cannot edit the camera profiles yet; this was decided (requirements §22, #17).
+- When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
+- Operating-system notifications cannot count down, so the companion sends a reminder 10 seconds before the time stops counting instead.
 
 ## Working in this repository
 
-- **Run every test:** `scripts/test-all.sh`. `FOCUSQUEST_E2E=1 scripts/test-all.sh` also runs the Playwright end-to-end suite.
+- **Run every test:** `scripts/test-all.sh` (now including the companion's unittest suite). `FOCUSQUEST_E2E=1 scripts/test-all.sh` also runs the Playwright end-to-end suite.
 - **Restart the backend after pulling:** schema changes are Flyway migrations and run at startup. The latest is `V14`.
 - **Commit only your own files.** Another Claude session has worked in this folder at the same time. Check `git status`, stage files by name, and do not sweep in someone else's unfinished work.
 - **Commits:** the user reviews each step, then asks for the commit. Each step is one commit, with a message explaining the why.
