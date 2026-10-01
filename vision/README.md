@@ -6,15 +6,15 @@ observations: which off-task signal (away, a phone in hand, looking away), how c
 when. The backend decides what counts as off task, when to warn, and what time to subtract
 (requirements specification, section 21).
 
-**With a camera, it checks presence and where you look so far**: nobody in front of the camera is
-`AWAY`, and a head turned away from the category's work area is `LOOKING_AWAY`. A phone in hand
-comes next. It can also replay a scripted timeline in place of a
-camera, so the whole pipeline, warnings included, can be tried without one; both go behind the same
+**With a camera** nobody in front of it is `AWAY`, a head turned away from the category's work area
+is `LOOKING_AWAY`, and a phone in a hand is `PHONE`. It can also replay a scripted timeline in place
+of a camera, so the whole pipeline, warnings included, can be tried without one; both go behind the same
 interface (`Detector` in `detector.py`).
 
 **Privacy.** Frames are processed in memory only, each replacing the last: never saved to disk,
 never uploaded, never sent to the backend. There is no facial recognition: the face detector finds
-that a face is there, not whose it is, and the face landmarker which way the head is turned.
+that a face is there, not whose it is; the other models find which way the head is turned, phones
+and hands.
 Calibrating keeps only angles, never a picture. The camera is open only while the backend says a
 camera-verified session is running, and is closed as soon as it does not, or cannot be reached.
 
@@ -61,12 +61,12 @@ wherever the steps below say `focusquest-companion`.
    Camera. `focusquest-companion cameras` lists them; `--camera iphone` (part of a name) or
    `--camera 1` (a number from that list) picks another.
 
-   The first run downloads the face models (about 4 MB) to `~/.cache/focusquest/models`. The
+   The first run downloads the models (about 19 MB) to `~/.cache/focusquest/models`. The
    camera opens only once a session with **Verify with camera** is running; macOS asks the first
    time whether your terminal may use it. `--preview` opens a window showing what the camera sees,
-   whether it finds your face, the head's angles and the calibrated ones; leave it out for normal
-   use. Leave the camera for 90 seconds, or (in a category that checks it) look away for 60, and
-   you are warned; 60 seconds later the time stops counting.
+   whether it finds your face, the head's angles and the calibrated ones, and any phones and hands;
+   leave it out for normal use. Leave the camera for 90 seconds, hold a phone in view for 20, or
+   (in a category that checks it) look away for 60, and you are warned; 60 seconds later the time stops counting.
 
    Or with a script in place of the camera, to see the warnings quickly:
 
@@ -92,7 +92,8 @@ stop working.
 | --- | --- |
 | `companion.py` | The loop: looks once a second, reports every 2 seconds, opens and closes the detector as the backend says |
 | `detector.py` | The `Detector` interface and the `ScriptedDetector` |
-| `camera.py` | The `CameraDetector`: the webcam, MediaPipe's face detector and face landmarker, and the preview window |
+| `camera.py` | The `CameraDetector`: the webcam, MediaPipe's models (face detector, face landmarker, object detector, hand landmarker), and the preview window |
+| `phones.py` | The phone-in-hand rule |
 | `calibration.py` | Head angles, the screen and desk zones, the looking-away rule, and the saved calibration |
 | `cameras.py` | Picks the camera by name (the built-in one by default) and finds OpenCV's number for it |
 | `models.py` | Downloads the models once and checks each against a pinned SHA-256 |
@@ -119,9 +120,15 @@ stop working.
   degrees beyond the screen's angles (`SCREEN`), or beyond both the screen's and the desk's
   (`SCREEN_OR_DESK`), is `LOOKING_AWAY`. Its confidence grows over the next 15 degrees, and with the
   face's score: for a face at 0.9, it reaches the backend's minimum of 0.7 about 7 degrees past
-  the margin. A face lost
-  within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it is found again, since a
-  head turned far enough loses the face; otherwise a lost face is `AWAY`.
+  the margin. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
+  is found again, since a head turned far enough loses the face; otherwise a lost face is `AWAY`.
+- **A phone in hand.** MediaPipe's object detector (EfficientDet-Lite0, trained on COCO) looks for
+  its "cell phone" class; once it finds one at 0.25 or above, the hand landmarker looks for hands.
+  A phone whose box overlaps a hand's is `PHONE`; a phone lying on the desk is not. Its scores are
+  low even for a phone held up in plain view (0.3 to 0.8 on sample photos), so a phone in a hand
+  is reported from the backend's minimum, 0.7 at a score of 0.25, up to 1 at 0.6. The camera sees
+  only what is in front of it: a phone held low in the lap, below a laptop camera's view, is not
+  seen.
 - **A camera that cannot be used** (no permission, unplugged, taken by another app) is tried again at
   each report. Meanwhile nothing is observed, so nothing is subtracted.
 - **MediaPipe below 1.0.** 1.0.1 aborts on macOS as the face detector starts, so the extra pins

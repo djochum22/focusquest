@@ -4,7 +4,8 @@ from datetime import timedelta
 
 from focusquest_companion.calibration import Calibration, HeadPose, Range, Zone
 from focusquest_companion.camera import CameraDetector, Face, pose_from_matrix, watch_poses
-from focusquest_companion.detector import AWAY, LOOKING_AWAY, Detection, DetectorUnavailable
+from focusquest_companion.detector import AWAY, LOOKING_AWAY, PHONE, Detection, DetectorUnavailable
+from focusquest_companion.phones import Found
 
 from support import CREATIVE, T0, WRITING
 
@@ -42,16 +43,18 @@ class FakeFaces:
         self.closed = True
 
 
-class FakePoses:
-    def __init__(self, poses):
-        self.poses = list(poses)
+class FakeFinder:
+    """Answers each look with the next queued answer; counts how often it was asked."""
+
+    def __init__(self, answers):
+        self.answers = list(answers)
         self.asked = 0
         self.closed = False
 
     def find(self, frame):
         assert frame is FRAME
         self.asked += 1
-        return self.poses.pop(0)
+        return self.answers.pop(0)
 
     def close(self):
         self.closed = True
@@ -128,7 +131,7 @@ class LookingAwayTest(unittest.TestCase):
     def detector(self, faces, poses):
         self.camera = FakeCamera([FRAME] * len(faces))
         self.faces = FakeFaces(faces)
-        self.poses = FakePoses(poses)
+        self.poses = FakeFinder(poses)
         detector = CameraDetector(self.camera, lambda: self.faces, poses=lambda: self.poses,
                                   calibration=ANGLES)
         detector.open(T0)
@@ -211,12 +214,57 @@ class WatchPosesTest(unittest.TestCase):
     def test_keeps_the_angles_seen_for_the_time_given(self):
         ticks = iter([0, 0, 1, 2, 3])   # the start, then once before each look
         camera = FakeCamera([FRAME] * 3)
-        seen = watch_poses(camera, FakePoses([SCREEN, None, TURNED]), 3, monotonic=lambda: next(ticks))
+        seen = watch_poses(camera, FakeFinder([SCREEN, None, TURNED]), 3, monotonic=lambda: next(ticks))
         self.assertEqual(seen, [SCREEN, TURNED])
 
     def test_a_camera_that_stops_is_unavailable(self):
         with self.assertRaises(DetectorUnavailable):
-            watch_poses(FakeCamera([]), FakePoses([]), 3, monotonic=lambda: 0)
+            watch_poses(FakeCamera([]), FakeFinder([]), 3, monotonic=lambda: 0)
+
+
+class PhoneTest(unittest.TestCase):
+
+    HAND = (100, 100, 80, 120)
+    IN_HAND = Found(0.5, (150, 150, 60, 100))
+    ON_DESK = Found(0.9, (400, 400, 60, 100))
+
+    def detector(self, found, hands, faces=None):
+        frames = len(found)
+        self.phones = FakeFinder(found)
+        self.hands = FakeFinder(hands)
+        detector = CameraDetector(FakeCamera([FRAME] * frames), lambda: FakeFaces(faces or [face(0.9)] * frames),
+                                  phones=lambda: self.phones, hands=lambda: self.hands)
+        detector.open(T0)
+        return detector
+
+    def test_a_phone_in_a_hand_is_a_phone(self):
+        detector = self.detector([[self.IN_HAND]], [[self.HAND]])
+        self.assertEqual(detector.detect(T0, CREATIVE), Detection({PHONE: 0.914}))
+
+    def test_a_phone_on_the_desk_is_on_task(self):
+        detector = self.detector([[self.ON_DESK]], [[self.HAND]])
+        self.assertEqual(detector.detect(T0, CREATIVE), Detection())
+
+    def test_hands_are_looked_for_only_once_a_phone_is_found(self):
+        detector = self.detector([[], [Found(0.2, self.HAND)]], [])
+        detector.detect(T0, CREATIVE)
+        detector.detect(T0, CREATIVE)
+        self.assertEqual(self.hands.asked, 0)
+
+    def test_a_phone_in_a_hand_while_away_from_the_screen_is_both(self):
+        detector = self.detector([[self.IN_HAND]], [[self.HAND]], faces=[None])
+        self.assertEqual(detector.detect(T0, CREATIVE), Detection({AWAY: 1.0, PHONE: 0.914}))
+
+    def test_without_a_profile_phones_are_not_looked_for(self):
+        detector = self.detector([[self.IN_HAND]], [[self.HAND]])
+        self.assertEqual(detector.detect(T0, None), Detection())
+        self.assertEqual(self.phones.asked, 0)
+
+    def test_closing_closes_the_phone_and_hand_models(self):
+        detector = self.detector([], [])
+        detector.close()
+        self.assertTrue(self.phones.closed)
+        self.assertTrue(self.hands.closed)
 
 
 if __name__ == "__main__":

@@ -6,11 +6,11 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 ## Start here
 
-The next step is **C1c: phone in hand**, described below under "Next step". Before starting it:
+All three camera signals now work with a real webcam: away, looking away and a phone in hand. The user tried them live and they work, but wants them **more sensitive**: looking away should count sooner, and a phone should count even when only half of it is in view, as when the laptop stands further back during writing. That is written up under "Future work: sensitivity". The next step is **C1d: accuracy**, under "Next step", which measures before tuning. Ask the user which of the two to do first. Before starting either:
 
 1. Read this note, then `vision/README.md` (how the companion program runs and is built), then requirements §21 (the camera rules) and §19 (privacy).
 2. Run `scripts/test-all.sh` to see everything pass before changing anything.
-3. Ask the user whether they want C1c as planned below. They review each step before it is committed.
+3. Ask the user whether they want the step as planned below. They review each step before it is committed.
 
 ## Status
 
@@ -30,9 +30,10 @@ The next step is **C1c: phone in hand**, described below under "Next step". Befo
 | B9 | The companion program (`vision/`), with a scripted fake detector; `serverTime` in the companion's answers | `03e4877` |
 | B10 | End-to-end tests that drive a session through the real companion program | `03e4877` |
 | C1a | Real camera, presence only: webcam, MediaPipe face detection, `--preview`, built-in camera chosen by name; away warning moved to 90 s | `94ae4d7` |
-| C1b | Looking away: Face Landmarker head pose against the work area, `calibrate`, a lost face after a turn stays looking away | Committed after this note; not yet confirmed live |
-| **C1c** | **Phone in hand** | **Next** |
-| C1d | Smoothing, label mode, accuracy measurements, tuning | |
+| C1b | Looking away: Face Landmarker head pose against the work area, `calibrate`, a lost face after a turn stays looking away | `9a863c2`; tried live, works |
+| C1c | Phone in hand: EfficientDet-Lite0's "cell phone" overlapping a hand from the Hand Landmarker, with a rescaled confidence | The commit with this note; tried live, works |
+| **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next** |
+| C1e | Sensitivity: looking away sooner, half-visible phones (see "Future work: sensitivity") | Asked for by the user; can come before or with C1d |
 | C2 | Say in the web app when the camera cannot be used (see "Known limits") | Any time; small |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
@@ -45,6 +46,8 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **Camera profiles are defaults only**; users cannot edit them yet (requirements §22, #17).
 - **BlazeFace stays for presence; the Face Landmarker is added for head pose only.** The landmarker gives no per-face score, and the graded away confidence (1 minus the face score) is wanted for C1d's accuracy measurements.
 - **A face lost just after a turn away is looking away**, not away, until a face is found again (within 2 seconds of the last turned-away look).
+- **Phone confidence is rescaled in the companion**, not by lowering the backend's minimum: the detector scores held phones at only 0.3 to 0.8, so a phone overlapping a hand is reported from 0.7 (at a score of 0.25) to 1 (at 0.6). The overlap with a hand is what makes it believable.
+- **EfficientDet-Lite0, float16** for phones, over Lite2: on sample photos it caught 3 of 5 held phones against Lite2's 2, at about 12 ms a frame against 31.
 
 ## How the pieces fit
 
@@ -57,13 +60,14 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 
 `CameraDetector` in `vision/src/focusquest_companion/camera.py`, behind the `Detector` interface (`open`, `detect(now, profile)`, `close`) in `detector.py`, chosen with `run --camera`. `ScriptedDetector` implements the same interface for tests and demos (`run --script "present 60s, phone 90s"`).
 
-**Built so far (C1a):**
+**Built so far:**
 - The webcam (`Webcam`) is read on a background thread that keeps only the latest frame, in memory.
 - `MediaPipeFaces` runs MediaPipe's BlazeFace (short range). No face at 0.5 or above is `AWAY`, with confidence 1 minus the best face's score.
 - Models are downloaded once to `~/.cache/focusquest/models` and checked against a pinned SHA-256 (`models.py`).
 - A camera that cannot open, or stops sending frames, raises `DetectorUnavailable`. The companion says so once and retries at each report.
 - `--preview` shows the frame, the face box and the result in a window.
 - **C1b, looking away:** where the profile checks `LOOKING_AWAY`, `MediaPipePoses` runs the Face Landmarker (`face_landmarker.task`, pinned) and `pose_from_matrix` turns its facial transformation matrix into yaw (positive towards the picture's right) and pitch (positive down). The matrix's camera space is x right, y up, z towards the camera; this was checked by shifting a sample image. `calibration.py` holds the rule: beyond `MARGIN_DEGREES` (10) outside every zone of the work area (screen; screen or desk) is looking away, with confidence `min(1, 0.5 + 0.5·beyond/15) × (0.5 + 0.5·face score)`. `focusquest-companion calibrate` records 5 seconds at the screen, then 5 at the desk, trims 5 % at each end and saves only the angles in `calibration.json` beside the pairing file; without it, `calibration.DEFAULT` is used and `run` says so. `--preview` shows the angles and zones.
+- **C1c, phone in hand:** where the profile checks `PHONE`, `MediaPipePhones` runs EfficientDet-Lite0 (float16, pinned) for COCO's "cell phone" class only. Only once a phone scores `PHONE_FROM` (0.25) or more does `MediaPipeHands` run the Hand Landmarker, at detection and presence thresholds of 0.3 rather than 0.5: a hand gripping a phone shows little palm and was missed at 0.5. `phones.py` holds the rule: the surest phone whose box overlaps a hand's landmark box is `PHONE`. On 5 stock photos of held phones and 4 desk scenes it found 3 of the held phones (0.75 to 0.95 after rescaling) and nothing on the desks, including two with a phone lying there. The 2 it missed were a blurred phone in the background and a phone the detector barely saw. All four models together take 13 to 25 ms a frame. `--preview` outlines phones (red when in a hand) and hands.
 - `cameras.py` picks the camera. OpenCV numbers macOS cameras in the order of their unique IDs (it sorts them so, in `cap_avfoundation_mac.mm`). `system_profiler SPCameraDataType -json` gives each camera's name and unique ID, so the program finds the built-in camera by name and looks its number up at each opening. `focusquest-companion cameras` lists them.
 
 **Things to know about MediaPipe:**
@@ -74,28 +78,42 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - Check a detector without the webcam by feeding it images. MediaPipe's sample portrait, `https://storage.googleapis.com/mediapipe-assets/portrait.jpg`, gives one face at 0.92. Do not commit third-party images.
 - Opening the webcam turns on the user's camera. Leave live tests to the user, with `--preview`.
 
-## Next step: C1c, phone in hand
+## Next step: C1d, accuracy
 
-**C1b still needs a live try:** `calibrate --preview`, then `run --camera --preview` in a Writing and a Coding session. Its margin and default angles may need adjusting from that.
-
-**Goal.** Report `PHONE` when a phone is in the user's hand. A phone lying on the desk is not off task.
+**Goal.** Know how often each signal is right, and tune from that rather than from guesses. This is the research question in requirements §21.
 
 **Suggested approach** (confirm with the user first):
-1. MediaPipe's Object Detector (EfficientDet-Lite, trained on COCO, whose classes include "cell phone") finds phones; the Hand Landmarker finds hands. A phone box overlapping a hand is `PHONE`, with the lower of the two scores. Download and pin both models as in `models.py`, and check them against MediaPipe 0.10.x.
-2. Run them only where the profile checks `PHONE` (every category today), and see what it costs per frame: the detector looks once a second.
-3. A laptop camera often cannot see the lap. Say so in the README and the Settings notice rather than guess.
-4. Unit-test the overlap rule with made-up boxes, as `test_camera.py` does with fake faces and poses. Check the models with images, not the webcam; do not commit third-party images.
+1. **Label mode.** A `label` command runs the camera detector for a chosen category without a session. The user presses a key to say what they are doing (on task, away, phone, looking away), and the program logs, once a second, its detections next to the label, as numbers only, to a CSV file the user owns. Frames may never be saved (§19).
+2. **Measure.** Per signal, per second: how often it was reported when the label said so, and when it did not. Then per episode: would it have warned at the profile's timings? Disputed episodes from the data export give a second, real-use source.
+3. **Smoothing, if the measurements call for it.** The backend already treats gaps of up to 5 seconds as flicker. Add a majority vote over a second or two in the companion only if single missed frames still break episodes.
+4. **Tune** `focusquest.camera.*`, the looking-away margin and curve in `calibration.py`, and the phone thresholds in `phones.py`.
+5. Training a custom model (PyTorch) only if the pretrained ones fall short. That needs saved images, which needs its own consent decision.
 
-**Done when:** a phone held in view for 20 seconds warns, one lying on the desk does not, `scripts/test-all.sh` passes, the user has tried it live, and the docs (this note, `vision/README.md`, the technical architecture, the Settings notice) are updated.
+**Done when:** the user has labelled at least a few minutes of each signal, the measured rates are written down (in this note or the technical architecture), any tuning follows from them, and `scripts/test-all.sh` passes.
+
+## Future work: sensitivity
+
+The user tried C1b and C1c live: both work, but both are too forgiving. Each item below names where the number lives, so it can be changed, and says how to check the change without the webcam. Label mode (C1d) would measure both properly; a first adjustment can come before it.
+
+**Looking away should count sooner.**
+- Today a head counts as looking away only beyond `MARGIN_DEGREES` (10) outside the calibrated zone, and its confidence reaches the backend's 0.7 only about 7 degrees further (`CERTAIN_AFTER_DEGREES`, 15, and the curve in `Calibration.looking_away`, `calibration.py`). For a clearly seen face that is about 17 degrees outside the zone before anything is reported.
+- Options, smallest first: a smaller margin (for example 5); a curve that starts at 0.7 at the margin rather than 0.5, as `phones.confidence` does; smaller default zones in `calibration.DEFAULT` for uncalibrated use. Calibration already takes in the whole screen, so a smaller margin mainly cuts the extra tolerance.
+- The warning time (60 seconds, `focusquest.camera.warning-after` in `application.yml`) is a separate knob; the user asked for sensitivity, not a shorter warning. Ask before changing it.
+- Check: the unit tests in `test_calibration.py` use made-up angles; adjust them with the numbers. Then a live try with `--preview`, which shows the angles and the zones.
+
+**A phone should count when only half of it is visible**, especially in writing categories, where the laptop often stands further back, so the phone is small and often cut off at the bottom edge of the picture.
+- Why it is missed today: EfficientDet-Lite0 looks at a 320×320 copy of the whole frame, so a small or cut-off phone becomes a few pixels and scores below `PHONE_FROM` (0.25, `phones.py`). The hand must also be found (Hand Landmarker at 0.3, `MediaPipeHands` in `camera.py`), and the boxes must overlap.
+- The frame size is not set: `Webcam` takes OpenCV's default for the camera. Check what it is (`cv2.CAP_PROP_FRAME_WIDTH`); a larger frame helps only if the detector also sees more of it (next point).
+- Options:
+  - Look again at the lower half of the frame, where a phone in hand usually is, as a second, enlarged image (tiling). This roughly doubles the detector's time, about 12 ms more, once a second.
+  - Let a phone near a hand count, not only one overlapping it: grow the hand's box by a margin before the overlap test (`phones.overlaps` and `phones.held`).
+  - Lower `PHONE_FROM` for a phone that touches the frame's edge, where being cut off explains a low score.
+  - EfficientDet-Lite2 (448×448 input) sees small objects better, at about 31 ms a frame; on the sample photos it caught fewer held phones overall (2 of 5 against 3), so measure first.
+- Check without the webcam: crop and shrink the sample photos so the phone is small or cut off at the bottom edge, as in "The real detector" above (do not commit third-party images). The unit tests in `test_phones.py` and `test_camera.py` use made-up boxes.
+- A phone held low in the lap stays out of view whatever the model does; say so rather than guess.
 
 ## After that
 
-- **C1d, accuracy.**
-  - Smoothing: a signal counts once seen in most frames over a second or two.
-  - A label mode: the user says what they are doing, and the program logs its detections next to the label, as numbers only. Frames may never be saved (§19).
-  - Measure accuracy from label mode and from disputed episodes (the research question in §21).
-  - Then tune `focusquest.camera.*`, and the looking-away margin and confidence in `calibration.py`.
-  - Training a custom model (PyTorch) only if the pretrained ones fall short. That needs saved images, which needs its own consent decision.
 - **C2, camera unavailable.** See "Known limits".
 
 ## Where the decisions live
@@ -115,7 +133,8 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
 - A user who turns away and then gets up within 2 seconds is reported as looking away until they are back, not as away. Both warn; looking away warns sooner (60 s against 90 s).
 - The calibration is not tied to a camera. After moving the camera or switching to another, the user has to calibrate again; nothing detects it.
-- The looking-away margin, confidence curve and default angles are guesses until C1d measures them.
+- The looking-away margin, confidence curve and default angles, and the phone thresholds, are guesses until C1d measures them.
+- A phone held low, in the lap, is below a laptop camera's view and is not seen. A hand gripping a phone is sometimes missed, and then the phone does not count.
 - While the camera cannot be used, the companion still reports, so the web app shows the session as checked. Nothing is observed, so nothing is subtracted, but the spec says the web app should say it is not being verified. This needs a camera-unavailable flag in the heartbeat and an off-task state for it (C2).
 - Operating-system notifications cannot count down, so the companion sends a reminder 10 seconds before the time stops counting instead.
 

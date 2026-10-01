@@ -92,8 +92,9 @@ function onDefaultChange(event: Event) {
       turn it on.
     </p>
     <p class="camera__notice" role="note">
-      So far the companion program checks that you are at your desk and looking at your work. It
-      does not yet notice a phone. Calibrate it once so it knows where your screen and desk are.
+      The companion program checks that you are at your desk, looking at your work, and not holding
+      a phone where the camera can see it. Calibrate it once so it knows where your screen and desk
+      are.
     </p>
     <ErrorMessage :message="error" />
 

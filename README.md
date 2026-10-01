@@ -65,8 +65,8 @@ in. The full steps, including how to add sites to block, are in [`extension/READ
 
 **4. Camera companion** (optional)
 
-With a webcam it checks, so far, that you are at your desk and looking at your work; it can also
-replay a scripted timeline, to try the warnings out. Turn camera verification on in Settings, pair, and run it; see
+With a webcam it checks that you are at your desk, looking at your work and not holding a phone;
+it can also replay a scripted timeline, to try the warnings out. Turn camera verification on in Settings, pair, and run it; see
 [`vision/README.md`](vision/README.md).
 
 ## Run the tests

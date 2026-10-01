@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     source = run.add_mutually_exclusive_group(required=True)
     source.add_argument("--camera", nargs="?", const="built-in", metavar="CAMERA",
                         help="watch with a camera: the computer's built-in one, or CAMERA, part of a name "
-                             "(see `cameras`) or a number. Checks presence and where you look.")
+                             "(see `cameras`) or a number. Checks presence, where you look and a phone in hand.")
     source.add_argument("--script", help="replay a timeline instead of reading a camera, e.g. 'present 60s, phone 90s'")
     run.add_argument("--preview", action="store_true",
                      help="with --camera: show what the camera sees and what it found, in a window")
@@ -109,7 +109,7 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
         detector = _camera_detector(args.camera, args.preview, angles, log)
         if detector is None:
             return 2
-        source = f"{CameraChoice.parse(args.camera).describe()}, checking presence and where you look"
+        source = f"{CameraChoice.parse(args.camera).describe()}, checking presence, where you look and a phone in hand"
         if not angles.calibrated:
             source += " (not calibrated yet: run `focusquest-companion calibrate` for your screen and desk)"
 
@@ -207,17 +207,18 @@ def _camera_installed() -> bool:
 def _camera_detector(wanted: str, preview: bool, angles: calibration.Calibration, log):
     if not _camera_installed():
         return None
-    from .camera import CameraDetector, MediaPipeFaces, MediaPipePoses, Preview, Webcam
+    from .camera import CameraDetector, MediaPipeFaces, MediaPipeHands, MediaPipePhones, MediaPipePoses, Preview, Webcam
 
     try:
-        face_model = models.ensure(models.FACE_DETECTOR, log=log)
-        pose_model = models.ensure(models.FACE_LANDMARKER, log=log)
+        face_model, pose_model, phone_model, hand_model = (models.ensure(model, log=log) for model in (
+            models.FACE_DETECTOR, models.FACE_LANDMARKER, models.OBJECT_DETECTOR, models.HAND_LANDMARKER))
     except models.ModelError as error:
         print(error, file=sys.stderr)
         return None
     choice = CameraChoice.parse(wanted)
     webcam = Webcam(lambda: choice.resolve(list_cameras()), log)
     return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), poses=lambda: MediaPipePoses(pose_model),
+                          phones=lambda: MediaPipePhones(phone_model), hands=lambda: MediaPipeHands(hand_model),
                           calibration=angles, preview=Preview() if preview else None)
 
 

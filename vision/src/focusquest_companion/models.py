@@ -33,6 +33,22 @@ FACE_LANDMARKER = Model(
     "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
 )
 
+#: MediaPipe's object detector, EfficientDet-Lite0 trained on COCO: used for its "cell phone" class.
+OBJECT_DETECTOR = Model(
+    "efficientdet_lite0.tflite",
+    "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/"
+    "efficientdet_lite0.tflite",
+    "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993",
+)
+
+#: MediaPipe's hand landmarker, for where the hands are.
+HAND_LANDMARKER = Model(
+    "hand_landmarker.task",
+    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/"
+    "hand_landmarker.task",
+    "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+)
+
 
 class ModelError(Exception):
     """A model could not be downloaded, or was not the file expected."""
