@@ -6,11 +6,11 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 ## Start here
 
-The next step is **C1b: looking away**, described below under "Next step". Before starting it:
+The next step is **C1c: phone in hand**, described below under "Next step". Before starting it:
 
 1. Read this note, then `vision/README.md` (how the companion program runs and is built), then requirements §21 (the camera rules) and §19 (privacy).
 2. Run `scripts/test-all.sh` to see everything pass before changing anything.
-3. Ask the user whether they want C1b as planned below. They review each step before it is committed.
+3. Ask the user whether they want C1c as planned below. They review each step before it is committed.
 
 ## Status
 
@@ -30,8 +30,8 @@ The next step is **C1b: looking away**, described below under "Next step". Befor
 | B9 | The companion program (`vision/`), with a scripted fake detector; `serverTime` in the companion's answers | `03e4877` |
 | B10 | End-to-end tests that drive a session through the real companion program | `03e4877` |
 | C1a | Real camera, presence only: webcam, MediaPipe face detection, `--preview`, built-in camera chosen by name; away warning moved to 90 s | `94ae4d7` |
-| **C1b** | **Looking away: head pose against the work area, with calibration** | **Next** |
-| C1c | Phone in hand | |
+| C1b | Looking away: Face Landmarker head pose against the work area, `calibrate`, a lost face after a turn stays looking away | Committed after this note; not yet confirmed live |
+| **C1c** | **Phone in hand** | **Next** |
 | C1d | Smoothing, label mode, accuracy measurements, tuning | |
 | C2 | Say in the web app when the camera cannot be used (see "Known limits") | Any time; small |
 
@@ -43,6 +43,8 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **The laptop's built-in camera** by default, not the iPhone (Continuity Camera). `--camera` picks it by name; see "The real detector" below.
 - **Off task never pauses the session.** Time stops counting after the grace period and counts again when the user is back; the session keeps running. Automatic pausing was offered and not taken up.
 - **Camera profiles are defaults only**; users cannot edit them yet (requirements §22, #17).
+- **BlazeFace stays for presence; the Face Landmarker is added for head pose only.** The landmarker gives no per-face score, and the graded away confidence (1 minus the face score) is wanted for C1d's accuracy measurements.
+- **A face lost just after a turn away is looking away**, not away, until a face is found again (within 2 seconds of the last turned-away look).
 
 ## How the pieces fit
 
@@ -53,7 +55,7 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 
 ## The real detector (C1)
 
-`CameraDetector` in `vision/src/focusquest_companion/camera.py`, behind the `Detector` interface (`open`, `detect`, `close`) in `detector.py`, chosen with `run --camera`. `ScriptedDetector` implements the same interface for tests and demos (`run --script "present 60s, phone 90s"`).
+`CameraDetector` in `vision/src/focusquest_companion/camera.py`, behind the `Detector` interface (`open`, `detect(now, profile)`, `close`) in `detector.py`, chosen with `run --camera`. `ScriptedDetector` implements the same interface for tests and demos (`run --script "present 60s, phone 90s"`).
 
 **Built so far (C1a):**
 - The webcam (`Webcam`) is read on a background thread that keeps only the latest frame, in memory.
@@ -61,6 +63,7 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - Models are downloaded once to `~/.cache/focusquest/models` and checked against a pinned SHA-256 (`models.py`).
 - A camera that cannot open, or stops sending frames, raises `DetectorUnavailable`. The companion says so once and retries at each report.
 - `--preview` shows the frame, the face box and the result in a window.
+- **C1b, looking away:** where the profile checks `LOOKING_AWAY`, `MediaPipePoses` runs the Face Landmarker (`face_landmarker.task`, pinned) and `pose_from_matrix` turns its facial transformation matrix into yaw (positive towards the picture's right) and pitch (positive down). The matrix's camera space is x right, y up, z towards the camera; this was checked by shifting a sample image. `calibration.py` holds the rule: beyond `MARGIN_DEGREES` (10) outside every zone of the work area (screen; screen or desk) is looking away, with confidence `min(1, 0.5 + 0.5·beyond/15) × (0.5 + 0.5·face score)`. `focusquest-companion calibrate` records 5 seconds at the screen, then 5 at the desk, trims 5 % at each end and saves only the angles in `calibration.json` beside the pairing file; without it, `calibration.DEFAULT` is used and `run` says so. `--preview` shows the angles and zones.
 - `cameras.py` picks the camera. OpenCV numbers macOS cameras in the order of their unique IDs (it sorts them so, in `cap_avfoundation_mac.mm`). `system_profiler SPCameraDataType -json` gives each camera's name and unique ID, so the program finds the built-in camera by name and looks its number up at each opening. `focusquest-companion cameras` lists them.
 
 **Things to know about MediaPipe:**
@@ -71,40 +74,27 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - Check a detector without the webcam by feeding it images. MediaPipe's sample portrait, `https://storage.googleapis.com/mediapipe-assets/portrait.jpg`, gives one face at 0.92. Do not commit third-party images.
 - Opening the webcam turns on the user's camera. Leave live tests to the user, with `--preview`.
 
-## Next step: C1b, looking away
+## Next step: C1c, phone in hand
 
-**Goal.** Report `LOOKING_AWAY` when the user's head is turned away from the category's work area.
+**C1b still needs a live try:** `calibrate --preview`, then `run --camera --preview` in a Writing and a Coding session. Its margin and default angles may need adjusting from that.
 
-**The work areas** come from the backend in each heartbeat (`profile.workArea`):
-- `SCREEN` (coding, work, administration): the screen only.
-- `SCREEN_OR_DESK` (studying, reading, writing, planning): the screen, or down at the desk. Reading or writing on paper must not count as looking away.
-- `ANYWHERE` (creative work, other, task-free): looking away is not checked, and `LOOKING_AWAY` is not in the profile's checks.
-
-`ObservationTracker` already drops any signal the profile does not check.
+**Goal.** Report `PHONE` when a phone is in the user's hand. A phone lying on the desk is not off task.
 
 **Suggested approach** (confirm with the user first):
-1. **Head pose.** Use MediaPipe's Face Landmarker with `output_facial_transformation_matrixes=True`; the matrix gives the head's yaw (left and right) and pitch (up and down). Download the model the same way as the face detector, pinning its SHA-256. The Face Landmarker could also replace BlazeFace for presence, with one model instead of two; decide whether that is simpler.
-2. **Calibration**, because every camera sits somewhere different. A `calibrate` command asks the user to look at the screen for a few seconds, then down at the desk. It stores only the angles, never images, next to the pairing in `config.py`'s file. Without calibration, fall back to fixed angles around straight ahead and say so.
-3. **The rule.** The head is outside the calibrated screen angles (plus the desk angles for `SCREEN_OR_DESK`) by more than a margin: that is `LOOKING_AWAY`. Confidence grows with how far outside it is, and with the face's score.
-4. **Away versus looking away.** A head turned far enough loses the face, which today counts as `AWAY`. Consider whether a face lost just after a large turn should be `LOOKING_AWAY` instead.
-5. **Pass the profile to the detector.** `detect(now)` does not receive the work area today. `Companion.look()` has the profile (`self._state.profile`), so extend the interface: for example `detect(now, profile)`, or a method called when the profile arrives.
-6. **Preview and tests.** Show the angles and the calibrated ranges in `--preview`. Unit-test the rule with made-up angles, as `test_camera.py` does with fake faces.
+1. MediaPipe's Object Detector (EfficientDet-Lite, trained on COCO, whose classes include "cell phone") finds phones; the Hand Landmarker finds hands. A phone box overlapping a hand is `PHONE`, with the lower of the two scores. Download and pin both models as in `models.py`, and check them against MediaPipe 0.10.x.
+2. Run them only where the profile checks `PHONE` (every category today), and see what it costs per frame: the detector looks once a second.
+3. A laptop camera often cannot see the lap. Say so in the README and the Settings notice rather than guess.
+4. Unit-test the overlap rule with made-up boxes, as `test_camera.py` does with fake faces and poses. Check the models with images, not the webcam; do not commit third-party images.
 
-**Done when:**
-- Looking at the screen, or at paper where the desk counts, is on task.
-- Turning away for 60 seconds warns.
-- `scripts/test-all.sh` passes.
-- The user has tried it live with `--preview`.
-- Docs are updated: `vision/README.md`, this note, the technical architecture's "Camera verification" part, and the Settings notice in `CameraVerificationCard.vue` (it says only presence is checked).
+**Done when:** a phone held in view for 20 seconds warns, one lying on the desk does not, `scripts/test-all.sh` passes, the user has tried it live, and the docs (this note, `vision/README.md`, the technical architecture, the Settings notice) are updated.
 
 ## After that
 
-- **C1c, phone in hand.** MediaPipe's Object Detector (EfficientDet-Lite, trained on COCO, whose classes include "cell phone"), combined with the Hand Landmarker: a phone box overlapping a hand is `PHONE`. A phone lying on the desk is not. A laptop camera often cannot see the lap; say so rather than guess.
 - **C1d, accuracy.**
   - Smoothing: a signal counts once seen in most frames over a second or two.
   - A label mode: the user says what they are doing, and the program logs its detections next to the label, as numbers only. Frames may never be saved (§19).
   - Measure accuracy from label mode and from disputed episodes (the research question in §21).
-  - Then tune `focusquest.camera.*`.
+  - Then tune `focusquest.camera.*`, and the looking-away margin and confidence in `calibration.py`.
   - Training a custom model (PyTorch) only if the pretrained ones fall short. That needs saved images, which needs its own consent decision.
 - **C2, camera unavailable.** See "Known limits".
 
@@ -123,7 +113,9 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - Observations that arrive after their stretch of time was settled change nothing already settled.
 - Users cannot edit the camera profiles yet; this was decided (requirements §22, #17).
 - When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
-- A head turned far to the side can lose the face entirely, which counts as away rather than looking away (C1b, point 4).
+- A user who turns away and then gets up within 2 seconds is reported as looking away until they are back, not as away. Both warn; looking away warns sooner (60 s against 90 s).
+- The calibration is not tied to a camera. After moving the camera or switching to another, the user has to calibrate again; nothing detects it.
+- The looking-away margin, confidence curve and default angles are guesses until C1d measures them.
 - While the camera cannot be used, the companion still reports, so the web app shows the session as checked. Nothing is observed, so nothing is subtracted, but the spec says the web app should say it is not being verified. This needs a camera-unavailable flag in the heartbeat and an off-task state for it (C2).
 - Operating-system notifications cannot count down, so the companion sends a reminder 10 seconds before the time stops counting instead.
 
@@ -133,4 +125,4 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **Restart the backend after pulling:** schema changes are Flyway migrations and run at startup. The latest is `V14`.
 - **Commit only your own files.** Another Claude session has worked in this folder at the same time. Check `git status`, stage files by name, and do not sweep in someone else's unfinished work.
 - **Commits:** the user reviews each step, then asks for the commit. Each step is one commit, with a message explaining the why, ending with the co-author line the session is given.
-- **Try the companion:** backend (`cd backend && ./gradlew bootRun`) and web app (`cd frontend && npm run dev`) running; in Settings turn camera verification on and pair; then `cd vision && .venv/bin/focusquest-companion pair` and `run --camera --preview` (or `run --script ...`). Restart the backend after changing `application.yml`.
+- **Try the companion:** backend (`cd backend && ./gradlew bootRun`) and web app (`cd frontend && npm run dev`) running; in Settings turn camera verification on and pair; then `cd vision && .venv/bin/focusquest-companion pair`, `calibrate --preview`, and `run --camera --preview` (or `run --script ...`). Restart the backend after changing `application.yml`.

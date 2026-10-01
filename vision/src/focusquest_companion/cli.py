@@ -8,7 +8,7 @@ import sys
 import threading
 from pathlib import Path
 
-from . import config, models
+from . import calibration, config, models
 from .api import DEFAULT_BACKEND_URL, BackendClient, BackendClock, BackendError, Unauthorized
 from .cameras import CameraChoice, list_cameras
 from .companion import Companion
@@ -16,6 +16,8 @@ from .detector import DetectorUnavailable, ScriptedDetector, parse_script
 from .notifications import SystemNotifier, TerminalNotifier, WarningPresenter
 
 TOKEN_PREFIX = "fqc_"
+#: How long to look at the screen, then at the desk, while calibrating.
+CALIBRATION_SECONDS = 5
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,11 +37,17 @@ def main(argv: list[str] | None = None) -> int:
 
     commands.add_parser("cameras", help="list the cameras, and which one --camera uses")
 
+    calibrate = commands.add_parser(
+        "calibrate", help="show the program where your screen and desk are, so it can tell when you look away")
+    calibrate.add_argument("--camera", default="built-in", metavar="CAMERA",
+                           help="the camera to calibrate: the built-in one by default, or as for `run --camera`")
+    calibrate.add_argument("--preview", action="store_true", help="show what the camera sees while calibrating")
+
     run = commands.add_parser("run", help="watch during camera-verified sessions")
     source = run.add_mutually_exclusive_group(required=True)
     source.add_argument("--camera", nargs="?", const="built-in", metavar="CAMERA",
                         help="watch with a camera: the computer's built-in one, or CAMERA, part of a name "
-                             "(see `cameras`) or a number. Checks presence only so far.")
+                             "(see `cameras`) or a number. Checks presence and where you look.")
     source.add_argument("--script", help="replay a timeline instead of reading a camera, e.g. 'present 60s, phone 90s'")
     run.add_argument("--preview", action="store_true",
                      help="with --camera: show what the camera sees and what it found, in a window")
@@ -57,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "cameras":
             return _cameras()
+        if args.command == "calibrate":
+            return _calibrate(calibration.default_path(path), args.camera, args.preview)
         if args.preview and args.script is not None:
             parser.error("--preview only works with --camera")
         return _run(path, args, args.no_notifications)
@@ -95,10 +105,13 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
             return 2
         source = "replaying a script instead of a camera"
     else:
-        detector = _camera_detector(args.camera, args.preview, log)
+        angles = calibration.load(calibration.default_path(path))
+        detector = _camera_detector(args.camera, args.preview, angles, log)
         if detector is None:
             return 2
-        source = f"{CameraChoice.parse(args.camera).describe()}, checking presence only so far"
+        source = f"{CameraChoice.parse(args.camera).describe()}, checking presence and where you look"
+        if not angles.calibrated:
+            source += " (not calibrated yet: run `focusquest-companion calibrate` for your screen and desk)"
 
     notifier = TerminalNotifier(log) if no_notifications else SystemNotifier(log)
     companion = Companion(BackendClient(pairing.backend_url, pairing.token), detector,
@@ -134,24 +147,78 @@ def _cameras() -> int:
     return 0
 
 
-def _camera_detector(wanted: str, preview: bool, log):
+def _calibrate(path: Path, wanted: str, preview: bool) -> int:
+    if not _camera_installed():
+        return 2
+    from .camera import MediaPipePoses, Preview, Webcam, watch_poses
+
     try:
-        from .camera import CameraDetector, MediaPipeFaces, Preview, Webcam
+        pose_model = models.ensure(models.FACE_LANDMARKER)
+    except models.ModelError as error:
+        print(error, file=sys.stderr)
+        return 1
+    choice = CameraChoice.parse(wanted)
+    webcam = Webcam(lambda: choice.resolve(list_cameras()))
+    window = Preview() if preview else None
+    print("Calibrating where you look while you work. Only the head's angles are kept, never a picture.")
+    try:
+        webcam.open()
+    except DetectorUnavailable as error:
+        print(error, file=sys.stderr)
+        return 1
+    poses = MediaPipePoses(pose_model)
+    try:
+        zones = []
+        for where, how in (("screen", "Look at your screen, across all of it, as you do while working"),
+                           ("desk", "Look down at your desk, as you do when reading or writing on paper")):
+            input(f"{how}. Press Enter to start, and keep looking for {CALIBRATION_SECONDS} seconds. ")
+            seen = watch_poses(webcam, poses, CALIBRATION_SECONDS, window, f"calibrating: {where}")
+            try:
+                zones.append(calibration.Zone.from_poses(seen))
+            except ValueError as error:
+                print(f"{error}. Make sure your face is in view, then calibrate again.", file=sys.stderr)
+                return 1
+            print(f"Your {where}: {calibration.describe(zones[-1])}.")
+    except DetectorUnavailable as error:
+        print(error, file=sys.stderr)
+        return 1
+    finally:
+        poses.close()
+        webcam.close()
+        if window is not None:
+            window.close()
+    calibration.save(path, calibration.Calibration(*zones))
+    print(f"Saved to {path}. Calibrate again after moving the camera or switching to another one.")
+    return 0
+
+
+def _camera_installed() -> bool:
+    try:
         import cv2  # noqa: F401  (checked here, used once the camera opens)
         import mediapipe  # noqa: F401
     except ImportError:
         print("The camera needs OpenCV and MediaPipe. From vision/, run:\n"
               "  python3 -m venv .venv && .venv/bin/pip install -e '.[camera]'\n"
               "and start the program with .venv/bin/focusquest-companion.", file=sys.stderr)
+        return False
+    return True
+
+
+def _camera_detector(wanted: str, preview: bool, angles: calibration.Calibration, log):
+    if not _camera_installed():
         return None
+    from .camera import CameraDetector, MediaPipeFaces, MediaPipePoses, Preview, Webcam
+
     try:
         face_model = models.ensure(models.FACE_DETECTOR, log=log)
+        pose_model = models.ensure(models.FACE_LANDMARKER, log=log)
     except models.ModelError as error:
         print(error, file=sys.stderr)
         return None
     choice = CameraChoice.parse(wanted)
     webcam = Webcam(lambda: choice.resolve(list_cameras()), log)
-    return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), Preview() if preview else None)
+    return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), poses=lambda: MediaPipePoses(pose_model),
+                          calibration=angles, preview=Preview() if preview else None)
 
 
 def _flushing_print(line: str) -> None:

@@ -71,7 +71,7 @@ class Companion:
             return
         now = self._clock.now()
         try:
-            detection = self._detector.detect(now)
+            detection = self._detector.detect(now, self._state.profile)
         except DetectorUnavailable as error:
             self._say_unavailable(error)
             self._close_camera()

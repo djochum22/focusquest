@@ -6,14 +6,16 @@ observations: which off-task signal (away, a phone in hand, looking away), how c
 when. The backend decides what counts as off task, when to warn, and what time to subtract
 (requirements specification, section 21).
 
-**With a camera, it checks presence only so far**: nobody in front of the camera is `AWAY`.
-Looking away and a phone in hand come next. It can also replay a scripted timeline in place of a
+**With a camera, it checks presence and where you look so far**: nobody in front of the camera is
+`AWAY`, and a head turned away from the category's work area is `LOOKING_AWAY`. A phone in hand
+comes next. It can also replay a scripted timeline in place of a
 camera, so the whole pipeline, warnings included, can be tried without one; both go behind the same
 interface (`Detector` in `detector.py`).
 
 **Privacy.** Frames are processed in memory only, each replacing the last: never saved to disk,
 never uploaded, never sent to the backend. There is no facial recognition: the face detector finds
-that a face is there, not whose it is. The camera is open only while the backend says a
+that a face is there, not whose it is, and the face landmarker which way the head is turned.
+Calibrating keeps only angles, never a picture. The camera is open only while the backend says a
 camera-verified session is running, and is closed as soon as it does not, or cannot be reached.
 
 ## Run it
@@ -38,7 +40,18 @@ wherever the steps below say `focusquest-companion`.
 
    The code is kept in `~/.config/focusquest/companion.json` (readable by you only), or where
    `--config` says. Pairing again in Settings makes a new code, and the old one stops working.
-3. Run it with the camera:
+3. Calibrate, once, so it knows where your screen and desk are as this camera sees them:
+
+   ```bash
+   focusquest-companion calibrate --preview
+   ```
+
+   It asks you to look at your screen for 5 seconds, across all of it, then down at your desk as
+   when reading or writing on paper, and keeps the range of head angles seen in
+   `calibration.json` next to the pairing. Only angles are kept. Calibrate again after moving the
+   camera or switching to another; `--camera` picks one as for `run`. Without a calibration, fixed
+   angles around straight ahead are used, and `run` says so.
+4. Run it with the camera:
 
    ```bash
    focusquest-companion run --camera --preview
@@ -48,10 +61,11 @@ wherever the steps below say `focusquest-companion`.
    Camera. `focusquest-companion cameras` lists them; `--camera iphone` (part of a name) or
    `--camera 1` (a number from that list) picks another.
 
-   The first run downloads the face model (about 230 KB) to `~/.cache/focusquest/models`. The
+   The first run downloads the face models (about 4 MB) to `~/.cache/focusquest/models`. The
    camera opens only once a session with **Verify with camera** is running; macOS asks the first
-   time whether your terminal may use it. `--preview` opens a window showing what the camera sees
-   and whether it finds your face; leave it out for normal use. Leave the camera for 90 seconds and
+   time whether your terminal may use it. `--preview` opens a window showing what the camera sees,
+   whether it finds your face, the head's angles and the calibrated ones; leave it out for normal
+   use. Leave the camera for 90 seconds, or (in a category that checks it) look away for 60, and
    you are warned; 60 seconds later the time stops counting.
 
    Or with a script in place of the camera, to see the warnings quickly:
@@ -78,7 +92,8 @@ stop working.
 | --- | --- |
 | `companion.py` | The loop: looks once a second, reports every 2 seconds, opens and closes the detector as the backend says |
 | `detector.py` | The `Detector` interface and the `ScriptedDetector` |
-| `camera.py` | The `CameraDetector`: the webcam, MediaPipe's face detector, and the preview window |
+| `camera.py` | The `CameraDetector`: the webcam, MediaPipe's face detector and face landmarker, and the preview window |
+| `calibration.py` | Head angles, the screen and desk zones, the looking-away rule, and the saved calibration |
 | `cameras.py` | Picks the camera by name (the built-in one by default) and finds OpenCV's number for it |
 | `models.py` | Downloads the models once and checks each against a pinned SHA-256 |
 | `observations.py` | Turns moment-by-moment detections into stretches of one signal, each sent again with a later end while it lasts |
@@ -99,6 +114,14 @@ stop working.
 - **Presence.** No face found at 0.5 or above is `AWAY`, with confidence 1 minus the best face's
   score, so a doubtful face is a doubtful absence. The webcam is read continuously on a background
   thread, keeping only the latest frame, so what is looked at is from now.
+- **Looking away**, only where the category checks it. MediaPipe's face landmarker gives the head's
+  yaw (left and right) and pitch (up and down) from its facial transformation matrix. More than 10
+  degrees beyond the screen's angles (`SCREEN`), or beyond both the screen's and the desk's
+  (`SCREEN_OR_DESK`), is `LOOKING_AWAY`. Its confidence grows over the next 15 degrees, and with the
+  face's score: for a face at 0.9, it reaches the backend's minimum of 0.7 about 7 degrees past
+  the margin. A face lost
+  within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it is found again, since a
+  head turned far enough loses the face; otherwise a lost face is `AWAY`.
 - **A camera that cannot be used** (no permission, unplugged, taken by another app) is tried again at
   each report. Meanwhile nothing is observed, so nothing is subtracted.
 - **MediaPipe below 1.0.** 1.0.1 aborts on macOS as the face detector starts, so the extra pins

@@ -47,7 +47,7 @@ class FlakyDetector:
             raise DetectorUnavailable("Cannot open camera 0.")
         self.opened += 1
 
-    def detect(self, now):
+    def detect(self, now, profile=None):
         if self.detect_fails:
             raise DetectorUnavailable("The camera stopped sending pictures.")
         return Detection()

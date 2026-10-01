@@ -25,6 +25,14 @@ FACE_DETECTOR = Model(
     "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
 )
 
+#: MediaPipe's Face Landmarker, for which way the head is turned (its facial transformation matrix).
+FACE_LANDMARKER = Model(
+    "face_landmarker.task",
+    "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/"
+    "face_landmarker.task",
+    "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+)
+
 
 class ModelError(Exception):
     """A model could not be downloaded, or was not the file expected."""

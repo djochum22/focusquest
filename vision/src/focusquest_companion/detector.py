@@ -9,7 +9,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Mapping, Protocol, Sequence
+from typing import TYPE_CHECKING, Mapping, Protocol, Sequence
+
+if TYPE_CHECKING:
+    from .api import Profile
 
 #: The off-task signals, as the backend names them.
 AWAY = "AWAY"
@@ -34,11 +37,12 @@ class Detector(Protocol):
 
     Frames exist only between ``open`` and ``close``, in memory: never saved, uploaded or sent.
     ``open`` and ``detect`` raise :class:`DetectorUnavailable` when there is nothing to see.
+    ``detect`` is given the session's profile, for what it checks and where the work area is.
     """
 
     def open(self, now: datetime) -> None: ...
 
-    def detect(self, now: datetime) -> Detection: ...
+    def detect(self, now: datetime, profile: Profile | None = None) -> Detection: ...
 
     def close(self) -> None: ...
 
@@ -100,7 +104,7 @@ class ScriptedDetector:
     def close(self) -> None:
         self._opened_at = None
 
-    def detect(self, now: datetime) -> Detection:
+    def detect(self, now: datetime, profile: Profile | None = None) -> Detection:
         if self._opened_at is None:
             raise RuntimeError("The detector is closed")
         elapsed = max(now - self._opened_at, timedelta(0))
