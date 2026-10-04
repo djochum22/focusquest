@@ -53,6 +53,11 @@ export const useCameraStore = defineStore('camera', () => {
     return token
   }
 
+  /** Asks the companion program to calibrate; the settings then say how it is going. */
+  async function calibrateCompanion() {
+    settings.value = await cameraApi.requestCalibration()
+  }
+
   async function unpairCompanion() {
     await cameraApi.unpairCompanion()
     await fetch().catch(() => {})
@@ -73,5 +78,5 @@ export const useCameraStore = defineStore('camera', () => {
     },
   )
 
-  return { settings, profiles, saving, fetch, fetchProfiles, pairCompanion, unpairCompanion, turnOn, turnOff, setVerifyNewSessionsByDefault, reset }
+  return { settings, profiles, saving, fetch, fetchProfiles, pairCompanion, calibrateCompanion, unpairCompanion, turnOn, turnOff, setVerifyNewSessionsByDefault, reset }
 })

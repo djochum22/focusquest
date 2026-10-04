@@ -1,14 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import * as cameraApi from '../../api/cameraApi'
-import type { CameraProfile, CameraSettings } from '../../types/camera'
+import type { CameraProfile, CameraSettings, CompanionCalibration } from '../../types/camera'
 import { CAMERA_CONSENT_POINTS } from '../../utils/cameraConsent'
 import CameraVerificationCard from './CameraVerificationCard.vue'
 
 vi.mock('../../api/cameraApi')
 
-const unpaired = { paired: false, pairedAt: null, lastSeenAt: null, connected: false }
+const unpaired = { paired: false, pairedAt: null, lastSeenAt: null, connected: false, calibration: null }
 const off: CameraSettings = {
   enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true, companion: unpaired,
 }
@@ -121,8 +121,10 @@ describe('CameraVerificationCard', () => {
   })
 
   describe('companion program', () => {
-    const paired = (connected: boolean, lastSeenAt: string | null): CameraSettings => ({
-      ...on, companion: { paired: true, pairedAt: '2026-03-10T09:00:00Z', lastSeenAt, connected },
+    const notCalibrated: CompanionCalibration = { state: 'NOT_CALIBRATED', calibratedAt: null, failure: null }
+    const paired = (connected: boolean, lastSeenAt: string | null,
+      calibration: CompanionCalibration = notCalibrated): CameraSettings => ({
+      ...on, companion: { paired: true, pairedAt: '2026-03-10T09:00:00Z', lastSeenAt, connected, calibration },
     })
 
     it('pairs the program and shows the code once, ready to copy', async () => {
@@ -155,6 +157,59 @@ describe('CameraVerificationCard', () => {
       const wrapper = await mountCard(paired(false, '2026-03-10T09:05:00Z'))
 
       expect(wrapper.get('[data-testid="companion-status"]').text()).toMatch(/Not connected; last seen .*2026/)
+    })
+
+    describe('calibration', () => {
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      const calibrationStatus = (wrapper: Awaited<ReturnType<typeof mountCard>>) =>
+        wrapper.get('[data-testid="calibration-status"]').text()
+
+      it('asks the program to calibrate and follows it until it is done', async () => {
+        vi.useFakeTimers()
+        const wrapper = await mountCard(paired(true, '2026-03-10T09:05:00Z'))
+        expect(calibrationStatus(wrapper)).toContain('Not calibrated yet')
+        vi.mocked(cameraApi.requestCalibration).mockResolvedValue(
+          paired(true, '2026-03-10T09:05:00Z', { state: 'REQUESTED', calibratedAt: null, failure: null }))
+
+        await button(wrapper, 'Calibrate').trigger('click')
+        await flushPromises()
+        expect(cameraApi.requestCalibration).toHaveBeenCalledTimes(1)
+        expect(calibrationStatus(wrapper)).toContain('Waiting for the companion program to start')
+
+        vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
+          paired(true, '2026-03-10T09:05:00Z', { state: 'CALIBRATING', calibratedAt: null, failure: null }))
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(calibrationStatus(wrapper)).toContain('follow the steps in the camera window')
+        expect(button(wrapper, 'Calibrate').attributes('disabled')).toBeDefined()
+
+        vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
+          paired(true, '2026-03-10T09:05:00Z', { state: 'CALIBRATED', calibratedAt: '2026-03-10T09:06:00Z', failure: null }))
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(calibrationStatus(wrapper)).toMatch(/Calibrated .*2026/)
+        expect(button(wrapper, 'Calibrate again')).toBeDefined()
+
+        const calls = vi.mocked(cameraApi.fetchCameraSettings).mock.calls.length
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(vi.mocked(cameraApi.fetchCameraSettings).mock.calls.length).toBe(calls)   // stopped following
+      })
+
+      it('says why calibrating failed', async () => {
+        const wrapper = await mountCard(paired(true, '2026-03-10T09:05:00Z',
+          { state: 'FAILED', calibratedAt: '2026-03-01T09:00:00Z', failure: 'Saw your face 3 times.' }))
+
+        expect(calibrationStatus(wrapper)).toContain('Calibrating did not work: Saw your face 3 times.')
+        expect(button(wrapper, 'Calibrate again')).toBeDefined()
+      })
+
+      it('needs the program to be running', async () => {
+        const wrapper = await mountCard(paired(false, '2026-03-10T09:05:00Z'))
+
+        expect(button(wrapper, 'Calibrate').attributes('disabled')).toBeDefined()
+        expect(wrapper.text()).toContain('Start the companion program to calibrate.')
+      })
     })
 
     it('unpairs the program', async () => {

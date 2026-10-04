@@ -6,7 +6,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 ## Start here
 
-All three camera signals now work with a real webcam: away, looking away and a phone in hand. After **C1e** (under "C1e: sensitivity") they are more sensitive and warn sooner; the user tried it live and it looks a lot better. The user wants neither to start the companion nor to calibrate it from a terminal ("Next step: C3, the companion without the terminal"). **C3a** is built and tried live: `install` runs it in the background through a launch agent, and macOS asked for the camera permission as hoped. Next is **C3b**, calibration from Settings. C1d (accuracy) comes after C3. Before starting:
+All three camera signals now work with a real webcam: away, looking away and a phone in hand. After **C1e** (under "C1e: sensitivity") they are more sensitive and warn sooner; the user tried it live and it looks a lot better. The user wants neither to start the companion nor to calibrate it from a terminal ("Next step: C3, the companion without the terminal"). **C3a** is built and tried live: `install` runs it in the background through a launch agent, and macOS asked for the camera permission as hoped. **C3b**, calibration from Settings, is built and tried live. What is left of C3 is under "Later" (a menu bar app, pairing from the browser); otherwise the next step is C1d. C1d (accuracy) comes after C3. Before starting:
 
 1. Read this note, then `vision/README.md` (how the companion program runs and is built), then requirements §21 (the camera rules) and §19 (privacy).
 2. Run `scripts/test-all.sh` to see everything pass before changing anything.
@@ -35,7 +35,7 @@ All three camera signals now work with a real webcam: away, looking away and a p
 | C1d | Label mode, accuracy measurements, smoothing if needed, tuning | After C3 |
 | C1e | Sensitivity: warnings after 5 s of phone and 15 s of looking away (grace stays 60 s); looking away from 5° beyond the zone, at full confidence; phones and hands also looked for in enlarged crops of the lower frame (see "C1e: sensitivity") | The commit with this note; tried live, a lot better |
 | C3a | The companion starts by itself: `install` writes a macOS launch agent; `--background` waits to be paired. Calibrated zones at least 20° by 14° | The commit with this note; tried live, works |
-| **C3b** | **Calibration started from Settings, guided in the camera window** | **Next** |
+| C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | The commit with this note; tried live, works |
 | C2 | Say in the web app when the camera cannot be used (see "Known limits") | Any time; small |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
@@ -96,6 +96,9 @@ The user should not need a terminal for everyday use: not to start the companion
 - A "Calibrate" button in Settings, while the companion is connected and no camera-verified session runs. The backend records the request; the companion's next answer says to calibrate.
 - The companion opens its camera window and guides with countdowns drawn on it (screen, then desk) in place of "Press Enter", then tells the backend whether it worked. Only the time and the outcome go to the backend; the angles stay on the computer.
 - Settings shows when it was calibrated, "Follow the steps in the camera window", or why it failed, and stops telling the user to run `calibrate`.
+- **Built.** Backend: `POST /api/me/companion-calibration` (409 unless on, paired, connected and no camera-verified session ACTIVE), `calibrate` in the companion's answer, `POST /api/companion/calibration` (`STARTED`, `CALIBRATED` with `calibratedAt`, `FAILED` with `message`), columns on `companion_credentials` (V15), and `CompanionCalibration.of` working out the state, where a request not picked up or a calibration not finished within 2 minutes is `FAILED`. Companion: `Companion` calls a `Calibrator` when asked, after saying `STARTED`, and on connecting says when its saved calibration was made (the file's time); a scripted companion says it has nothing to calibrate. `CameraCalibrator` (`camera.py`) opens its own `Webcam`, runs `guided_calibration` (a 3-second "Get ready" countdown, then 5 seconds kept, for the screen and then the desk, drawn on a window asked to stay in front, `WND_PROP_TOPMOST`), saves, and hands the angles to the running `CameraDetector` (`use_calibration`). The terminal `calibrate` uses the same flow, with no "Press Enter"; its `--preview` is still accepted and does nothing. Web app: a "Calibrate" button and status line under the companion's status, followed every 2 seconds while under way. End-to-end: the scripted companion answers "Calibrate" with its failure.
+- While calibrating (about 16 seconds) the companion does not report. That stays well within the 30 seconds it counts as connected.
+- Tried live: it works from Settings with the background program. At the user's request the window's text was made larger and easier to read: it grows with the camera picture (`Preview.annotate`, sizes meant for 1280 pixels across), shrinks only where a line would not fit, and sits on a darkened band, the instruction in yellow and the rest in white.
 
 **Later:** a menu bar app (an icon showing whether it watches, a preview on demand, the camera permission in FocusQuest's name), and pairing from the browser, which needs the app bundle's URL scheme or a local listener with its own security questions.
 
@@ -154,6 +157,7 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 - When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
 - A user who turns away and then gets up within 2 seconds is reported as looking away until they are back, not as away. Both warn; looking away warns sooner (15 s against 90 s).
 - The launch agent points at `vision/.venv`'s Python. Moving or recreating the venv, or a Homebrew Python upgrade that breaks it, stops the agent from starting; run `install` again.
+- The calibration window is asked to stay in front of others (`WND_PROP_TOPMOST`); not every OpenCV build on macOS honours it. If it opens behind, the user has to find it.
 - The calibration is not tied to a camera. After moving the camera or switching to another, the user has to calibrate again; nothing detects it.
 - The looking-away margin, confidence curve and default angles, the phone thresholds and the crops are guesses until C1d measures them. C1e's numbers come from what the user saw live and from shrunk and cut stock photos, not from webcam footage.
 - A phone held low, in the lap, is below a laptop camera's view and is not seen. A hand gripping a phone is sometimes missed, and then the phone does not count.

@@ -15,12 +15,12 @@ import math
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol, Sequence
 
 from . import calibration, phones
-from .calibration import Calibration, HeadPose
+from .calibration import Calibration, CalibrationFailed, HeadPose
 from .cameras import CameraInfo
 from .detector import AWAY, LOOKING_AWAY, PHONE, Detection, DetectorUnavailable
 from .phones import Box, Found
@@ -279,16 +279,57 @@ class Preview:
 
     TITLE = "FocusQuest camera (nothing is saved)"
 
-    def show(self, frame: Frame, marks: Sequence[Mark], lines: Sequence[str]) -> None:
+    #: The frame width the text sizes are meant for; on a wider picture the text grows with it.
+    REFERENCE_WIDTH = 1280
+    #: The first line (what is found, or what to do) in yellow, the rest in white (BGR), on a dark band.
+    HEADLINE, TEXT = (0, 215, 255), (255, 255, 255)
+
+    def __init__(self, on_top: bool = False, scale: float = 0.7):
+        #: In front of other windows: when it opens by itself, from the background, it must be seen.
+        self._on_top = on_top
+        self._scale = scale
+        self._raised = False
+
+    def annotate(self, frame: Frame, marks: Sequence[Mark], lines: Sequence[str]) -> Frame:
+        """A copy of ``frame`` with the marks outlined and the lines written on a dark band at the top."""
         import cv2
 
         shown = frame.copy()
-        for (x, y, width, height), label, colour in marks:
-            cv2.rectangle(shown, (x, y), (x + width, y + height), colour, 2)
-            cv2.putText(shown, label, (x, max(20, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, colour, 2)
+        height, width = shown.shape[:2]
+        for (x, y, box_width, box_height), label, colour in marks:
+            cv2.rectangle(shown, (x, y), (x + box_width, y + box_height), colour, 2)
+            cv2.putText(shown, label, (x, max(20, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6 * width / self.REFERENCE_WIDTH,
+                        colour, 2)
+        lines = [line for line in lines if line]
+        if not lines:
+            return shown
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        margin = int(0.02 * width)
+        scale = self._scale * width / self.REFERENCE_WIDTH
+        thickness = max(2, round(2 * scale))
+        # Smaller only where a line would not fit across the picture, measured as thick as it is drawn.
+        widest = max(cv2.getTextSize(line, font, scale, thickness)[0][0] for line in lines)
+        if widest > width - 2 * margin:
+            scale *= (width - 2 * margin) / widest
+            thickness = max(2, round(2 * scale))
+        line_height = int(cv2.getTextSize("Hg", font, scale, thickness)[0][1] * 1.9)
+        band = shown[:line_height * len(lines) + margin, :]
+        band[:] = (band * 0.25).astype(band.dtype)   # darkened, so the picture still shows through
         for number, line in enumerate(lines):
-            cv2.putText(shown, line, (12, 28 + 26 * number), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.imshow(self.TITLE, shown)
+            colour = self.HEADLINE if number == 0 else self.TEXT
+            cv2.putText(shown, line, (margin, line_height * (number + 1)), font, scale, colour, thickness, cv2.LINE_AA)
+        return shown
+
+    def show(self, frame: Frame, marks: Sequence[Mark], lines: Sequence[str]) -> None:
+        import cv2
+
+        cv2.imshow(self.TITLE, self.annotate(frame, marks, lines))
+        if self._on_top and not self._raised:
+            try:
+                cv2.setWindowProperty(self.TITLE, cv2.WND_PROP_TOPMOST, 1)
+            except cv2.error:
+                pass   # not every OpenCV build can; the window still opens
+            self._raised = True
         cv2.waitKey(1)
 
     def close(self) -> None:
@@ -301,22 +342,103 @@ class Preview:
             pass   # never shown: the camera closed before its first frame
 
 
-def watch_poses(camera: Camera, poses: PoseFinder, seconds: float, preview: Preview | None = None,
+def watch_poses(camera: Camera, poses: PoseFinder | None, seconds: float, preview: Preview | None = None,
                 label: str = "", monotonic: Callable[[], float] = time.monotonic) -> list[HeadPose]:
-    """Every head pose seen over ``seconds``, as fast as the camera sends frames. Only the angles are kept."""
+    """Every head pose seen over ``seconds``, as fast as the camera sends frames. Only the angles are kept.
+
+    Without ``poses`` it only shows the camera, with ``label`` and the seconds left: a countdown.
+    """
     seen: list[HeadPose] = []
     end = monotonic() + seconds
-    while monotonic() < end:
+    while (now := monotonic()) < end:
         frame = camera.latest()
         if frame is None:
             raise DetectorUnavailable("The camera stopped sending pictures.")
-        pose = poses.find(frame)
+        pose = poses.find(frame) if poses is not None else None
         if pose is not None:
             seen.append(pose)
         if preview is not None:
-            found = f"head turned {pose.yaw:+.0f}, looking down {pose.pitch:+.0f}" if pose else "no face"
-            preview.show(frame, [], [label, found])
+            left = f"{math.ceil(end - now)}"
+            if poses is None:
+                preview.show(frame, [], [label, left])
+            else:
+                found = f"head turned {pose.yaw:+.0f}, looking down {pose.pitch:+.0f}" if pose else "no face found"
+                preview.show(frame, [], [label, f"{left} s", found])
     return seen
+
+
+#: The calibration's steps: which zone, and what to do for it.
+CALIBRATION_STEPS = (
+    ("screen", "Look at your screen, across all of it"),
+    ("desk", "Look down at your desk, as when reading paper"),
+)
+#: How long each step is announced before its angles are kept, so the user can get there first.
+GET_READY_SECONDS = 3
+
+
+def guided_calibration(camera: Camera, poses: PoseFinder, preview: Preview | None, seconds: float,
+                       say: Callable[[str], None] = print,
+                       monotonic: Callable[[], float] = time.monotonic) -> Calibration:
+    """Screen, then desk, each announced with a countdown in the window, then watched for ``seconds``.
+
+    Raises :class:`CalibrationFailed` if the face was seen too rarely to tell.
+    """
+    zones = []
+    for where, how in CALIBRATION_STEPS:
+        say(f"{how}.")
+        watch_poses(camera, None, GET_READY_SECONDS, preview, f"Get ready: {how.lower()}", monotonic)
+        seen = watch_poses(camera, poses, seconds, preview, f"{how}, and keep looking", monotonic)
+        try:
+            zones.append(calibration.Zone.from_poses(seen))
+        except ValueError as error:
+            raise CalibrationFailed(f"{error}. Make sure your face is in view, then calibrate again.") from error
+        say(f"Your {where}: {calibration.describe(zones[-1])}.")
+    return Calibration(*zones)
+
+
+class CameraCalibrator:
+    """Calibrates with the camera, in a window of its own, and saves the angles (only those) to ``path``.
+
+    Used from the terminal (``calibrate``) and when Settings asks the running program to calibrate.
+    ``on_calibrated`` hands the new calibration to the detector, so it takes effect at once.
+    """
+
+    def __init__(self, camera: Camera, poses: Callable[[], PoseFinder], path: Path, seconds: float,
+                 on_calibrated: Callable[[Calibration], None] = lambda angles: None,
+                 preview: Callable[[], Preview | None] = lambda: Preview(on_top=True, scale=1.6),
+                 say: Callable[[str], None] = print, monotonic: Callable[[], float] = time.monotonic):
+        self._camera = camera
+        self._open_poses = poses
+        self._path = path
+        self._seconds = seconds
+        self._on_calibrated = on_calibrated
+        self._open_preview = preview
+        self._say = say
+        self._monotonic = monotonic
+
+    def calibrated_at(self) -> datetime | None:
+        """When the saved calibration was made, or None if there is none."""
+        if not calibration.load(self._path).calibrated:
+            return None
+        return datetime.fromtimestamp(self._path.stat().st_mtime, timezone.utc)
+
+    def calibrate(self) -> Calibration:
+        self._camera.open()
+        window = None
+        poses = None
+        try:
+            poses = self._open_poses()
+            window = self._open_preview()
+            angles = guided_calibration(self._camera, poses, window, self._seconds, self._say, self._monotonic)
+        finally:
+            if poses is not None:
+                poses.close()
+            self._camera.close()
+            if window is not None:
+                window.close()
+        calibration.save(self._path, angles)
+        self._on_calibrated(angles)
+        return angles
 
 
 class CameraDetector:
@@ -425,6 +547,10 @@ class CameraDetector:
                             for name, zone in (("screen", self._calibration.screen), ("desk", self._calibration.desk))
                             if zone in self._calibration.zones(work_area))
         self._log(f"Head turned {pose.yaw:+.0f}, looking down {pose.pitch:+.0f}: outside the work area ({zones}).")
+
+    def use_calibration(self, angles: Calibration) -> None:
+        """A new calibration, from the next look on."""
+        self._calibration = angles
 
     def _describe(self, detection: Detection, pose: HeadPose | None, work_area: str | None,
                   checks_phone: bool) -> list[str]:

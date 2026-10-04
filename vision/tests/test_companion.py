@@ -3,6 +3,7 @@ import unittest
 from datetime import timedelta
 
 from focusquest_companion.api import BackendClock, BackendUnavailable, Rejected, Unauthorized
+from focusquest_companion.calibration import DEFAULT, CalibrationFailed
 from focusquest_companion.companion import Companion
 from focusquest_companion.detector import PHONE, Detection, DetectorUnavailable, ScriptedDetector, parse_script
 from focusquest_companion.notifications import TerminalNotifier, WarningPresenter
@@ -25,6 +26,9 @@ class FakeClient:
     def report(self, session_id, observations):
         self.calls.append(("report", session_id, list(observations)))
         return self._answer()
+
+    def calibration(self, outcome, calibrated_at=None, message=None):
+        self.calls.append(("calibration", outcome, calibrated_at, message))
 
     def _answer(self):
         answer = self.answers.pop(0)
@@ -54,6 +58,79 @@ class FlakyDetector:
 
     def close(self):
         pass
+
+
+class FakeCalibrator:
+    def __init__(self, calibrated_at=None, fails=None):
+        self.saved_at = calibrated_at
+        self.fails = fails
+        self.calibrated = 0
+
+    def calibrated_at(self):
+        return self.saved_at
+
+    def calibrate(self):
+        self.calibrated += 1
+        if self.fails:
+            raise self.fails
+        return DEFAULT
+
+
+class CalibrationTest(unittest.TestCase):
+
+    def companion(self, calibrator):
+        self.wall = FakeWall()
+        self.client = FakeClient(self.wall)
+        self.lines = []
+        return Companion(self.client, ScriptedDetector(parse_script("present 1m")),
+                         WarningPresenter(TerminalNotifier(self.lines.append)), BackendClock(self.wall),
+                         calibrator=calibrator, log=self.lines.append)
+
+    def calibration_calls(self):
+        return [call[1:] for call in self.client.calls if call[0] == "calibration"]
+
+    def test_calibrates_when_asked_and_says_so(self):
+        calibrator = FakeCalibrator()
+        companion = self.companion(calibrator)
+        self.client.answers.append(lambda now: off(now, calibrate=True))
+        companion.report()
+        self.assertEqual(calibrator.calibrated, 1)
+        self.assertEqual(self.calibration_calls(), [("STARTED", None, None), ("CALIBRATED", T0, None)])
+        self.assertIn("Calibrating, as asked in Settings: follow the steps in the camera window.", self.lines)
+
+    def test_says_why_calibrating_failed(self):
+        companion = self.companion(FakeCalibrator(fails=CalibrationFailed("Saw your face 3 times")))
+        self.client.answers.append(lambda now: off(now, calibrate=True))
+        companion.report()
+        self.assertEqual(self.calibration_calls()[-1], ("FAILED", None, "Saw your face 3 times"))
+
+    def test_a_camera_that_cannot_open_fails_the_calibration(self):
+        companion = self.companion(FakeCalibrator(fails=DetectorUnavailable("Cannot open camera 0.")))
+        self.client.answers.append(lambda now: off(now, calibrate=True))
+        companion.report()
+        self.assertEqual(self.calibration_calls()[-1], ("FAILED", None, "Cannot open camera 0."))
+
+    def test_without_a_camera_it_says_there_is_nothing_to_calibrate(self):
+        companion = self.companion(None)
+        self.client.answers.append(lambda now: off(now, calibrate=True))
+        companion.report()
+        [(outcome, _, message)] = self.calibration_calls()
+        self.assertEqual(outcome, "FAILED")
+        self.assertIn("replays a script", message)
+
+    def test_says_once_when_the_saved_calibration_was_made(self):
+        last_week = T0 - timedelta(days=7)
+        companion = self.companion(FakeCalibrator(calibrated_at=last_week))
+        self.client.answers += [lambda now: off(now), lambda now: off(now)]
+        companion.report()
+        companion.report()
+        self.assertEqual(self.calibration_calls(), [("CALIBRATED", last_week, None)])
+
+    def test_without_a_saved_calibration_there_is_nothing_to_say(self):
+        companion = self.companion(FakeCalibrator())
+        self.client.answers.append(lambda now: off(now))
+        companion.report()
+        self.assertEqual(self.calibration_calls(), [])
 
 
 class CompanionTest(unittest.TestCase):

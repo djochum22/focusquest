@@ -26,6 +26,16 @@ describe('cameraApi', () => {
     expect(settings.enabled).toBe(false)
   })
 
+  it('asks the companion program to calibrate', async () => {
+    const adapter = stubAdapter(200, { enabled: true })
+
+    await cameraApi.requestCalibration()
+
+    const config = adapter.mock.calls[0]![0]
+    expect(config.method).toBe('post')
+    expect(config.url).toBe('/api/me/companion-calibration')
+  })
+
   it('updates them with a PUT', async () => {
     const adapter = stubAdapter(200, { enabled: true, consentVersion: 1, consentedAt: '', verifyNewSessionsByDefault: true })
     const request = { enabled: true, consentVersion: 1, verifyNewSessionsByDefault: true }

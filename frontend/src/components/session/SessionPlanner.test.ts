@@ -28,7 +28,7 @@ async function createTaskSession(wrapper: Wrapper) {
 const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, startedAt: null })
 
 const cameraOff = { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true,
-  companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false } }
+  companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false, calibration: null } }
 
 beforeEach(() => {
   vi.resetAllMocks()

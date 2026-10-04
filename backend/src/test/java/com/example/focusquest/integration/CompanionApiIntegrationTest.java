@@ -36,6 +36,102 @@ class CompanionApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private ResultActions reportCalibration(String companionToken, String body) throws Exception {
+        return perform(companionToken, post("/api/companion/calibration").contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+    }
+
+    private ResultActions calibrationInSettings() throws Exception {
+        return getAs(token, "/api/me/camera-settings");
+    }
+
+    @Test
+    void calibrationAskedForInSettingsIsPickedUpByTheCompanionAndReportedBack() throws Exception {
+        token = setUpAccount("doug", "UTC");
+        cameraSettings(true);
+        String companion = pair();
+        heartbeat(companion).andExpect(jsonPath("$.calibrate").value(false));
+        calibrationInSettings().andExpect(jsonPath("$.companion.calibration.state").value("NOT_CALIBRATED"));
+
+        postAs(token, "/api/me/companion-calibration")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companion.calibration.state").value("REQUESTED"));
+        heartbeat(companion).andExpect(jsonPath("$.calibrate").value(true));
+
+        reportCalibration(companion, "{\"outcome\":\"STARTED\"}").andExpect(status().isNoContent());
+        calibrationInSettings().andExpect(jsonPath("$.companion.calibration.state").value("CALIBRATING"));
+        heartbeat(companion).andExpect(jsonPath("$.calibrate").value(false));   // asked once
+
+        advance(20);
+        String now = clockProvider.now().toString();
+        reportCalibration(companion, "{\"outcome\":\"CALIBRATED\",\"calibratedAt\":\"" + now + "\"}")
+                .andExpect(status().isNoContent());
+        calibrationInSettings()
+                .andExpect(jsonPath("$.companion.calibration.state").value("CALIBRATED"))
+                .andExpect(jsonPath("$.companion.calibration.calibratedAt").value(now));
+    }
+
+    @Test
+    void theCompanionSaysWhenItWasLastCalibratedAndWhyCalibratingFailed() throws Exception {
+        token = setUpAccount("doug", "UTC");
+        cameraSettings(true);
+        String companion = pair();
+        String lastWeek = clockProvider.now().minusSeconds(7 * 86400).toString();
+
+        reportCalibration(companion, "{\"outcome\":\"CALIBRATED\",\"calibratedAt\":\"" + lastWeek + "\"}")
+                .andExpect(status().isNoContent());
+        calibrationInSettings().andExpect(jsonPath("$.companion.calibration.calibratedAt").value(lastWeek));
+
+        postAs(token, "/api/me/companion-calibration").andExpect(status().isOk());
+        reportCalibration(companion, "{\"outcome\":\"STARTED\"}");
+        reportCalibration(companion, "{\"outcome\":\"FAILED\",\"message\":\"Saw your face 3 times.\"}")
+                .andExpect(status().isNoContent());
+        calibrationInSettings()
+                .andExpect(jsonPath("$.companion.calibration.state").value("FAILED"))
+                .andExpect(jsonPath("$.companion.calibration.failure").value("Saw your face 3 times."))
+                .andExpect(jsonPath("$.companion.calibration.calibratedAt").value(lastWeek));   // the old one still holds
+
+        reportCalibration(companion, "{\"outcome\":\"CALIBRATED\"}").andExpect(status().isBadRequest());
+        reportCalibration(token, "{\"outcome\":\"STARTED\"}").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void aCalibrationTheCompanionDoesNotPickUpFails() throws Exception {
+        token = setUpAccount("doug", "UTC");
+        cameraSettings(true);
+        String companion = pair();
+        heartbeat(companion);
+
+        postAs(token, "/api/me/companion-calibration").andExpect(status().isOk());
+        advance(121);
+        calibrationInSettings()
+                .andExpect(jsonPath("$.companion.calibration.state").value("FAILED"))
+                .andExpect(jsonPath("$.companion.calibration.failure").value(Matchers.containsString("did not start")));
+        heartbeat(companion).andExpect(jsonPath("$.calibrate").value(false));
+    }
+
+    @Test
+    void calibratingNeedsAConnectedCompanionAndAFreeCamera() throws Exception {
+        token = setUpAccount("doug", "UTC");
+        postAs(token, "/api/me/companion-calibration").andExpect(status().isConflict());   // camera verification off
+
+        cameraSettings(true);
+        postAs(token, "/api/me/companion-calibration")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(Matchers.containsString("Pair")));
+
+        String companion = pair();
+        postAs(token, "/api/me/companion-calibration")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(Matchers.containsString("not connected")));
+
+        heartbeat(companion);
+        createAndStartSession(token, 30);                                  // camera by default
+        postAs(token, "/api/me/companion-calibration")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(Matchers.containsString("in use")));
+    }
+
     @Test
     void pairingIssuesATokenThatReplacesTheLastOne() throws Exception {
         token = setUpAccount("doug", "UTC");

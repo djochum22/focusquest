@@ -73,7 +73,8 @@ public class CameraSettingsService {
     private CameraSettingsResponse.Companion companion(User user) {
         return companionCredentialService.find(user)
                 .map(credential -> new CameraSettingsResponse.Companion(true, credential.getCreatedAt(),
-                        credential.getLastSeenAt(), companionCredentialService.isConnected(user)))
-                .orElse(new CameraSettingsResponse.Companion(false, null, null, false));
+                        credential.getLastSeenAt(), companionCredentialService.isConnected(user),
+                        CompanionCalibration.of(credential, clockProvider.now())))
+                .orElse(new CameraSettingsResponse.Companion(false, null, null, false, null));
     }
 }

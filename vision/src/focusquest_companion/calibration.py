@@ -39,6 +39,10 @@ MIN_YAW_SPAN = 20.0
 MIN_PITCH_SPAN = 14.0
 
 
+class CalibrationFailed(Exception):
+    """Calibrating did not work; the message says why, for the user."""
+
+
 @dataclass(frozen=True)
 class HeadPose:
     """Which way the head is turned, in degrees. Straight at the camera is 0 and 0.

@@ -40,17 +40,21 @@ wherever the steps below say `focusquest-companion`.
 
    The code is kept in `~/.config/focusquest/companion.json` (readable by you only), or where
    `--config` says. Pairing again in Settings makes a new code, and the old one stops working.
-3. Calibrate, once, so it knows where your screen and desk are as this camera sees them:
+3. Calibrate, once, so it knows where your screen and desk are as this camera sees them. While the
+   program runs, click **Calibrate** in Settings, under Camera verification; or, from a terminal:
 
    ```bash
-   focusquest-companion calibrate --preview
+   focusquest-companion calibrate
    ```
 
-   It asks you to look at your screen for 5 seconds, across all of it, then down at your desk as
-   when reading or writing on paper, and keeps the range of head angles seen in
+   A camera window opens in front of the others and guides you: look at your screen for 5 seconds,
+   across all of it, then down at your desk as when reading or writing on paper, each after a
+   3-second countdown. It keeps the range of head angles seen in
    `calibration.json` next to the pairing. Only angles are kept. Since mostly the eyes move when
    reading a screen, each range is made at least 20 degrees wide and 14 tall around its middle.
-   Calibrate sitting as you usually work. Calibrate again after moving the
+   Calibrate sitting as you usually work. Settings shows when it was last calibrated, or why it did
+   not work. Calibrating from Settings is refused during a camera-verified session, which has the
+   camera. Calibrate again after moving the
    camera or switching to another; `--camera` picks one as for `run`. Without a calibration, fixed
    angles around straight ahead are used, and `run` says so.
 4. Run it with the camera:

@@ -4,9 +4,10 @@ from __future__ import annotations
 import threading
 import time
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Protocol
 
-from .api import BackendClient, BackendClock, BackendUnavailable, CompanionState, Rejected
+from .api import BackendClient, BackendClock, BackendError, BackendUnavailable, CompanionState, Rejected
+from .calibration import Calibration, CalibrationFailed
 from .detector import Detector, DetectorUnavailable
 from .notifications import WarningPresenter, seconds_left
 from .observations import ObservationTracker
@@ -17,21 +18,35 @@ FRAME_INTERVAL_SECONDS = 1.0
 REPORT_INTERVAL_SECONDS = 2.0
 
 
+class Calibrator(Protocol):
+    def calibrated_at(self) -> datetime | None: ...
+
+    def calibrate(self) -> Calibration: ...
+
+
 class Companion:
     """Watches only while the backend's last answer said ``cameraOn``, and closes the camera as soon as
     it does not, or as soon as the backend cannot be reached: nothing is watched that nobody asked for.
 
     A camera that cannot be opened, or stops sending pictures, is tried again at each report. Until
     then nothing is observed, so nothing can be subtracted.
+
+    When the answer says ``calibrate`` (asked for in Settings), it calibrates with ``calibrator`` and
+    says how it went; without one (a scripted detector) it says it cannot. Once connected, it says when
+    its saved calibration was made, so Settings can show it.
     """
 
     def __init__(self, client: BackendClient, detector: Detector, presenter: WarningPresenter,
-                 clock: BackendClock, *, tracker: ObservationTracker | None = None,
+                 clock: BackendClock, *, calibrator: Calibrator | None = None,
+                 tracker: ObservationTracker | None = None,
                  log: Callable[[str], None] = print, monotonic: Callable[[], float] = time.monotonic):
         self._client = client
         self._detector = detector
         self._presenter = presenter
         self._clock = clock
+        self._calibrator = calibrator
+        #: Whether the backend has been told when the saved calibration was made.
+        self._calibration_told = False
         self._tracker = tracker or ObservationTracker()
         self._log = log
         self._monotonic = monotonic
@@ -94,7 +109,11 @@ class Companion:
             self._log("Reached the backend again.")
         self._reachable = True
         self._clock.sync(state.server_time, sent_at, self._clock.local())
+        if not self._calibration_told:
+            self._tell_calibration()
         self._follow(state)
+        if state.calibrate and not state.camera_on and not self._camera_open:
+            self._calibrate()
 
     def _exchange(self) -> CompanionState:
         pending = self._tracker.pending() if self._camera_open else []
@@ -133,6 +152,39 @@ class Companion:
             self._log(_describe(state, self._clock.now()))
             self._described = described
         self._presenter.show(state, self._clock.now())
+
+    def _tell_calibration(self) -> None:
+        """Once per connection: the backend was just reached, and a backend that refuses it will not change its mind."""
+        calibrated_at = self._calibrator.calibrated_at() if self._calibrator is not None else None
+        if calibrated_at is not None:
+            self._send_calibration("CALIBRATED", calibrated_at)
+        self._calibration_told = True
+
+    def _calibrate(self) -> None:
+        if self._calibrator is None:
+            self._send_calibration("FAILED", message="This companion program replays a script instead of using a "
+                                                     "camera, so there is nothing to calibrate.")
+            return
+        if not self._send_calibration("STARTED"):
+            return
+        self._log("Calibrating, as asked in Settings: follow the steps in the camera window.")
+        try:
+            self._calibrator.calibrate()
+        except (CalibrationFailed, DetectorUnavailable) as error:
+            self._log(f"Calibrating did not work: {error}")
+            self._send_calibration("FAILED", message=str(error))
+        else:
+            self._log("Calibrated.")
+            self._send_calibration("CALIBRATED", self._clock.now())
+
+    def _send_calibration(self, outcome: str, calibrated_at: datetime | None = None,
+                          message: str | None = None) -> bool:
+        try:
+            self._client.calibration(outcome, calibrated_at, message)
+            return True
+        except BackendError as error:
+            self._log(f"Could not tell the backend how calibrating went ({error}).")
+            return False
 
     def _say_unavailable(self, error: DetectorUnavailable) -> None:
         if str(error) != self._unavailable:

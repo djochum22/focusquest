@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getErrorMessage } from '../../api/apiError'
 import { useAuthStore } from '../../stores/authStore'
 import { useCameraStore } from '../../stores/cameraStore'
@@ -78,6 +78,29 @@ async function onCopy() {
 }
 
 const companion = computed(() => camera.settings?.companion ?? null)
+const calibration = computed(() => companion.value?.calibration ?? null)
+const calibrating = computed(() => calibration.value?.state === 'REQUESTED' || calibration.value?.state === 'CALIBRATING')
+
+/** How often to ask how a calibration is going: the program reports every 2 seconds. */
+const CALIBRATION_POLL_MS = 2000
+let calibrationPoll: ReturnType<typeof setInterval> | null = null
+
+function stopCalibrationPoll() {
+  if (calibrationPoll !== null) clearInterval(calibrationPoll)
+  calibrationPoll = null
+}
+
+// While a calibration is under way, follow it; the backend gives up on it after 2 minutes.
+watch(calibrating, (underWay) => {
+  if (underWay && calibrationPoll === null) {
+    calibrationPoll = setInterval(() => void camera.fetch().catch(() => {}), CALIBRATION_POLL_MS)
+  } else if (!underWay) {
+    stopCalibrationPoll()
+  }
+}, { immediate: true })
+onUnmounted(stopCalibrationPoll)
+
+const onCalibrate = () => run(camera.calibrateCompanion)
 
 function onDefaultChange(event: Event) {
   void run(() => camera.setVerifyNewSessionsByDefault((event.target as HTMLInputElement).checked))
@@ -141,6 +164,36 @@ function onDefaultChange(event: Event) {
             </template>
             <template v-else>It has not connected yet.</template>
           </p>
+          <div class="camera__calibration">
+            <p class="camera__calibration-status" data-testid="calibration-status" role="status">
+              <template v-if="calibration?.state === 'REQUESTED'">Waiting for the companion program to start…</template>
+              <template v-else-if="calibration?.state === 'CALIBRATING'">
+                <strong>Calibrating: follow the steps in the camera window.</strong> Look at your screen, then
+                down at your desk.
+              </template>
+              <template v-else-if="calibration?.state === 'FAILED'">
+                Calibrating did not work: {{ calibration.failure }}
+              </template>
+              <template v-else-if="calibration?.calibratedAt">
+                Calibrated {{ formatDateTime(calibration.calibratedAt, auth.user?.timezone) }}.
+              </template>
+              <template v-else>Not calibrated yet, so it does not know where your screen and desk are.</template>
+            </p>
+            <p class="muted camera__hint">
+              Calibrate sitting as you usually work, and again after moving the camera.
+              <template v-if="!companion.connected">Start the companion program to calibrate.</template>
+            </p>
+            <div>
+              <AppButton
+                variant="secondary"
+                :disabled="!companion.connected || calibrating"
+                :loading="calibration?.state === 'REQUESTED'"
+                @click="onCalibrate"
+              >
+                {{ calibration?.calibratedAt ? 'Calibrate again' : 'Calibrate' }}
+              </AppButton>
+            </div>
+          </div>
         </template>
         <div v-if="pairingToken" class="camera__token">
           <label class="camera__token-label" for="companion-token">Pairing code</label>
@@ -262,6 +315,14 @@ function onDefaultChange(event: Event) {
 }
 .camera__connected {
   color: var(--success);
+}
+.camera__calibration {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.camera__calibration-status {
+  margin: 0;
 }
 .camera__token {
   display: flex;

@@ -9,10 +9,12 @@ import java.time.Instant;
  * episode's {@code warnedAt} and {@code deductionStartsAt} (once warned: when subtraction starts if the
  * user stays off task) so it can show the warning and count down. {@code serverTime} is the backend's
  * clock, always set: the program stamps its observations in it, since they may not claim a time
- * ahead of it.
+ * ahead of it. {@code calibrate} asks it to calibrate now (requested in Settings); never while
+ * {@code cameraOn}.
  */
 public record CompanionStateResponse(
         boolean cameraOn,
+        boolean calibrate,
         Long sessionId,
         CameraProfileResponse profile,
         OffTaskState state,
@@ -21,7 +23,7 @@ public record CompanionStateResponse(
         Instant serverTime
 ) {
 
-    static CompanionStateResponse off(Instant serverTime) {
-        return new CompanionStateResponse(false, null, null, null, null, null, serverTime);
+    static CompanionStateResponse off(boolean calibrate, Instant serverTime) {
+        return new CompanionStateResponse(false, calibrate, null, null, null, null, null, serverTime);
     }
 }

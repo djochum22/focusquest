@@ -44,7 +44,8 @@ def main(argv: list[str] | None = None) -> int:
         "calibrate", help="show the program where your screen and desk are, so it can tell when you look away")
     calibrate.add_argument("--camera", default="built-in", metavar="CAMERA",
                            help="the camera to calibrate: the built-in one by default, or as for `run --camera`")
-    calibrate.add_argument("--preview", action="store_true", help="show what the camera sees while calibrating")
+    # The window is always shown now, since it guides; the flag is still accepted.
+    calibrate.add_argument("--preview", action="store_true", help=argparse.SUPPRESS)
 
     run = commands.add_parser("run", help="watch during camera-verified sessions")
     source = run.add_mutually_exclusive_group(required=True)
@@ -80,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "cameras":
             return _cameras()
         if args.command == "calibrate":
-            return _calibrate(calibration.default_path(path), args.camera, args.preview)
+            return _calibrate(calibration.default_path(path), args.camera)
         if args.command == "install":
             return _install(path, args.code, args.backend)
         if args.command == "uninstall":
@@ -119,6 +120,7 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
     pairing = _await_pairing(path, None, args.background, stop, log)
     if pairing is None:
         return 0 if stop.is_set() else 2
+    calibrator = None
     if args.script is not None:
         try:
             detector = ScriptedDetector(parse_script(args.script), loop=args.loop)
@@ -131,9 +133,10 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
         detector = _camera_detector(args.camera, args.preview, angles, log)
         if detector is None:
             return 2
+        calibrator = _camera_calibrator(calibration.default_path(path), args.camera, log, detector.use_calibration)
         source = f"{CameraChoice.parse(args.camera).describe()}, checking presence, where you look and a phone in hand"
         if not angles.calibrated:
-            source += " (not calibrated yet: run `focusquest-companion calibrate` for your screen and desk)"
+            source += " (not calibrated yet: calibrate from Settings, under Camera verification)"
         if not args.background and service.supported() and service.LaunchAgent().status().running:
             log("The program also runs in the background (see `focusquest-companion status`), so the camera is "
                 "watched twice. Stop it with `focusquest-companion uninstall`, or stop this one.")
@@ -141,7 +144,7 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
     notifier = TerminalNotifier(log) if no_notifications else SystemNotifier(log)
     while True:
         companion = Companion(BackendClient(pairing.backend_url, pairing.token), detector,
-                              WarningPresenter(notifier), BackendClock(), log=log)
+                              WarningPresenter(notifier), BackendClock(), calibrator=calibrator, log=log)
         log(f"Connected to {pairing.backend_url}, {source}." + ("" if args.background else " Stop with Ctrl+C."))
         try:
             companion.run(stop)
@@ -206,7 +209,7 @@ def _install(path: Path, code: str | None, backend_url: str) -> int:
           "during a session with Verify with camera; the first time, macOS asks whether it may use it.")
     print(f"What it does is written to {log}. Stop it with `focusquest-companion uninstall`.")
     if not calibration.load(calibration.default_path(path)).calibrated:
-        print("Not calibrated yet: run `focusquest-companion calibrate --preview` once, so it knows where your "
+        print("Not calibrated yet: calibrate from Settings, under Camera verification, so it knows where your "
               "screen and desk are.")
     return 0
 
@@ -255,49 +258,35 @@ def _cameras() -> int:
     return 0
 
 
-def _calibrate(path: Path, wanted: str, preview: bool) -> int:
+def _calibrate(path: Path, wanted: str) -> int:
     if not _camera_installed():
         return 2
-    from .camera import MediaPipePoses, Preview, Webcam, watch_poses
+    from .calibration import CalibrationFailed
 
     try:
-        pose_model = models.ensure(models.FACE_LANDMARKER)
+        calibrator = _camera_calibrator(path, wanted, _flushing_print)
     except models.ModelError as error:
         print(error, file=sys.stderr)
         return 1
-    choice = CameraChoice.parse(wanted)
-    webcam = Webcam(lambda: choice.resolve(list_cameras()))
-    window = Preview() if preview else None
-    print("Calibrating where you look while you work. Only the head's angles are kept, never a picture.")
+    print("Calibrating where you look while you work: follow the steps in the camera window. "
+          "Only the head's angles are kept, never a picture.")
     try:
-        webcam.open()
-    except DetectorUnavailable as error:
+        calibrator.calibrate()
+    except (CalibrationFailed, DetectorUnavailable) as error:
         print(error, file=sys.stderr)
         return 1
-    poses = MediaPipePoses(pose_model)
-    try:
-        zones = []
-        for where, how in (("screen", "Look at your screen, across all of it, as you do while working"),
-                           ("desk", "Look down at your desk, as you do when reading or writing on paper")):
-            input(f"{how}. Press Enter to start, and keep looking for {CALIBRATION_SECONDS} seconds. ")
-            seen = watch_poses(webcam, poses, CALIBRATION_SECONDS, window, f"calibrating: {where}")
-            try:
-                zones.append(calibration.Zone.from_poses(seen))
-            except ValueError as error:
-                print(f"{error}. Make sure your face is in view, then calibrate again.", file=sys.stderr)
-                return 1
-            print(f"Your {where}: {calibration.describe(zones[-1])}.")
-    except DetectorUnavailable as error:
-        print(error, file=sys.stderr)
-        return 1
-    finally:
-        poses.close()
-        webcam.close()
-        if window is not None:
-            window.close()
-    calibration.save(path, calibration.Calibration(*zones))
     print(f"Saved to {path}. Calibrate again after moving the camera or switching to another one.")
     return 0
+
+
+def _camera_calibrator(path: Path, wanted: str, log, on_calibrated=lambda angles: None):
+    """Calibrates with its own view of the camera: the detector's is closed whenever calibrating is allowed."""
+    from .camera import CameraCalibrator, MediaPipePoses, Webcam
+
+    pose_model = models.ensure(models.FACE_LANDMARKER, log=log)
+    choice = CameraChoice.parse(wanted)
+    return CameraCalibrator(Webcam(lambda: choice.resolve(list_cameras()), log), lambda: MediaPipePoses(pose_model),
+                            path, CALIBRATION_SECONDS, on_calibrated=on_calibrated, say=log)
 
 
 def _camera_installed() -> bool:

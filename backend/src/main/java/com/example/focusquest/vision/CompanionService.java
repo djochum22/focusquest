@@ -56,12 +56,15 @@ public class CompanionService {
         FocusSession session = sessionService.findCurrentSession(user).orElse(null);
         if (session == null || session.getStatus() != SessionStatus.ACTIVE || !session.isCameraVerification()
                 || !cameraSettingsService.isEnabled(user)) {
-            return CompanionStateResponse.off(now);
+            boolean calibrate = companionCredentialService.find(user)
+                    .map(credential -> CompanionCalibration.of(credential, now).shouldStart())
+                    .orElse(false);
+            return CompanionStateResponse.off(calibrate, now);
         }
         OffTaskStatusResponse status = offTaskService.status(session, now,
                 sessionService.uncreditedActiveStretch(session, now), sessionService.offTaskSecondsAt(session, now));
         OffTaskStatusResponse.EpisodeResponse current = status.current();
-        return new CompanionStateResponse(true, session.getId(),
+        return new CompanionStateResponse(true, false, session.getId(),
                 CameraProfileResponse.from(cameraProfiles.forCategory(session.getTaskCategory())), status.state(),
                 current == null ? null : current.warnedAt(), status.deductionStartsAt(), now);
     }

@@ -20,12 +20,15 @@ public class CompanionController {
 
     private final CompanionCredentialService companionCredentialService;
     private final CompanionService companionService;
+    private final CompanionCalibrationService companionCalibrationService;
     private final UserService userService;
 
     public CompanionController(CompanionCredentialService companionCredentialService,
-                               CompanionService companionService, UserService userService) {
+                               CompanionService companionService,
+                               CompanionCalibrationService companionCalibrationService, UserService userService) {
         this.companionCredentialService = companionCredentialService;
         this.companionService = companionService;
+        this.companionCalibrationService = companionCalibrationService;
         this.userService = userService;
     }
 
@@ -41,6 +44,19 @@ public class CompanionController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void unpair(@AuthenticationPrincipal UserDetails principal) {
         companionCredentialService.revoke(userService.getByUsername(principal.getUsername()));
+    }
+
+    /** Asks the companion program to calibrate; 409 when it cannot now (see the service). */
+    @PostMapping("/api/me/companion-calibration")
+    public CameraSettingsResponse requestCalibration(@AuthenticationPrincipal UserDetails principal) {
+        return companionCalibrationService.request(userService.getByUsername(principal.getUsername()));
+    }
+
+    @PostMapping("/api/companion/calibration")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reportCalibration(@AuthenticationPrincipal UserDetails principal,
+                                  @Valid @RequestBody CompanionCalibrationRequest request) {
+        companionCalibrationService.report(userService.getByUsername(principal.getUsername()), request);
     }
 
     @PostMapping("/api/companion/heartbeat")

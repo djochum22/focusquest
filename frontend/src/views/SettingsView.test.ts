@@ -64,7 +64,7 @@ beforeEach(async () => {
   vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
   vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
     { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true,
-      companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false } })
+      companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false, calibration: null } })
   vi.mocked(cameraApi.fetchCameraProfiles).mockResolvedValue([])
 })
 

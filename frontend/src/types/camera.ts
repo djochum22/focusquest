@@ -13,14 +13,29 @@ export interface CameraSettings {
 }
 
 /**
- * The camera companion program: whether one is paired and since when, when it last reported, and
- * whether that was recent enough (30 seconds) to count as connected.
+ * The camera companion program: whether one is paired and since when, when it last reported,
+ * whether that was recent enough (30 seconds) to count as connected, and its calibration (null while
+ * it is not paired).
  */
 export interface CompanionStatus {
   paired: boolean
   pairedAt: string | null
   lastSeenAt: string | null
   connected: boolean
+  calibration: CompanionCalibration | null
+}
+
+/** Mirrors the backend `CalibrationState`. */
+export type CalibrationState = 'NOT_CALIBRATED' | 'REQUESTED' | 'CALIBRATING' | 'CALIBRATED' | 'FAILED'
+
+/**
+ * Mirrors the backend `CompanionCalibration`. `calibratedAt` is when the calibration in use was made,
+ * kept when a new attempt fails; `failure` says why one failed.
+ */
+export interface CompanionCalibration {
+  state: CalibrationState
+  calibratedAt: string | null
+  failure: string | null
 }
 
 /** Mirrors the backend `UpdateCameraSettingsRequest`. `consentVersion` is needed only to turn it on. */

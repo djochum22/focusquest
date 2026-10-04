@@ -29,5 +29,5 @@ def watching(session_id: int = 1, profile: Profile = WRITING, state: str = "ON_T
     return CompanionState(True, session_id, profile, state, warned_at, deduction_starts_at, server_time)
 
 
-def off(server_time: datetime = T0) -> CompanionState:
-    return CompanionState(False, None, None, None, None, None, server_time)
+def off(server_time: datetime = T0, calibrate: bool = False) -> CompanionState:
+    return CompanionState(False, None, None, None, None, None, server_time, calibrate)

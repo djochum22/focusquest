@@ -84,3 +84,19 @@ test('a session goes on unverified when the companion program stops', async ({ p
     .toBeVisible(SHOWN_WITHIN)
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()   // a lost camera never interrupts a session
 })
+
+test('Settings asks the companion program to calibrate, and shows how it went', async ({ page }, testInfo) => {
+  await setUpAccount(page)
+  const code = await turnOnCameraAndPair(page)
+  // A scripted companion has no camera: it picks the request up and says it cannot calibrate.
+  const companion = Companion.start(code, testInfo.outputPath('companion.json'), 'present 30m')
+  try {
+    await expectCompanionConnected(page)
+    await expect(page.getByTestId('calibration-status')).toContainText('Not calibrated yet')
+    await page.getByRole('button', { name: 'Calibrate' }).click()
+    await expect(page.getByTestId('calibration-status'))
+      .toContainText('Calibrating did not work: This companion program replays a script', SHOWN_WITHIN)
+  } finally {
+    await companion.stop()
+  }
+})

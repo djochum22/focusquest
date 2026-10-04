@@ -30,7 +30,7 @@ class FakeBackend(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         FakeBackend.requests.append((self.path, self.headers.get("Authorization"),
                                      json.loads(self.rfile.read(length)) if length else None))
-        payload = json.dumps(FakeBackend.body).encode()
+        payload = b"" if FakeBackend.body is None else json.dumps(FakeBackend.body).encode()
         self.send_response(FakeBackend.status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
@@ -85,6 +85,20 @@ class BackendClientTest(unittest.TestCase):
         self.assertEqual(body, {"sessionId": 7, "observations": [{
             "clientEventId": "e1", "signal": "PHONE", "confidence": 0.9123,
             "startedAt": "2026-03-10T09:00:00.000Z", "observedUntil": "2026-03-10T09:00:01.500Z"}]})
+
+    def test_an_answer_asking_to_calibrate(self):
+        FakeBackend.body = {"cameraOn": False, "calibrate": True, "serverTime": "2026-03-10T09:00:00Z"}
+        self.assertTrue(self.client.heartbeat().calibrate)
+        FakeBackend.body = STATE
+        self.assertFalse(self.client.heartbeat().calibrate)   # a backend that does not say
+
+    def test_calibration_says_how_it_went_and_takes_an_empty_answer(self):
+        FakeBackend.status, FakeBackend.body = 204, None
+        self.client.calibration("CALIBRATED", T0)
+        self.client.calibration("FAILED", message="x" * 400)
+        self.assertEqual(FakeBackend.requests[0][0], "/api/companion/calibration")
+        self.assertEqual(FakeBackend.requests[0][2], {"outcome": "CALIBRATED", "calibratedAt": "2026-03-10T09:00:00.000Z"})
+        self.assertEqual(FakeBackend.requests[1][2], {"outcome": "FAILED", "message": "x" * 300})
 
     def test_report_refuses_more_than_the_backend_accepts(self):
         with self.assertRaises(ValueError):

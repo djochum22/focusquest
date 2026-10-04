@@ -71,7 +71,10 @@ class Profile:
 
 @dataclass(frozen=True)
 class CompanionState:
-    """The answer to every report. Watch only while ``camera_on``; the other session fields are set only then."""
+    """The answer to every report. Watch only while ``camera_on``; the other session fields are set only then.
+
+    ``calibrate`` asks the program to calibrate now: the user asked for it in Settings. Never while ``camera_on``.
+    """
 
     camera_on: bool
     session_id: int | None
@@ -80,12 +83,14 @@ class CompanionState:
     warned_at: datetime | None
     deduction_starts_at: datetime | None
     server_time: datetime
+    calibrate: bool = False
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> CompanionState:
         profile = data.get("profile")
         return cls(
             camera_on=bool(data["cameraOn"]),
+            calibrate=bool(data.get("calibrate", False)),
             session_id=data.get("sessionId"),
             profile=Profile.from_json(profile) if profile else None,
             state=data.get("state"),
@@ -153,6 +158,15 @@ class BackendClient:
         body = {"sessionId": session_id, "observations": [o.to_json() for o in observations]}
         return CompanionState.from_json(self._post("/api/companion/observations", body))
 
+    def calibration(self, outcome: str, calibrated_at: datetime | None = None, message: str | None = None) -> None:
+        """Says how calibrating went: ``STARTED``, ``CALIBRATED`` (with when) or ``FAILED`` (with why). Never the angles."""
+        body: dict[str, Any] = {"outcome": outcome}
+        if calibrated_at is not None:
+            body["calibratedAt"] = format_instant(calibrated_at)
+        if message is not None:
+            body["message"] = message[:300]
+        self._post("/api/companion/calibration", body)
+
     def _post(self, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
         data = None
@@ -162,7 +176,8 @@ class BackendClient:
         request = urllib.request.Request(self._base_url + path, data=data, headers=headers, method="POST")
         try:
             with self._opener(request, timeout=self._timeout) as response:
-                return json.loads(response.read())
+                content = response.read()
+                return json.loads(content) if content else {}
         except urllib.error.HTTPError as error:
             with error:
                 if error.code == 401:

@@ -35,6 +35,18 @@ public class CompanionCredential {
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
 
+    @Column(name = "calibration_requested_at")
+    private Instant calibrationRequestedAt;
+
+    @Column(name = "calibration_started_at")
+    private Instant calibrationStartedAt;
+
+    @Column(name = "calibrated_at")
+    private Instant calibratedAt;
+
+    @Column(name = "calibration_failure", length = 300)
+    private String calibrationFailure;
+
     protected CompanionCredential() {
     }
 
@@ -48,6 +60,34 @@ public class CompanionCredential {
         this.lastSeenAt = now;
     }
 
+    /** The user asked for a calibration; any earlier outcome is forgotten. */
+    void requestCalibration(Instant now) {
+        calibrationRequestedAt = now;
+        calibrationStartedAt = null;
+        calibrationFailure = null;
+    }
+
+    /** The program began a calibration that was asked for. */
+    void calibrationStarted(Instant now) {
+        if (calibrationRequestedAt != null) {
+            calibrationStartedAt = now;
+        }
+    }
+
+    /** The program has a calibration from {@code at}: just made, or one it already had. */
+    void calibrated(Instant at) {
+        calibratedAt = at;
+        calibrationRequestedAt = null;
+        calibrationStartedAt = null;
+        calibrationFailure = null;
+    }
+
+    void calibrationFailed(String failure) {
+        calibrationFailure = failure;
+        calibrationRequestedAt = null;
+        calibrationStartedAt = null;
+    }
+
     public User getUser() {
         return user;
     }
@@ -58,5 +98,21 @@ public class CompanionCredential {
 
     public Instant getLastSeenAt() {
         return lastSeenAt;
+    }
+
+    public Instant getCalibrationRequestedAt() {
+        return calibrationRequestedAt;
+    }
+
+    public Instant getCalibrationStartedAt() {
+        return calibrationStartedAt;
+    }
+
+    public Instant getCalibratedAt() {
+        return calibratedAt;
+    }
+
+    public String getCalibrationFailure() {
+        return calibrationFailure;
     }
 }

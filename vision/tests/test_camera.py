@@ -1,9 +1,14 @@
+import itertools
 import math
+import tempfile
 import unittest
 from datetime import timedelta
+from pathlib import Path
 
-from focusquest_companion.calibration import Calibration, HeadPose, Range, Zone
-from focusquest_companion.camera import CameraDetector, Face, pose_from_matrix, watch_poses
+from focusquest_companion import calibration
+from focusquest_companion.calibration import Calibration, CalibrationFailed, HeadPose, Range, Zone
+from focusquest_companion.camera import (CameraCalibrator, CameraDetector, Face, guided_calibration, pose_from_matrix,
+                                         watch_poses)
 from focusquest_companion.detector import AWAY, LOOKING_AWAY, PHONE, Detection, DetectorUnavailable
 from focusquest_companion.phones import Found
 
@@ -232,6 +237,63 @@ class WatchPosesTest(unittest.TestCase):
     def test_a_camera_that_stops_is_unavailable(self):
         with self.assertRaises(DetectorUnavailable):
             watch_poses(FakeCamera([]), FakeFinder([]), 3, monotonic=lambda: 0)
+
+
+class GuidedCalibrationTest(unittest.TestCase):
+
+    #: A quarter second per look: 11 looks to get ready, then 19 kept, for each of screen and desk.
+    def ticks(self):
+        return itertools.count(0, 0.25).__next__
+
+    def test_announces_each_step_then_keeps_the_angles_seen(self):
+        screen = [HeadPose(0, 0)] * 10 + [HeadPose(4, 6)] * 9
+        desk = [HeadPose(0, 30)] * 10 + [HeadPose(2, 40)] * 9
+        poses = FakeFinder(screen + desk)
+        said = []
+        angles = guided_calibration(FakeCamera([FRAME] * 100), poses, None, 5, said.append, self.ticks())
+        self.assertEqual(angles.screen, Zone(Range(0, 4), Range(0, 6)).widened())
+        self.assertEqual(angles.desk, Zone(Range(0, 2), Range(30, 40)).widened())
+        self.assertEqual(poses.asked, 38)   # only while keeping, not while getting ready
+        self.assertEqual(said[0], "Look at your screen, across all of it.")
+
+    def test_a_face_seen_too_rarely_fails(self):
+        poses = FakeFinder([None] * 20)
+        with self.assertRaisesRegex(CalibrationFailed, "face is in view"):
+            guided_calibration(FakeCamera([FRAME] * 100), poses, None, 5, lambda line: None, self.ticks())
+
+
+class CameraCalibratorTest(unittest.TestCase):
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.path = Path(directory.name) / "calibration.json"
+        self.camera = FakeCamera([FRAME] * 100)
+
+    def calibrator(self, poses, on_calibrated=lambda angles: None):
+        self.poses = FakeFinder(poses)
+        # The fake camera answers at once; time moves a quarter second per look.
+        return CameraCalibrator(self.camera, lambda: self.poses, self.path, 5, on_calibrated=on_calibrated,
+                                preview=lambda: None, say=lambda line: None,
+                                monotonic=itertools.count(0, 0.25).__next__)
+
+    def test_saves_the_angles_and_hands_them_on_with_the_camera_closed(self):
+        handed = []
+        calibrator = self.calibrator([HeadPose(0, 0)] * 19 + [HeadPose(0, 35)] * 19, handed.append)
+        self.assertIsNone(calibrator.calibrated_at())
+        angles = calibrator.calibrate()
+        self.assertEqual(calibration.load(self.path), angles)
+        self.assertEqual(handed, [angles])
+        self.assertFalse(self.camera.is_open)
+        self.assertTrue(self.poses.closed)
+        self.assertIsNotNone(calibrator.calibrated_at())
+
+    def test_a_failed_calibration_keeps_the_old_one_and_closes_the_camera(self):
+        calibrator = self.calibrator([None] * 20)
+        with self.assertRaises(CalibrationFailed):
+            calibrator.calibrate()
+        self.assertFalse(self.path.exists())
+        self.assertFalse(self.camera.is_open)
 
 
 class PhoneTest(unittest.TestCase):

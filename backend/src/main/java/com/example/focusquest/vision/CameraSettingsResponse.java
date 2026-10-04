@@ -16,9 +16,11 @@ public record CameraSettingsResponse(
 ) {
 
     /**
-     * The camera companion program: whether one is paired and since when, when it last reported, and
-     * whether that was recent enough to count as connected.
+     * The camera companion program: whether one is paired and since when, when it last reported,
+     * whether that was recent enough to count as connected, and where its calibration stands (null
+     * while it is not paired).
      */
-    public record Companion(boolean paired, Instant pairedAt, Instant lastSeenAt, boolean connected) {
+    public record Companion(boolean paired, Instant pairedAt, Instant lastSeenAt, boolean connected,
+                            CompanionCalibration calibration) {
     }
 }

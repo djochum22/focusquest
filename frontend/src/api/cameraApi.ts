@@ -25,6 +25,15 @@ export async function pairCompanion(): Promise<string> {
   return data.token
 }
 
+/**
+ * Asks the companion program to calibrate: it picks this up within seconds and guides the user in its
+ * camera window. A 409 says why it cannot now (not connected, or a camera-verified session is running).
+ */
+export async function requestCalibration(): Promise<CameraSettings> {
+  const { data } = await apiClient.post<CameraSettings>('/api/me/companion-calibration')
+  return data
+}
+
 /** Unpairs the companion program; its token stops working at once. */
 export async function unpairCompanion(): Promise<void> {
   await apiClient.delete('/api/me/companion-token')
