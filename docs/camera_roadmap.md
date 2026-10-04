@@ -6,7 +6,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 ## Start here
 
-All three camera signals now work with a real webcam: away, looking away and a phone in hand. After **C1e** (under "C1e: sensitivity") they are more sensitive and warn sooner; the user tried it live and it looks a lot better. The next step is **C3a**, under "Next step: C3, the companion without the terminal": today the user has to start the companion and calibrate it from a terminal, and wants neither. C1d (accuracy) comes after C3. Before starting:
+All three camera signals now work with a real webcam: away, looking away and a phone in hand. After **C1e** (under "C1e: sensitivity") they are more sensitive and warn sooner; the user tried it live and it looks a lot better. The user wants neither to start the companion nor to calibrate it from a terminal ("Next step: C3, the companion without the terminal"). **C3a** is built and tried live: `install` runs it in the background through a launch agent, and macOS asked for the camera permission as hoped. Next is **C3b**, calibration from Settings. C1d (accuracy) comes after C3. Before starting:
 
 1. Read this note, then `vision/README.md` (how the companion program runs and is built), then requirements §21 (the camera rules) and §19 (privacy).
 2. Run `scripts/test-all.sh` to see everything pass before changing anything.
@@ -34,8 +34,8 @@ All three camera signals now work with a real webcam: away, looking away and a p
 | C1c | Phone in hand: EfficientDet-Lite0's "cell phone" overlapping a hand from the Hand Landmarker, with a rescaled confidence | `f433038`; tried live, works |
 | C1d | Label mode, accuracy measurements, smoothing if needed, tuning | After C3 |
 | C1e | Sensitivity: warnings after 5 s of phone and 15 s of looking away (grace stays 60 s); looking away from 5° beyond the zone, at full confidence; phones and hands also looked for in enlarged crops of the lower frame (see "C1e: sensitivity") | The commit with this note; tried live, a lot better |
-| **C3a** | **The companion starts by itself: `install` writes a macOS launch agent** | **Next** |
-| C3b | Calibration started from Settings, guided in the camera window | After C3a |
+| C3a | The companion starts by itself: `install` writes a macOS launch agent; `--background` waits to be paired. Calibrated zones at least 20° by 14° | The commit with this note; tried live, works |
+| **C3b** | **Calibration started from Settings, guided in the camera window** | **Next** |
 | C2 | Say in the web app when the camera cannot be used (see "Known limits") | Any time; small |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
@@ -89,6 +89,7 @@ The user should not need a terminal for everyday use: not to start the companion
 **C3a: the companion starts by itself** (companion only).
 - `focusquest-companion install` does the one-time setup: pairs if not paired yet, then writes a launch agent (`~/Library/LaunchAgents`) that runs `run --camera` at login and again if it stops, with its output in `~/Library/Logs/FocusQuest/companion.log`. `uninstall` removes it.
 - Unpaired, `run` waits for a pairing rather than exiting, so the launch agent does not restart it in a loop.
+- **Built** (`service.py`, `cli.py`): `install` pairs if needed, downloads the models, writes `~/Library/LaunchAgents/com.focusquest.companion.plist` (`RunAtLoad`, `KeepAlive`, restart after 30 s, Aqua sessions only) running `<venv python> -m focusquest_companion --config <path> run --camera --background`, and bootstraps it with `launchctl` into `gui/<uid>`. `uninstall` boots it out and deletes it; `status` reads `launchctl print`. `--background` waits for a pairing (checked every 5 s), waits again after a refused token, and puts the time on each log line; a terminal `run` without it behaves as before (the end-to-end tests match its lines from the start), and warns when the agent also runs. Tried live: the user installed it, macOS asked for the camera permission, and warnings arrived as notifications.
 - Risk to check first, live with the user: macOS may not show the camera permission prompt to a program started in the background. If it does not, wrap the companion in a small `.app` (with `NSCameraUsageDescription`), which the menu bar app would need anyway.
 
 **C3b: calibration from Settings** (backend, web app, companion).
@@ -120,6 +121,7 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 - Now: the margin is 5, and the confidence is `LEAST_CONFIDENCE` (0.7) just past the margin, growing to 1 over `CERTAIN_AFTER_DEGREES` (15). A face found below `CLEAR_FACE_FROM` (0.7) lowers it in proportion. A clearly seen face counts as soon as it is 5 degrees outside the zone. All of this is in `calibration.py`.
 - The user's calibrated screen zone is only about 15 degrees wide and 7 tall, so 5 degrees is a small tolerance. If reading the screen's edges or corners now counts as looking away, the first fix is to calibrate again across the whole screen; after that, a margin of 7 or 8.
 - Not changed: the default zones in `calibration.DEFAULT` (the user has calibrated) The user then also asked for earlier warnings: a phone after 5 seconds, looking away after 15 (see "Decisions the user has made"). With both together, a 5-second glance at a phone, or a 15-second look 5 degrees beyond the screen, now pops a notification.
+- **Found in the first live try of C3a:** after recalibrating, the user was reported looking away for minutes while working. The new calibration's screen zone was 3 degrees wide and 2.6 tall (turned +1 to +4, looking 18 to 20 degrees up): calibration measures the head, and reading across a screen mostly moves the eyes. With the 5-degree margin nearly every pose was off task, and the 60-second countdown ran on, correctly, from what was reported. Zones are now at least `MIN_YAW_SPAN` (20) by `MIN_PITCH_SPAN` (14) degrees around their middle (`Zone.widened`, also applied when loading older calibrations), and `CameraDetector` logs the head's angles and the work area when a look away starts, so the background log shows why.
 - Unknown: BlazeFace's score for a turned head live. If it drops below 0.7, the confidence drops with it. The preview shows the face's score.
 
 **A phone counts when it is small or half out of the picture.**
@@ -151,6 +153,7 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 - Users cannot edit the camera profiles yet; this was decided (requirements §22, #17).
 - When the camera closes (pause, end), observations from its last 2 seconds that were not reported yet are dropped.
 - A user who turns away and then gets up within 2 seconds is reported as looking away until they are back, not as away. Both warn; looking away warns sooner (15 s against 90 s).
+- The launch agent points at `vision/.venv`'s Python. Moving or recreating the venv, or a Homebrew Python upgrade that breaks it, stops the agent from starting; run `install` again.
 - The calibration is not tied to a camera. After moving the camera or switching to another, the user has to calibrate again; nothing detects it.
 - The looking-away margin, confidence curve and default angles, the phone thresholds and the crops are guesses until C1d measures them. C1e's numbers come from what the user saw live and from shrunk and cut stock photos, not from webcam footage.
 - A phone held low, in the lap, is below a laptop camera's view and is not seen. A hand gripping a phone is sometimes missed, and then the phone does not count.

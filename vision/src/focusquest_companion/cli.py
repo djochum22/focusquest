@@ -6,9 +6,10 @@ import getpass
 import signal
 import sys
 import threading
+from datetime import datetime
 from pathlib import Path
 
-from . import calibration, config, models
+from . import calibration, config, models, service
 from .api import DEFAULT_BACKEND_URL, BackendClient, BackendClock, BackendError, Unauthorized
 from .cameras import CameraChoice, list_cameras
 from .companion import Companion
@@ -18,6 +19,8 @@ from .notifications import SystemNotifier, TerminalNotifier, WarningPresenter
 TOKEN_PREFIX = "fqc_"
 #: How long to look at the screen, then at the desk, while calibrating.
 CALIBRATION_SECONDS = 5
+#: In the background, how often to check whether the program has been paired (again).
+PAIRING_CHECK_SECONDS = 5
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -54,6 +57,17 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--loop", action="store_true", help="with --script: start the script over when it ends")
     run.add_argument("--no-notifications", action="store_true",
                      help="write warnings to the terminal instead of showing notifications")
+    run.add_argument("--background", action="store_true",
+                     help="as the launch agent runs it: wait to be paired rather than stop, and put the time on each line")
+
+    install = commands.add_parser(
+        "install", help="on macOS: pair if needed, then start watching in the background at every login")
+    install.add_argument("code", nargs="?", help="the fqc_ pairing code, if not paired yet; asked for if left out")
+    install.add_argument("--backend", default=DEFAULT_BACKEND_URL,
+                         help=f"the backend's address, if not paired yet (default: {DEFAULT_BACKEND_URL})")
+
+    commands.add_parser("uninstall", help="stop watching in the background, and do not start at login")
+    commands.add_parser("status", help="whether the program runs in the background, and where its log is")
 
     args = parser.parse_args(argv)
     path = args.config or config.default_path()
@@ -67,6 +81,12 @@ def main(argv: list[str] | None = None) -> int:
             return _cameras()
         if args.command == "calibrate":
             return _calibrate(calibration.default_path(path), args.camera, args.preview)
+        if args.command == "install":
+            return _install(path, args.code, args.backend)
+        if args.command == "uninstall":
+            return _uninstall()
+        if args.command == "status":
+            return _status(path)
         if args.preview and args.script is not None:
             parser.error("--preview only works with --camera")
         return _run(path, args, args.no_notifications)
@@ -92,11 +112,13 @@ def _pair(path: Path, code: str | None, backend_url: str) -> int:
 
 
 def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
-    pairing = config.load(path)
+    log = _timed_print if args.background else _flushing_print
+    stop = threading.Event()
+    for number in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(number, lambda *_: stop.set())
+    pairing = _await_pairing(path, None, args.background, stop, log)
     if pairing is None:
-        print("Not paired yet. Run `focusquest-companion pair` with the code from Settings.", file=sys.stderr)
-        return 2
-    log = _flushing_print
+        return 0 if stop.is_set() else 2
     if args.script is not None:
         try:
             detector = ScriptedDetector(parse_script(args.script), loop=args.loop)
@@ -112,21 +134,107 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
         source = f"{CameraChoice.parse(args.camera).describe()}, checking presence, where you look and a phone in hand"
         if not angles.calibrated:
             source += " (not calibrated yet: run `focusquest-companion calibrate` for your screen and desk)"
+        if not args.background and service.supported() and service.LaunchAgent().status().running:
+            log("The program also runs in the background (see `focusquest-companion status`), so the camera is "
+                "watched twice. Stop it with `focusquest-companion uninstall`, or stop this one.")
 
     notifier = TerminalNotifier(log) if no_notifications else SystemNotifier(log)
-    companion = Companion(BackendClient(pairing.backend_url, pairing.token), detector,
-                          WarningPresenter(notifier), BackendClock(), log=log)
-    stop = threading.Event()
-    for number in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(number, lambda *_: stop.set())
-    log(f"Connected to {pairing.backend_url}, {source}. Stop with Ctrl+C.")
-    try:
-        companion.run(stop)
-    except Unauthorized:
-        print("The pairing code no longer works: it was unpaired, or paired again. "
-              "Pair again in Settings, then run `focusquest-companion pair`.", file=sys.stderr)
-        return 1
+    while True:
+        companion = Companion(BackendClient(pairing.backend_url, pairing.token), detector,
+                              WarningPresenter(notifier), BackendClock(), log=log)
+        log(f"Connected to {pairing.backend_url}, {source}." + ("" if args.background else " Stop with Ctrl+C."))
+        try:
+            companion.run(stop)
+        except Unauthorized:
+            if not args.background:
+                print("The pairing code no longer works: it was unpaired, or paired again. "
+                      "Pair again in Settings, then run `focusquest-companion pair`.", file=sys.stderr)
+                return 1
+            log("The pairing code no longer works: it was unpaired, or paired again in Settings.")
+            pairing = _await_pairing(path, pairing, True, stop, log)
+            if pairing is None:
+                break
+            continue
+        break
     log("Stopped.")
+    return 0
+
+
+def _await_pairing(path: Path, refused: config.Pairing | None, wait: bool, stop: threading.Event,
+                   log) -> config.Pairing | None:
+    """The pairing, other than one the backend refused. In the background it waits for one; None once stopped."""
+    said = False
+    while True:
+        pairing = config.load(path)
+        if pairing is not None and pairing != refused:
+            return pairing
+        if not wait:
+            print("Not paired yet. Run `focusquest-companion pair` with the code from Settings.", file=sys.stderr)
+            return None
+        if not said:
+            log("Waiting to be paired: run `focusquest-companion pair` with the code from Settings, under "
+                "Camera verification.")
+            said = True
+        if stop.wait(PAIRING_CHECK_SECONDS):
+            return None
+
+
+def _install(path: Path, code: str | None, backend_url: str) -> int:
+    if not service.supported():
+        print("Running in the background is set up on macOS only. Elsewhere, start "
+              "`focusquest-companion run --camera` yourself, or from your system's autostart.", file=sys.stderr)
+        return 2
+    if not _camera_installed():
+        return 2
+    if config.load(path) is None:
+        result = _pair(path, code, backend_url)
+        if result != 0:
+            return result
+    try:
+        for model in (models.FACE_DETECTOR, models.FACE_LANDMARKER, models.OBJECT_DETECTOR, models.HAND_LANDMARKER):
+            models.ensure(model, log=_flushing_print)
+    except models.ModelError as error:
+        print(error, file=sys.stderr)
+        return 1
+    log = service.log_path()
+    try:
+        service.LaunchAgent().install(service.agent(path.resolve(), log))
+    except OSError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print("The companion now runs in the background, and starts again at every login. The camera opens only "
+          "during a session with Verify with camera; the first time, macOS asks whether it may use it.")
+    print(f"What it does is written to {log}. Stop it with `focusquest-companion uninstall`.")
+    if not calibration.load(calibration.default_path(path)).calibrated:
+        print("Not calibrated yet: run `focusquest-companion calibrate --preview` once, so it knows where your "
+              "screen and desk are.")
+    return 0
+
+
+def _uninstall() -> int:
+    if not service.supported():
+        print("Nothing to remove: running in the background is set up on macOS only.")
+        return 0
+    removed = service.LaunchAgent().uninstall()
+    print("Stopped, and it no longer starts at login. The pairing is kept; `unpair` forgets it."
+          if removed else "Not running in the background.")
+    return 0
+
+
+def _status(path: Path) -> int:
+    paired = config.load(path)
+    print(f"Paired with {paired.backend_url}." if paired else "Not paired.")
+    print("Calibrated." if calibration.load(calibration.default_path(path)).calibrated else "Not calibrated.")
+    if not service.supported():
+        print("Running in the background is set up on macOS only.")
+        return 0
+    status = service.LaunchAgent().status()
+    if status.running:
+        print(f"Running in the background (process {status.pid}). Log: {service.log_path()}")
+    elif status.installed:
+        print(f"Installed, but not running right now; launchd starts it again shortly. Log: {service.log_path()}")
+    else:
+        print("Not running in the background. `focusquest-companion install` sets that up.")
     return 0
 
 
@@ -219,9 +327,14 @@ def _camera_detector(wanted: str, preview: bool, angles: calibration.Calibration
     webcam = Webcam(lambda: choice.resolve(list_cameras()), log)
     return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), poses=lambda: MediaPipePoses(pose_model),
                           phones=lambda: MediaPipePhones(phone_model), hands=lambda: MediaPipeHands(hand_model),
-                          calibration=angles, preview=Preview() if preview else None)
+                          calibration=angles, preview=Preview() if preview else None, log=log)
 
 
 def _flushing_print(line: str) -> None:
     # Flushed at once, so whoever reads the output (a terminal, a log, a test) sees each line as it happens.
     print(line, flush=True)
+
+
+def _timed_print(line: str) -> None:
+    # In the log file there is nobody watching as it happens, so each line says when.
+    print(f"{datetime.now():%Y-%m-%d %H:%M:%S}  {line}", flush=True)

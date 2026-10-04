@@ -48,7 +48,9 @@ wherever the steps below say `focusquest-companion`.
 
    It asks you to look at your screen for 5 seconds, across all of it, then down at your desk as
    when reading or writing on paper, and keeps the range of head angles seen in
-   `calibration.json` next to the pairing. Only angles are kept. Calibrate again after moving the
+   `calibration.json` next to the pairing. Only angles are kept. Since mostly the eyes move when
+   reading a screen, each range is made at least 20 degrees wide and 14 tall around its middle.
+   Calibrate sitting as you usually work. Calibrate again after moving the
    camera or switching to another; `--camera` picks one as for `run`. Without a calibration, fixed
    angles around straight ahead are used, and `run` says so.
 4. Run it with the camera:
@@ -86,6 +88,30 @@ showing system notifications (macOS through `osascript`, Linux through `notify-s
 `focusquest-companion unpair` forgets the code on this computer; **Unpair** in Settings makes it
 stop working.
 
+## In the background (macOS)
+
+So that nobody has to start it from a terminal, the program can run in the background, started at
+every login:
+
+```bash
+focusquest-companion install       # pairs first if needed (asks for the code), then starts it
+focusquest-companion status        # paired? calibrated? running in the background?
+focusquest-companion uninstall     # stops it, and it no longer starts at login
+```
+
+`install` downloads the models, then writes a launch agent, `~/Library/LaunchAgents/com.focusquest.companion.plist`,
+which runs `run --camera --background` with the Python it was installed into, at login and again
+30 seconds after it stops for any reason. What it does goes to `~/Library/Logs/FocusQuest/companion.log`,
+each line with its time. It still opens the camera only during a session with **Verify with camera**,
+and shows the same notifications. The first time it opens the camera, macOS asks whether it may.
+
+With `--background`, an unpaired program waits to be paired, and a refused code waits for a new
+pairing, instead of stopping: `focusquest-companion pair` in a terminal is enough, without restarting
+it. Running `run --camera` in a terminal as well warns that the camera would be watched twice.
+
+Moving or recreating `.venv` (or a Python upgrade that breaks it) breaks the agent; run `install`
+again.
+
 ## How it works
 
 | File | What it does |
@@ -101,6 +127,7 @@ stop working.
 | `api.py` | The backend's companion endpoints, and its clock |
 | `notifications.py` | System notifications for warnings |
 | `cli.py`, `config.py` | The command, and where the pairing is kept |
+| `service.py` | The macOS launch agent that runs it in the background |
 
 - **Reports.** `POST /api/companion/observations` while there is something the backend has not
   heard yet, otherwise `POST /api/companion/heartbeat`. Either keeps the program connected (heard
@@ -120,7 +147,8 @@ stop working.
   degrees beyond the screen's angles (`SCREEN`), or beyond both the screen's and the desk's
   (`SCREEN_OR_DESK`), is `LOOKING_AWAY`. For a clearly seen face (0.7 or above) its confidence is the
   backend's minimum of 0.7 just past that margin, so it counts at once, and grows to 1 over the next
-  15 degrees; a less sure face lowers it in proportion. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
+  15 degrees; a less sure face lowers it in proportion. When a look away starts, the head's angles and the work area's are written to the
+  output, so the log shows why. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
   is found again, since a head turned far enough loses the face; otherwise a lost face is `AWAY`.
 - **A phone in hand.** MediaPipe's object detector (EfficientDet-Lite0, trained on COCO) looks for
   its "cell phone" class; once it finds one at 0.25 or above, the hand landmarker looks for hands.

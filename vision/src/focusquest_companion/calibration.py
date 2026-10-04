@@ -32,6 +32,11 @@ CLEAR_FACE_FROM = 0.7
 MIN_SAMPLES = 10
 #: The share of poses left out at each end of a range, so one stray frame does not widen it.
 TRIM = 0.05
+#: The smallest a zone may be, in degrees, widened around its middle if calibrated smaller. Calibrating
+#: measures where the head points, and across a screen mostly the eyes move: a user who reads the
+#: whole screen may turn their head only 3 degrees, and the next shift in posture would be off task.
+MIN_YAW_SPAN = 20.0
+MIN_PITCH_SPAN = 14.0
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,13 @@ class Range:
         """How far ``value`` is outside the range, 0 if inside."""
         return max(self.low - value, value - self.high, 0.0)
 
+    def at_least(self, span: float) -> Range:
+        """This range, or one ``span`` wide around its middle if it is narrower."""
+        if self.high - self.low >= span:
+            return self
+        middle = (self.low + self.high) / 2
+        return Range(round(middle - span / 2, 1), round(middle + span / 2, 1))
+
 
 @dataclass(frozen=True)
 class Zone:
@@ -72,7 +84,11 @@ class Zone:
         """The range of angles seen, leaving out the most extreme few at each end."""
         if len(poses) < MIN_SAMPLES:
             raise ValueError(f"Saw your face {len(poses)} times; at least {MIN_SAMPLES} are needed")
-        return cls(_trimmed_range([p.yaw for p in poses]), _trimmed_range([p.pitch for p in poses]))
+        return cls(_trimmed_range([p.yaw for p in poses]), _trimmed_range([p.pitch for p in poses])).widened()
+
+    def widened(self) -> Zone:
+        """At least :data:`MIN_YAW_SPAN` by :data:`MIN_PITCH_SPAN`."""
+        return Zone(self.yaw.at_least(MIN_YAW_SPAN), self.pitch.at_least(MIN_PITCH_SPAN))
 
 
 @dataclass(frozen=True)
@@ -154,4 +170,5 @@ def _zone_to_json(zone: Zone) -> dict:
 
 
 def _zone_from_json(data: dict) -> Zone:
-    return Zone(Range(*map(float, data["yaw"])), Range(*map(float, data["pitch"])))
+    # Widened on loading too, so calibrations saved before the minimum came in get it.
+    return Zone(Range(*map(float, data["yaw"])), Range(*map(float, data["pitch"]))).widened()

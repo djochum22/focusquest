@@ -145,6 +145,18 @@ class LookingAwayTest(unittest.TestCase):
         self.assertEqual(detector.detect(self.at(0), WRITING), Detection())
         self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 1.0}))
 
+    def test_says_where_the_head_pointed_once_as_it_turns_away(self):
+        lines = []
+        self.camera = FakeCamera([FRAME] * 4)
+        detector = CameraDetector(self.camera, lambda: FakeFaces([face(0.9)] * 4),
+                                  poses=lambda: FakeFinder([TURNED, TURNED, SCREEN, TURNED]),
+                                  calibration=ANGLES, log=lines.append)
+        detector.open(T0)
+        for second in range(4):
+            detector.detect(self.at(second), WRITING)
+        self.assertEqual(len(lines), 2)
+        self.assertRegex(lines[0], r"^Head turned [+-]\d+, looking down [+-]\d+: outside the work area \(screen .* or desk .*\)\.$")
+
     def test_reading_at_the_desk_is_on_task_where_the_desk_counts(self):
         detector = self.detector([face(0.9)], [HeadPose(0, 40)])
         self.assertEqual(detector.detect(self.at(0), WRITING), Detection())

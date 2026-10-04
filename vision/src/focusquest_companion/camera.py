@@ -335,7 +335,8 @@ class CameraDetector:
                  poses: Callable[[], PoseFinder] | None = None,
                  phones: Callable[[], PhoneFinder] | None = None,
                  hands: Callable[[], HandFinder] | None = None,
-                 calibration: Calibration = calibration.DEFAULT, preview: Preview | None = None):
+                 calibration: Calibration = calibration.DEFAULT, preview: Preview | None = None,
+                 log: Callable[[str], None] = lambda line: None):
         self._camera = camera
         self._open_faces = faces
         self._open_poses = poses
@@ -347,6 +348,7 @@ class CameraDetector:
         self._hands: HandFinder | None = None
         self._calibration = calibration
         self._preview = preview
+        self._log = log
         #: When the head was last seen turned away, and how surely; None once seen otherwise.
         self._turned: tuple[datetime, float] | None = None
         #: How surely, while the face is lost after a turn away.
@@ -406,6 +408,8 @@ class CameraDetector:
                 pose = self._poses.find(frame)
                 if pose is not None:
                     looking_away = self._calibration.looking_away(pose, work_area, score)
+            if looking_away is not None and self._turned is None:
+                self._log_turn(pose, work_area)
             self._turned = (now, looking_away) if looking_away is not None else None
             return ({LOOKING_AWAY: looking_away} if looking_away is not None else {}), pose
         if work_area is not None and self._turned is not None and now - self._turned[0] <= LOST_AFTER_TURN:
@@ -414,6 +418,13 @@ class CameraDetector:
         if work_area is not None and self._lost_turned is not None:
             return {LOOKING_AWAY: self._lost_turned}, None
         return {AWAY: round(1 - score, 3)}, None
+
+    def _log_turn(self, pose: HeadPose, work_area: str) -> None:
+        """Where the head pointed as it turned away, against the work area: without a preview, the log is how to tell why."""
+        zones = " or ".join(f"{name} {calibration.describe(zone)}"
+                            for name, zone in (("screen", self._calibration.screen), ("desk", self._calibration.desk))
+                            if zone in self._calibration.zones(work_area))
+        self._log(f"Head turned {pose.yaw:+.0f}, looking down {pose.pitch:+.0f}: outside the work area ({zones}).")
 
     def _describe(self, detection: Detection, pose: HeadPose | None, work_area: str | None,
                   checks_phone: bool) -> list[str]:

@@ -57,7 +57,14 @@ class ZoneFromPosesTest(unittest.TestCase):
         poses.append(HeadPose(80, -40))   # one stray frame
         zone = Zone.from_poses(poses)
         # Of 21 poses, the most extreme one at each end is left out: the stray, and one at the other end.
-        self.assertEqual(zone, Zone(Range(-8, 10), Range(0, 18)))
+        # The yaw, 18 degrees across, is then widened to the minimum of 20 around its middle.
+        self.assertEqual(zone, Zone(Range(-9, 11), Range(0, 18)))
+
+    def test_a_head_that_hardly_moved_gives_a_zone_of_the_minimum_size(self):
+        # Reading across a screen mostly moves the eyes: this head turned only 3 degrees.
+        poses = [HeadPose(1 + i * 0.3, -20 + i * 0.25) for i in range(11)]
+        zone = Zone.from_poses(poses)
+        self.assertEqual(zone, Zone(Range(-7.5, 12.5), Range(-25.8, -11.8)))
 
     def test_too_few_poses_is_refused(self):
         with self.assertRaises(ValueError):
@@ -79,9 +86,16 @@ class StorageTest(unittest.TestCase):
 
     def test_saved_and_loaded_as_angles_only(self):
         calibration.save(self.path, ANGLES)
-        self.assertEqual(calibration.load(self.path), ANGLES)
+        self.assertEqual(calibration.load(self.path), Calibration(ANGLES.screen.widened(), ANGLES.desk.widened()))
         self.assertEqual(set(json.loads(self.path.read_text())), {"screen", "desk"})
         self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+
+    def test_a_calibration_saved_smaller_than_the_minimum_is_widened_on_loading(self):
+        self.path.write_text(json.dumps({"screen": {"yaw": [1.3, 4.3], "pitch": [-20.5, -17.9]},
+                                         "desk": {"yaw": [-20, 20], "pitch": [25, 50]}}))
+        loaded = calibration.load(self.path)
+        self.assertEqual(loaded.screen, Zone(Range(-7.2, 12.8), Range(-26.2, -12.2)))
+        self.assertEqual(loaded.desk, Zone(Range(-20, 20), Range(25, 50)))
 
     def test_kept_next_to_the_pairing(self):
         self.assertEqual(calibration.default_path(Path("/x/companion.json")), Path("/x/calibration.json"))
