@@ -1,6 +1,6 @@
 import unittest
 
-from focusquest_companion.phones import Found, confidence, held, overlaps
+from focusquest_companion.phones import Found, closer_looks, confidence, distinct, held, moved, overlaps
 
 HAND = (100, 100, 80, 120)
 
@@ -33,6 +33,21 @@ class HeldTest(unittest.TestCase):
         doubtful = Found(0.3, (110, 110, 30, 30))
         surer = Found(0.5, (150, 150, 60, 100))
         self.assertEqual(held([lying, doubtful, surer], [HAND]), surer)
+
+
+class CloserLooksTest(unittest.TestCase):
+
+    def test_the_lower_left_and_lower_right_overlapping_in_the_middle(self):
+        self.assertEqual(closer_looks(1280, 720), [(0, 288, 768, 432), (512, 288, 768, 432)])
+
+    def test_a_box_found_in_a_closer_look_is_placed_in_the_whole_frame(self):
+        self.assertEqual(moved((10, 20, 30, 40), (512, 288, 768, 432)), (522, 308, 30, 40))
+
+    def test_a_phone_found_again_in_a_closer_look_is_kept_once_at_its_surest(self):
+        whole = Found(0.3, (100, 100, 40, 80))
+        closer = Found(0.6, (102, 98, 40, 84))
+        elsewhere = Found(0.4, (400, 100, 40, 80))
+        self.assertEqual(distinct([whole, elsewhere, closer]), [closer, elsewhere])
 
 
 class ConfidenceTest(unittest.TestCase):

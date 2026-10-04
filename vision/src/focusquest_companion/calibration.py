@@ -20,9 +20,14 @@ SCREEN_OR_DESK = "SCREEN_OR_DESK"
 ANYWHERE = "ANYWHERE"
 
 #: How far beyond a zone, in degrees, the head may turn and still be on task: a glance is not looking away.
-MARGIN_DEGREES = 10.0
-#: Beyond the margin, how many more degrees until looking away is certain; at the margin it is a toss-up.
+#: The calibration already takes in the whole screen, so this only allows for a little wobble.
+MARGIN_DEGREES = 5.0
+#: Beyond the margin, how many more degrees until looking away is certain.
 CERTAIN_AFTER_DEGREES = 15.0
+#: The confidence just beyond the margin, for a clearly seen face: the backend's minimum (0.7 today), so it counts.
+LEAST_CONFIDENCE = 0.7
+#: A face found at least this surely is clearly seen; a less sure one lowers the confidence in proportion.
+CLEAR_FACE_FROM = 0.7
 #: A calibration needs at least this many head poses for each zone.
 MIN_SAMPLES = 10
 #: The share of poses left out at each end of a range, so one stray frame does not widen it.
@@ -87,7 +92,8 @@ class Calibration:
     def looking_away(self, pose: HeadPose, work_area: str, face_score: float) -> float | None:
         """The confidence that the head is turned away from the work area, or None if it is not.
 
-        It grows with how far beyond the margin the head points, and with how surely the face was found.
+        Just beyond the margin it is :data:`LEAST_CONFIDENCE`, growing to 1 over the next
+        :data:`CERTAIN_AFTER_DEGREES`. A face found less surely than :data:`CLEAR_FACE_FROM` lowers it.
         """
         zones = self.zones(work_area)
         if not zones:
@@ -95,8 +101,8 @@ class Calibration:
         beyond = min(zone.outside(pose) for zone in zones) - MARGIN_DEGREES
         if beyond <= 0:
             return None
-        certainty = min(1.0, 0.5 + 0.5 * beyond / CERTAIN_AFTER_DEGREES)
-        return round(certainty * (0.5 + 0.5 * face_score), 3)
+        certainty = LEAST_CONFIDENCE + (1 - LEAST_CONFIDENCE) * min(1.0, beyond / CERTAIN_AFTER_DEGREES)
+        return round(certainty * min(1.0, face_score / CLEAR_FACE_FROM), 3)
 
 
 #: Until the user calibrates: the screen roughly straight ahead (a laptop camera sits just above it),

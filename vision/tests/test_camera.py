@@ -143,7 +143,7 @@ class LookingAwayTest(unittest.TestCase):
     def test_facing_the_screen_is_on_task_and_turned_away_is_looking_away(self):
         detector = self.detector([face(0.9), face(0.9)], [SCREEN, TURNED])
         self.assertEqual(detector.detect(self.at(0), WRITING), Detection())
-        self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 0.95}))
+        self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 1.0}))
 
     def test_reading_at_the_desk_is_on_task_where_the_desk_counts(self):
         detector = self.detector([face(0.9)], [HeadPose(0, 40)])
@@ -160,9 +160,9 @@ class LookingAwayTest(unittest.TestCase):
 
     def test_a_face_lost_just_after_turning_away_is_still_looking_away_until_it_is_back(self):
         detector = self.detector([face(0.9), None, None, face(0.9)], [TURNED, SCREEN])
-        self.assertEqual(detector.detect(self.at(0), WRITING), Detection({LOOKING_AWAY: 0.95}))
-        self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 0.95}))
-        self.assertEqual(detector.detect(self.at(60), WRITING), Detection({LOOKING_AWAY: 0.95}))
+        self.assertEqual(detector.detect(self.at(0), WRITING), Detection({LOOKING_AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(60), WRITING), Detection({LOOKING_AWAY: 1.0}))
         self.assertEqual(detector.detect(self.at(61), WRITING), Detection())
 
     def test_a_face_lost_while_facing_the_screen_is_away(self):

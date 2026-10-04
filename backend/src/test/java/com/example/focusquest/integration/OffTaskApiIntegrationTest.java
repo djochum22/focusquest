@@ -13,14 +13,22 @@ import java.time.Instant;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Camera verification end to end: observations become off-task episodes, and their time is
- * subtracted from the session and the streak (requirements specification, section 21). The default
- * timings apply: phone 20 s, looking away 60 s, away 90 s, grace 60 s. Observations arrive as the
- * paired companion program sends them, with its own token.
+ * subtracted from the session and the streak (requirements specification, section 21). The timings
+ * are fixed here, so tuning the defaults does not change the arithmetic: phone 20 s, looking away
+ * 60 s, away 90 s, grace 60 s. Observations arrive as the paired companion program sends them, with
+ * its own token.
  */
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:off-task-api;DB_CLOSE_DELAY=-1",
+        "focusquest.camera.warning-after.away=90s",
+        "focusquest.camera.warning-after.phone=20s",
+        "focusquest.camera.warning-after.looking-away=60s",
+        "focusquest.camera.grace=60s"})
 class OffTaskApiIntegrationTest extends ApiIntegrationTest {
 
     private static final String SESSIONS = "/api/focus-sessions/";

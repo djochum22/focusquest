@@ -65,8 +65,8 @@ wherever the steps below say `focusquest-companion`.
    camera opens only once a session with **Verify with camera** is running; macOS asks the first
    time whether your terminal may use it. `--preview` opens a window showing what the camera sees,
    whether it finds your face, the head's angles and the calibrated ones, and any phones and hands;
-   leave it out for normal use. Leave the camera for 90 seconds, hold a phone in view for 20, or
-   (in a category that checks it) look away for 60, and you are warned; 60 seconds later the time stops counting.
+   leave it out for normal use. Leave the camera for 90 seconds, hold a phone in view for 5, or
+   (in a category that checks it) look away for 15, and you are warned; 60 seconds later the time stops counting.
 
    Or with a script in place of the camera, to see the warnings quickly:
 
@@ -74,7 +74,7 @@ wherever the steps below say `focusquest-companion`.
    focusquest-companion run --script "present 60s, phone 90s"
    ```
 
-   After 20 seconds of phone you are warned, and 60 seconds later the time stops counting. The web
+   After 5 seconds of phone you are warned, and 60 seconds later the time stops counting. The web
    app shows the same warning.
 
 A script is a list of steps, each `present`, `away`, `phone` or `looking-away` with a duration in
@@ -116,15 +116,18 @@ stop working.
   score, so a doubtful face is a doubtful absence. The webcam is read continuously on a background
   thread, keeping only the latest frame, so what is looked at is from now.
 - **Looking away**, only where the category checks it. MediaPipe's face landmarker gives the head's
-  yaw (left and right) and pitch (up and down) from its facial transformation matrix. More than 10
+  yaw (left and right) and pitch (up and down) from its facial transformation matrix. More than 5
   degrees beyond the screen's angles (`SCREEN`), or beyond both the screen's and the desk's
-  (`SCREEN_OR_DESK`), is `LOOKING_AWAY`. Its confidence grows over the next 15 degrees, and with the
-  face's score: for a face at 0.9, it reaches the backend's minimum of 0.7 about 7 degrees past
-  the margin. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
+  (`SCREEN_OR_DESK`), is `LOOKING_AWAY`. For a clearly seen face (0.7 or above) its confidence is the
+  backend's minimum of 0.7 just past that margin, so it counts at once, and grows to 1 over the next
+  15 degrees; a less sure face lowers it in proportion. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
   is found again, since a head turned far enough loses the face; otherwise a lost face is `AWAY`.
 - **A phone in hand.** MediaPipe's object detector (EfficientDet-Lite0, trained on COCO) looks for
   its "cell phone" class; once it finds one at 0.25 or above, the hand landmarker looks for hands.
-  A phone whose box overlaps a hand's is `PHONE`; a phone lying on the desk is not. Its scores are
+  A phone whose box overlaps a hand's is `PHONE`; a phone lying on the desk is not. Both models look
+  at the whole frame and again at two enlarged crops of its lower part (left and right, each 60 % of
+  the width and height), since the detector shrinks what it looks at to 320 by 320 pixels, and a
+  phone held further from the camera, or half out of the picture, is otherwise too small to score. Its scores are
   low even for a phone held up in plain view (0.3 to 0.8 on sample photos), so a phone in a hand
   is reported from the backend's minimum, 0.7 at a score of 0.25, up to 1 at 0.6. The camera sees
   only what is in front of it: a phone held low in the lap, below a laptop camera's view, is not

@@ -1188,7 +1188,7 @@ The work area is where the user may look and still be on task. Looking down at t
 
 The timings are the same for every category:
 
-- **Warnings.** The user is warned once they have been away for 90 seconds, had a phone in hand for 20 seconds, or looked away for 60 seconds.
+- **Warnings.** The user is warned once they have been away for 90 seconds, had a phone in hand for 5 seconds, or looked away for 15 seconds. The warning is a heads-up: nothing is subtracted yet.
 - **Grace period.** If they are still off task 60 seconds after the warning, subtraction starts.
 - **Minimum confidence.** Observations below a confidence of 0.7 are ignored.
 
@@ -1206,7 +1206,7 @@ The timings and the minimum confidence are configuration, to be tuned once real 
 - **Observations.** The companion program reports stretches of one signal: which signal, how confident it is, when the stretch started and the last moment it was seen. It keeps extending a stretch while it lasts. Only signals the category checks, at or above the minimum confidence, count.
 - **Flicker.** Stretches of the same signal no more than 5 seconds apart count as one: a short gap is detector flicker, not the user coming back. The gap is configuration.
 - **Episodes.** Off-task stretches of any signal that touch or are within the same 5 seconds form one episode.
-- **Warning.** The warning comes at the first moment one signal has lasted its warning time without a break. Signals do not add up: 15 seconds on the phone followed by 50 seconds looking away warns no one.
+- **Warning.** The warning comes at the first moment one signal has lasted its warning time without a break. Signals do not add up: 4 seconds on the phone followed by 10 seconds looking away warns no one.
 - **Subtraction.** It runs from the end of the grace period to the end of the episode, and only over active time.
 - **Nothing unverified.** If the companion program stops reporting, the episode ends at the last moment it was seen, so time nobody observed is never subtracted.
 - **Settling.** Off-task time is settled when the session's time is credited to the streak: on resume, complete, abandon and interruption. From then on it is recorded against the session and left out of the streak, split at midnight and the start of the week like the rest of the time. Before that it is provisional. The session shows it as it happens, and it already counts against completing the session.

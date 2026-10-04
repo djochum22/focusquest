@@ -254,7 +254,7 @@ class RestoreIntegrationTest {
                                 started.plusSeconds(20))));
         sessionService.pauseSession(session.getId(), user.getUsername());
         advance(100);
-        sessionService.resumeSession(session.getId(), user.getUsername());      // settles 160 s
+        sessionService.resumeSession(session.getId(), user.getUsername());      // settles 175 s: the phone from 60 s, warned at 65, subtracted from 125 to 300
         sessionService.disputeOffTask(session.getId(), user.getUsername(), started.plusSeconds(10));
         advance(2000);
         sessionService.completeSession(session.getId(), user.getUsername());
@@ -265,11 +265,11 @@ class RestoreIntegrationTest {
         LocalDataExportDto restored = exportService.exportLocalData(reload(other));
         assertThat(restored.cameraObservations()).hasSize(2);
         assertThat(restored.offTaskIntervals()).singleElement()
-                .satisfies(interval -> assertThat(interval.deductedSeconds()).isEqualTo(160));
+                .satisfies(interval -> assertThat(interval.deductedSeconds()).isEqualTo(175));
         assertThat(restored.offTaskDisputes()).hasSize(1);
         assertThat(restored.focusSessions()).singleElement().satisfies(s -> {
             assertThat(s.cameraVerification()).isTrue();
-            assertThat(s.offTaskSeconds()).isEqualTo(160);
+            assertThat(s.offTaskSeconds()).isEqualTo(175);
         });
         assertThat(restored)
                 .usingRecursiveComparison()

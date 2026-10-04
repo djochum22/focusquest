@@ -73,7 +73,8 @@ class Webcam:
             raise DetectorUnavailable(
                 f"Cannot open {camera.name}. On macOS, allow your terminal to use the camera in "
                 "System Settings > Privacy & Security > Camera, then start it again.")
-        self._log(f"Using {camera.name}.")
+        width, height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self._log(f"Using {camera.name}, {width} by {height} pixels.")
         self._capture = capture
         self._stop.clear()
         self._fresh.clear()
@@ -203,9 +204,16 @@ class MediaPipePhones:
             score_threshold=0.15, max_results=5))
 
     def find(self, frame: Frame) -> list[Found]:
+        """In the whole frame and in the closer looks (:func:`phones.closer_looks`), each phone once."""
+        found = []
+        for crop, image in _whole_and_closer(frame):
+            found += [Found(phone.score, phones.moved(phone.box, crop)) for phone in self._find(image)]
+        return phones.distinct(found)
+
+    def _find(self, image: Frame) -> list[Found]:
         import cv2
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         result = self._detector.detect(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb))
         return [Found(d.categories[0].score, (d.bounding_box.origin_x, d.bounding_box.origin_y,
                                               d.bounding_box.width, d.bounding_box.height))
@@ -235,10 +243,14 @@ class MediaPipeHands:
             min_hand_detection_confidence=0.3, min_hand_presence_confidence=0.3))
 
     def find(self, frame: Frame) -> list[Box]:
+        """In the whole frame and in the closer looks: a hand further away is small, too. A hand may be found twice."""
+        return [phones.moved(hand, crop) for crop, image in _whole_and_closer(frame) for hand in self._find(image)]
+
+    def _find(self, image: Frame) -> list[Box]:
         import cv2
 
-        height, width = frame.shape[:2]
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        height, width = image.shape[:2]
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         result = self._landmarker.detect(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb))
         boxes = []
         for landmarks in result.hand_landmarks:
@@ -249,6 +261,13 @@ class MediaPipeHands:
 
     def close(self) -> None:
         self._landmarker.close()
+
+
+def _whole_and_closer(frame: Frame) -> list[tuple[Box, Frame]]:
+    """The whole frame, then each closer look, with where it sits in the frame. The crops are views, not copies."""
+    height, width = frame.shape[:2]
+    return [((0, 0, width, height), frame)] + [
+        ((x, y, w, h), frame[y:y + h, x:x + w]) for x, y, w, h in phones.closer_looks(width, height)]
 
 
 #: Something to outline in the preview: where, its label, and its colour (BGR).

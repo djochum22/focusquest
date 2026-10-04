@@ -18,18 +18,21 @@ class LookingAwayTest(unittest.TestCase):
         self.assertIsNone(ANGLES.looking_away(HeadPose(5, 5), SCREEN, 0.9))
 
     def test_a_glance_within_the_margin_is_on_task(self):
-        self.assertIsNone(ANGLES.looking_away(HeadPose(19, 5), SCREEN, 0.9))
+        self.assertIsNone(ANGLES.looking_away(HeadPose(14, 5), SCREEN, 0.9))
 
     def test_turned_well_to_the_side_is_looking_away(self):
-        self.assertEqual(ANGLES.looking_away(HeadPose(-50, 5), SCREEN, 0.9), 0.95)
+        self.assertEqual(ANGLES.looking_away(HeadPose(-50, 5), SCREEN, 0.9), 1.0)
+
+    def test_just_beyond_the_margin_a_clear_face_counts_and_a_doubtful_one_not_yet(self):
+        self.assertEqual(ANGLES.looking_away(HeadPose(16, 5), SCREEN, 0.9), 0.72)
+        self.assertEqual(ANGLES.looking_away(HeadPose(16, 5), SCREEN, 0.6), 0.617)   # below the minimum of 0.7
 
     def test_the_further_away_and_the_surer_the_face_the_surer_it_is(self):
-        just_beyond = ANGLES.looking_away(HeadPose(25, 5), SCREEN, 0.9)
-        further = ANGLES.looking_away(HeadPose(30, 5), SCREEN, 0.9)
-        doubtful_face = ANGLES.looking_away(HeadPose(30, 5), SCREEN, 0.6)
+        just_beyond = ANGLES.looking_away(HeadPose(20, 5), SCREEN, 0.9)
+        further = ANGLES.looking_away(HeadPose(25, 5), SCREEN, 0.9)
+        doubtful_face = ANGLES.looking_away(HeadPose(25, 5), SCREEN, 0.6)
         self.assertLess(just_beyond, further)
         self.assertLess(doubtful_face, further)
-        self.assertLess(just_beyond, 0.7)   # below the minimum confidence: not yet counted
 
     def test_down_at_the_desk_counts_only_where_the_desk_is_part_of_the_work_area(self):
         reading = HeadPose(0, 40)
@@ -43,8 +46,8 @@ class LookingAwayTest(unittest.TestCase):
         self.assertIsNone(ANGLES.looking_away(HeadPose(90, 0), ANYWHERE, 0.9))
 
     def test_diagonal_distance_counts_both_angles(self):
-        # 8 degrees out each way is within the margin on either angle alone, but 11.3 beyond the zone in all.
-        self.assertIsNotNone(ANGLES.looking_away(HeadPose(18, 18), SCREEN, 1.0))
+        # 4 degrees out each way is within the margin on either angle alone, but 5.7 beyond the zone in all.
+        self.assertIsNotNone(ANGLES.looking_away(HeadPose(14, 14), SCREEN, 1.0))
 
 
 class ZoneFromPosesTest(unittest.TestCase):

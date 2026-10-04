@@ -47,7 +47,7 @@ test('the camera companion warns, then time stops counting, and a dispute gives 
     let seen = await companion.expectOutput(/^Camera on for session \d+ \(WRITING\)/)
     seen = await companion.expectOutput(/^Reported 1 observation: phone\.$/, seen)
 
-    await advanceBackendClock(30)   // the phone has now been in hand for over 20 seconds
+    await advanceBackendClock(30)   // the phone has now been in hand for over 5 seconds
     await expect(page.getByText('You seem to be off task.')).toBeVisible(SHOWN_WITHIN)
     seen = await companion.expectOutput(/^Warned: off task\./, seen)
 

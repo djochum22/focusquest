@@ -116,7 +116,7 @@ class CameraSettingsApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$[?(@.category == 'CODING')].checks[*].signal")
                         .value(org.hamcrest.Matchers.contains("AWAY", "PHONE", "LOOKING_AWAY")))
                 .andExpect(jsonPath("$[?(@.category == 'CODING')].checks[*].warningAfterSeconds")
-                        .value(org.hamcrest.Matchers.contains(90, 20, 60)))
+                        .value(org.hamcrest.Matchers.contains(90, 5, 15)))
                 .andExpect(jsonPath("$[?(@.category == 'READING')].workArea")
                         .value(org.hamcrest.Matchers.contains("SCREEN_OR_DESK")))
                 .andExpect(jsonPath("$[?(@.category == 'TASK_FREE')].checks[*].signal")

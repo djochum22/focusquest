@@ -67,11 +67,12 @@ focusquest:
   # Camera verification (requirements specification, section 21). The same for every task category;
   # which categories check looking away is fixed in CameraProfiles.
   camera:
-    # How long each off-task signal must last before the user is warned.
+    # How long each off-task signal must last before the user is warned. The warning is only a
+    # heads-up: nothing is subtracted until the grace period after it is over.
     warning-after:
       away: 90s
-      phone: 20s
-      looking-away: 60s
+      phone: 5s
+      looking-away: 15s
     # After a warning, how long before off-task time starts being subtracted.
     grace: 60s
     # Observations below this confidence (0 to 1) are ignored.
