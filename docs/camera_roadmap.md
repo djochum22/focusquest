@@ -12,7 +12,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - The companion program runs in the background (C3a): `focusquest-companion install` set up a macOS launch agent that starts it at login. Its log is `~/Library/Logs/FocusQuest/companion.log`.
 - Calibration starts from Settings (C3b): a "Calibrate" button, and the companion guides the user in its camera window.
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
-- Everything is committed (last: `42337c8`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
+- Everything is committed (last: `e888f94`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
 **Next: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
@@ -47,7 +47,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C3a | The companion starts by itself: `install` writes a macOS launch agent; `--background` waits to be paired. Calibrated zones at least 20° by 14°; the log gives the head's angles when a look away starts | `df537c8`; tried live, works |
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
 | C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
-| C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | this commit; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
+| C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | `e888f94`; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
 | **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next** |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
