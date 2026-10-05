@@ -14,7 +14,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
 - Everything is committed (last: `e888f94`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
-**Next: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
+**Next: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy": it lists what to ask the user first, then the `label` command, what the user labels, and how to measure. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
 **Before starting:**
 
@@ -86,16 +86,78 @@ While trying C2 live, the companion's log showed `portable_clearcut_uploader.cc:
 
 ## Next: C1d, accuracy
 
-**Goal.** Know how often each signal is right, and tune from that rather than from guesses. This is the research question in requirements §21.
+**Goal.** Know how often each signal is right, and tune from that rather than from guesses. This is the research question in requirements §21: "How accurately can a local computer-vision system detect absence, looking away and smartphone use during a focus session, without storing video?"
 
-**Suggested approach** (confirm with the user first):
-1. **Label mode.** A `label` command runs the camera detector for a chosen category without a session. The user presses a key to say what they are doing (on task, away, phone, looking away), and the program logs, once a second, its detections next to the label, as numbers only, to a CSV file the user owns. Frames may never be saved (§19). The background companion must be stopped meanwhile, or both watch.
-2. **Measure.** Per signal, per second: how often it was reported when the label said so, and when it did not. Then per episode: would it have warned at the profile's timings? Disputed episodes from the data export give a second, real-use source.
-3. **Smoothing, if the measurements call for it.** The backend already treats gaps of up to 5 seconds as flicker. Add a majority vote over a second or two in the companion only if single missed frames still break episodes.
-4. **Tune** `focusquest.camera.*`, the looking-away margin and curve and the minimum zone size in `calibration.py`, and the phone thresholds and crops in `phones.py`.
-5. Training a custom model (PyTorch) only if the pretrained ones fall short. That needs saved images, which needs its own consent decision.
+**Where it starts.** Every threshold is still a guess from sample photos and from what the user saw live: the looking-away margin (5°), its confidence curve and the minimum zone size (20° by 14°) in `calibration.py`; the phone thresholds (`PHONE_FROM` 0.25, full confidence at 0.6) and the lower-frame crops in `phones.py`; the presence threshold (`PRESENT_FROM` 0.5) in `camera.py`; and the warning timings in `focusquest.camera.*` (`backend/src/main/resources/application.yml`). Nothing has been measured.
 
-**Done when:** the user has labelled at least a few minutes of each signal, the measured rates are written down (in this note or the technical architecture), any tuning follows from them, and `scripts/test-all.sh` passes.
+### Ask the user first
+
+Confirm the plan below, and settle these:
+
+1. **Keys.** Labelling with keys pressed in the camera window (proposed: `1` on task, `2` away, `3` phone, `4` looking away, `q` to stop), or in the terminal.
+2. **Where the CSV goes.** Proposed: a path the user gives, defaulting to `~/Documents/FocusQuest/labels-<date>-<time>.csv`. It stays on the computer and is never sent anywhere.
+3. **The sandbox.** A terminal run is not sandboxed, so MediaPipe would try to send Google its usage records during labelling (see "Done: no usage logging to Google"). Proposed: `label` starts itself again under `/usr/bin/sandbox-exec` with `service.ONLY_THIS_COMPUTER`, as the launch agent does. The first time, macOS may ask for the camera again.
+4. **How much labelling.** Proposed: the plan under "What the user labels", about 20 to 30 minutes in all, in one sitting or several.
+
+### Step 1: the `label` command
+
+`focusquest-companion label --category CODING [--out FILE] [--camera NAME]`: the real `CameraDetector`, with the category's profile, in a preview window, without a session or the backend.
+
+- **What it writes.** Once a second, one CSV row of numbers, never a picture (§19):
+  - the time and the current label;
+  - what was reported, with confidence: away, phone, looking away;
+  - the raw readings behind it: the best face score, the head's yaw and pitch, the best phone score, whether that phone overlapped a hand, and how many hands were found.
+
+  The raw readings are what make tuning possible without labelling again: a new threshold can be tried on the same file.
+- **Getting the raw readings.** `CameraDetector.detect` returns only a `Detection`. Proposed: it also keeps the latest readings in a small dataclass (for example `Readings`, as `detector.last_readings`), filled in `detect` and `_head`. `Detection` and the companion stay as they are.
+- **Labels lag.** The user presses the key a moment after changing what they do. Proposed: the CSV keeps every second, and the measurement leaves out the 2 seconds after each label change.
+- **The profile.** The `Profile` a session's category would get, built in the companion from a copy of the table in `CameraProfiles.java` (work area per category; every category checks away and phone). There is no backend to ask. A test should check the copy against requirements §21's table.
+- **The background companion** may keep running. On macOS two programs can read the camera at once (found during C2), and the background one opens the camera only during a camera-verified session. Do not run such a session while labelling: its warnings would make no sense.
+- **Tests** with the fakes in `tests/test_camera.py` (no OpenCV or MediaPipe): the rows written, the label changes, nothing but numbers in the file.
+
+### What the user labels
+
+Sitting as they usually work, after calibrating (Settings, "Calibrate"). Each part at least 2 to 3 minutes, with a few changes of label inside it.
+
+| Part | Category | What to do | What it measures |
+| --- | --- | --- | --- |
+| On task | CODING | Normal work at the screen, including reading its corners and edges | False looking away and false phone |
+| On task | WRITING | Read and write on paper on the desk, then back to the screen | False looking away where the desk counts |
+| Away | CODING | Leave, half leave (at the edge of the picture), come back | Missed and false away |
+| Phone | CODING | Phone held up, at desk height, low in the lap, half out of the picture, lying on the desk untouched | Phone in hand found; a phone on the desk not counted |
+| Looking away | CODING | Turn to each side, look up, look far down, glance away briefly | Missed looking away, and the margin |
+
+Lighting matters: if possible, once in daylight and once with lamps.
+
+### Step 2: measure
+
+`focusquest-companion accuracy FILE...` reads one or more CSV files and prints:
+
+- **Per signal, per second:** how often it was reported when the label said so (recall), how often the label said so when it was reported (precision), and the false reports per minute on task.
+- **Per episode:** whether it would have warned at the profile's timings (phone 5 s, looking away 15 s, away 90 s), and how many false warnings an hour of on-task time would give. It replays the backend's rules for this: minimum confidence 0.7, gaps of up to 5 seconds merged. `OffTaskCalculator.java` stays the source of truth; the Python copy only needs to be close enough to estimate.
+- **Trying thresholds** (`--margin 7`, `--phone-from 0.3`, and so on), worked out again from the raw readings without labelling again.
+
+A second source is real use: the data export (Settings) contains `cameraObservations` and the disputes, so the episodes the user marked "Not accurate?" are labelled false alarms. Few so far, but they come from real sessions.
+
+### Step 3: tune, and smooth only if needed
+
+- Change the thresholds where the measurements say so, one at a time, and write down why.
+- Add smoothing (a majority over a second or two, in the companion) only if single missed frames break episodes: the backend already merges gaps of up to 5 seconds.
+- Training a model of our own (PyTorch) only if the pretrained ones fall short. That needs saved images, which needs its own consent decision under §19.
+
+### Done when
+
+- The user has labelled every part in the table above.
+- The measured rates are written down in a "Measured accuracy" section of this note: per signal, the per-second rates and the false warnings per hour, with the date, the lighting and the thresholds used.
+- Any tuning follows from those measurements, with the before and after numbers.
+- `scripts/test-all.sh` passes.
+
+### Things to know
+
+- **Opening the camera turns on the user's camera.** Leave live runs to the user; check the code with fakes and with still images (see "Things to know about MediaPipe").
+- **Restart the background companion** after changing its code (`launchctl kickstart -k gui/$(id -u)/com.focusquest.companion`), and tell the user.
+- **On macOS, another app using the camera does not stop the companion**, and switching off its camera permission takes effect only when the camera is next opened.
+- **Commit only after the user has reviewed**, one step per commit. The `label` command and the `accuracy` command can be two steps.
 
 ## The real detector (C1)
 
