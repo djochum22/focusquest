@@ -14,7 +14,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
 - Everything is committed (last: `42337c8`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
-**Open first: MediaPipe's usage logging**, under "Found after C2". It decides whether §19's promise holds, so it comes before **C1d** (accuracy), the research question in §21. A4 (more end-to-end tests) is open whenever there is time.
+**Next: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
 **Before starting:**
 
@@ -47,7 +47,8 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C3a | The companion starts by itself: `install` writes a macOS launch agent; `--background` waits to be paired. Calibrated zones at least 20° by 14°; the log gives the head's angles when a look away starts | `df537c8`; tried live, works |
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
 | C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
-| **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next**, after MediaPipe's usage logging is settled |
+| C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | this commit; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
+| **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next** |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
@@ -72,14 +73,16 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **Companion program** (Python, `vision/`): paired with a `fqc_` code, it reports every 2 seconds and looks once a second. It opens the camera only while the backend's answer says `cameraOn`, and calibrates when it says `calibrate`. It sends observations: stretches of one signal (`AWAY`, `PHONE`, `LOOKING_AWAY`) with a confidence and a start and end, stamped in the backend's clock (`serverTime`). It turns the backend's warnings into system notifications. On macOS it runs in the background through a launch agent (`service.py`). `vision/README.md` has the details and a table of its files.
 - **End-to-end** (`e2e/`, Playwright): `e2e/tests/camera.spec.ts` runs the companion program for real with a scripted detector.
 
-## Found after C2: MediaPipe's usage logging
+## Done: no usage logging to Google
 
-While trying C2 live, the companion's log showed lines like `portable_clearcut_uploader.cc:90] Failed to send to clearcut: FAILED_PRECONDITION: Not valid for uploading until: <about 15 minutes after start>`.
+While trying C2 live, the companion's log showed `portable_clearcut_uploader.cc:90] Failed to send to clearcut: FAILED_PRECONDITION: Not valid for uploading until: <about 15 minutes after start>`.
 
-- MediaPipe 0.10.35's native library (`mediapipe/tasks/c/libmediapipe.dylib`) contains Google's usage logging ("Clearcut"): `SolutionEvent` records (which task ran; events such as starting, running, errors) sent to `https://play.googleapis.com/log` through macOS's NSURLSession. Nothing found suggests frames are sent.
-- The failures are attempts before its upload window opens. A companion running since login is past that window, and a successful upload logs nothing, so usage records may already have been sent.
-- No switch to turn it off was found in the library's strings (no environment variable or flag).
-- §19 and `vision/README.md` say frames never leave the computer, which still holds; but they also imply nothing but observations does. To be decided with the user: block it (for example, run the launch agent without outbound network except to 127.0.0.1), or document it.
+- MediaPipe 0.10.35's native library (`mediapipe/tasks/c/libmediapipe.dylib`) contains Google's usage logging ("Clearcut"): `SolutionEvent` records (which task ran; events such as starting, running, errors) sent to `https://play.googleapis.com/log` through NSURLSession. Nothing suggests frames are sent. The failures were attempts before its upload window opened, so records may have been sent before the fix. No switch to turn it off was found.
+- The user chose to block it. The launch agent now runs the companion under `/usr/bin/sandbox-exec` with `service.ONLY_THIS_COMPUTER`: everything allowed except outgoing connections, which may go only to `localhost` (127.0.0.1, ::1, and the name `localhost`). Checked outside the companion: under it, NSURLSession to `play.googleapis.com` fails with "Operation not permitted", and Python and NSURLSession still reach 127.0.0.1.
+- Only when the pairing's backend is on this computer (`service.is_this_computer`); otherwise `install` says the connections are not limited. A terminal `run` is not sandboxed. `install` downloads the models first, outside the sandbox.
+- `install` also tries `launchctl bootstrap` up to 5 times, a second apart: right after `bootout`, launchd sometimes still refuses with "Bootstrap failed: 5".
+- §19 now says the companion connects to nothing but the backend.
+- Tried live: the camera, a warning's notification and calibration from Settings all work in the sandbox, and MediaPipe's uploads now fail at once with `Failed to send to clearcut: INTERNAL: ResponseInfo[... code: 2 ...]`.
 
 ## Next: C1d, accuracy
 

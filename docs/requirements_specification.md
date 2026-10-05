@@ -1046,6 +1046,7 @@ Detailed user stories and acceptance criteria will be created next. They should 
 - The MVP shall store data locally.
 - Camera verification (section 21) shall be opt-in. It shall not run until the user has given consent in Settings, and it can be turned off at any time.
 - Camera frames shall be processed only in memory on the user's computer and shall never be saved to disk, uploaded, or sent to the backend.
+- The companion program shall connect to nothing but the backend while it runs. Libraries that report their own usage elsewhere (MediaPipe sends Google usage statistics, with no setting to turn it off) are prevented from doing so: on macOS, the background companion runs in a sandbox that allows connections only to this computer.
 - The application shall not use facial recognition or identify who is in front of the camera.
 - The backend shall store only what the camera observed: the kind of signal, a confidence value and the time interval. These observations are kept with their session, included in the data export, and removed by "Delete all data".
 - The camera shall be on only while a session that uses camera verification is running, not while it is paused or after it ends.

@@ -200,14 +200,19 @@ def _install(path: Path, code: str | None, backend_url: str) -> int:
         print(error, file=sys.stderr)
         return 1
     log = service.log_path()
+    only_this_computer = service.is_this_computer(config.load(path).backend_url)
     try:
-        service.LaunchAgent().install(service.agent(path.resolve(), log))
+        service.LaunchAgent().install(service.agent(path.resolve(), log, only_this_computer=only_this_computer))
     except OSError as error:
         print(error, file=sys.stderr)
         return 1
     print("The companion now runs in the background, and starts again at every login. The camera opens only "
           "during a session with Verify with camera; the first time, macOS asks whether it may use it.")
     print(f"What it does is written to {log}. Stop it with `focusquest-companion uninstall`.")
+    if only_this_computer:
+        print("It can connect only to this computer, where the backend is: nothing it does can leave it.")
+    else:
+        print("The backend is on another computer, so the companion's connections are not limited to this one.")
     if not calibration.load(calibration.default_path(path)).calibrated:
         print("Not calibrated yet: calibrate from Settings, under Camera verification, so it knows where your "
               "screen and desk are.")

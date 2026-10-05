@@ -17,7 +17,11 @@ class FakeLaunchctl:
 
     def __call__(self, command):
         self.commands.append(list(command))
-        returncode, stdout, stderr = self.results.get(command[1], (0, "", ""))
+        result = self.results.get(command[1], (0, "", ""))
+        # A list answers one call each, then succeeds.
+        if isinstance(result, list):
+            result = result.pop(0) if result else (0, "", "")
+        returncode, stdout, stderr = result
         return subprocess.CompletedProcess(command, returncode, stdout, stderr)
 
 
@@ -27,12 +31,28 @@ class AgentTest(unittest.TestCase):
         definition = service.agent(Path("/u/.config/focusquest/companion.json"), Path("/u/Library/Logs/c.log"),
                                    python="/venv/bin/python")
         self.assertEqual(definition["ProgramArguments"],
-                         ["/venv/bin/python", "-m", "focusquest_companion", "--config",
+                         ["/usr/bin/sandbox-exec", "-p", service.ONLY_THIS_COMPUTER,
+                          "/venv/bin/python", "-m", "focusquest_companion", "--config",
                           "/u/.config/focusquest/companion.json", "run", "--camera", "--background"])
         self.assertTrue(definition["RunAtLoad"])
         self.assertTrue(definition["KeepAlive"])
         self.assertEqual(definition["StandardOutPath"], "/u/Library/Logs/c.log")
         self.assertEqual(definition["StandardErrorPath"], "/u/Library/Logs/c.log")
+
+
+    def test_the_sandbox_lets_it_connect_only_to_this_computer(self):
+        self.assertIn("(deny network-outbound)", service.ONLY_THIS_COMPUTER)
+        self.assertIn('(allow network-outbound (remote ip "localhost:*"))', service.ONLY_THIS_COMPUTER)
+
+    def test_without_the_sandbox_for_a_backend_elsewhere(self):
+        definition = service.agent(Path("/c.json"), Path("/c.log"), python="/venv/bin/python",
+                                   only_this_computer=False)
+        self.assertEqual(definition["ProgramArguments"][0], "/venv/bin/python")
+
+    def test_knows_which_backends_are_on_this_computer(self):
+        for url in ("http://127.0.0.1:8080", "http://localhost:8080", "http://[::1]:8080"):
+            self.assertTrue(service.is_this_computer(url), url)
+        self.assertFalse(service.is_this_computer("http://192.168.1.20:8080"))
 
 
 class LaunchAgentTest(unittest.TestCase):
@@ -57,7 +77,16 @@ class LaunchAgentTest(unittest.TestCase):
     def test_install_says_why_launchctl_refused(self):
         launchctl = FakeLaunchctl(bootstrap=(5, "", "Bootstrap failed: 5: Input/output error\n"))
         with self.assertRaisesRegex(OSError, "Input/output error"):
-            LaunchAgent(self.path, launchctl, uid=501).install(self.definition)
+            LaunchAgent(self.path, launchctl, uid=501, sleep=lambda _: None).install(self.definition)
+        self.assertEqual(len(launchctl.commands), 1 + service.BOOTSTRAP_ATTEMPTS)
+
+    def test_install_tries_again_while_launchd_is_still_stopping_the_earlier_agent(self):
+        refused = (5, "", "Bootstrap failed: 5: Input/output error\n")
+        launchctl = FakeLaunchctl(bootstrap=[refused, refused])
+        waits = []
+        LaunchAgent(self.path, launchctl, uid=501, sleep=waits.append).install(self.definition)
+        self.assertEqual([c[1] for c in launchctl.commands], ["bootout", "bootstrap", "bootstrap", "bootstrap"])
+        self.assertEqual(waits, [1, 1])
 
     def test_uninstall_stops_and_removes_it(self):
         launchctl = FakeLaunchctl()

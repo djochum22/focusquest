@@ -114,6 +114,13 @@ With `--background`, an unpaired program waits to be paired, and a refused code 
 pairing, instead of stopping: `focusquest-companion pair` in a terminal is enough, without restarting
 it. Running `run --camera` in a terminal as well warns that the camera would be watched twice.
 
+It runs in a macOS sandbox (`sandbox-exec`) that lets it connect only to this computer, where the
+backend is. MediaPipe has Google's usage logging built in (which task ran, when it started, errors;
+no pictures), sent to `play.googleapis.com`, with no switch to turn it off; the sandbox refuses it.
+Its attempts show in the log as `Failed to send to clearcut`. The models are downloaded by `install`,
+outside the sandbox. A backend on another computer cannot be reached from the sandbox, so the agent
+then runs without it, and `install` says so. A `run` in a terminal is not sandboxed.
+
 Moving or recreating `.venv` (or a Python upgrade that breaks it) breaks the agent; run `install`
 again.
 
