@@ -11,9 +11,10 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - All three signals work live: away, looking away, and a phone in hand. After C1e they are more sensitive, and warnings come early as a heads-up (phone 5 s, looking away 15 s, away 90 s), with the 60-second grace period unchanged.
 - The companion program runs in the background (C3a): `focusquest-companion install` set up a macOS launch agent that starts it at login. Its log is `~/Library/Logs/FocusQuest/companion.log`.
 - Calibration starts from Settings (C3b): a "Calibrate" button, and the companion guides the user in its camera window.
-- Everything is committed (last: `1c59161`) and `scripts/test-all.sh` passes, end to end included (7 Playwright tests).
+- When the companion is connected but cannot use the camera, the session screen says so and why (C2).
+- Everything is committed (last: `42337c8`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
-**Next: C2**, under "Next step: C2, say when the camera cannot be used". It is small and closes the last place where the web app shows something untrue: a session looks checked while the camera cannot be used. After it, **C1d** (accuracy), the research question in §21. A4 (more end-to-end tests) is open whenever there is time.
+**Open first: MediaPipe's usage logging**, under "Found after C2". It decides whether §19's promise holds, so it comes before **C1d** (accuracy), the research question in §21. A4 (more end-to-end tests) is open whenever there is time.
 
 **Before starting:**
 
@@ -29,7 +30,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | A1 | Open decisions in requirements §22 settled: XP, gems, penalty, completion, categories and more | `96c670f` |
 | A2 | Streak freezes: 10 gems each, at most 2, daily only, only for whole gaps, bridge without counting (requirements §13) | `96c670f` |
 | A3 | Complete export, and restore from Settings; tests for retried requests and for restarts | `272d453` |
-| A4 | Wider end-to-end coverage | **Open.** 7 Playwright tests: 4 for sessions and blocking, 3 for the camera. Not covered end to end: the login form, streak progress, interruption |
+| A4 | Wider end-to-end coverage | **Open.** 8 Playwright tests: 4 for sessions and blocking, 4 for the camera. Not covered end to end: the login form, streak progress, interruption |
 | B1 | Specification and privacy rules for camera verification | `97afff4` |
 | B2 | Consent in Settings, versioned (`CameraSettingsService.CONSENT_VERSION` and `utils/cameraConsent.ts` must match) | `2c99a93` |
 | B3 | Per-category camera profiles: work area, warning timings, grace, minimum confidence | `eb6e2e7` |
@@ -45,8 +46,8 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C1e | Sensitivity: warnings after 5 s of phone and 15 s of looking away (grace stays 60 s); looking away from 5° beyond the zone, at full confidence; phones and hands also looked for in enlarged crops of the lower frame | `e133627`; tried live, a lot better |
 | C3a | The companion starts by itself: `install` writes a macOS launch agent; `--background` waits to be paired. Calibrated zones at least 20° by 14°; the log gives the head's angles when a look away starts | `df537c8`; tried live, works |
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
-| **C2** | **Say in the web app when the camera cannot be used** | **Next** |
-| C1d | Label mode, accuracy measurements, smoothing if needed, tuning | After C2 |
+| C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
+| **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next**, after MediaPipe's usage logging is settled |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
@@ -71,21 +72,16 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **Companion program** (Python, `vision/`): paired with a `fqc_` code, it reports every 2 seconds and looks once a second. It opens the camera only while the backend's answer says `cameraOn`, and calibrates when it says `calibrate`. It sends observations: stretches of one signal (`AWAY`, `PHONE`, `LOOKING_AWAY`) with a confidence and a start and end, stamped in the backend's clock (`serverTime`). It turns the backend's warnings into system notifications. On macOS it runs in the background through a launch agent (`service.py`). `vision/README.md` has the details and a table of its files.
 - **End-to-end** (`e2e/`, Playwright): `e2e/tests/camera.spec.ts` runs the companion program for real with a scripted detector.
 
-## Next step: C2, say when the camera cannot be used
+## Found after C2: MediaPipe's usage logging
 
-**Goal.** Requirements §21, "Failure": when the camera is unavailable, "the session goes on unverified and nothing is subtracted. The web app says the session is not being verified." The first half holds already. The second does not: while the companion is connected but cannot use the camera (no permission, taken by another app, unplugged, stopped sending pictures), the web app shows the session as checked.
+While trying C2 live, the companion's log showed lines like `portable_clearcut_uploader.cc:90] Failed to send to clearcut: FAILED_PRECONDITION: Not valid for uploading until: <about 15 minutes after start>`.
 
-**What exists.** The companion already knows: `CameraDetector` raises `DetectorUnavailable` with a message for the user, and `Companion._unavailable` holds it while the camera cannot be used (it retries at each report). The web app already has the pattern: `OffTaskState.NOT_CONNECTED` makes `OffTaskBanner` say "The camera isn't checking this session: the companion program isn't connected."
+- MediaPipe 0.10.35's native library (`mediapipe/tasks/c/libmediapipe.dylib`) contains Google's usage logging ("Clearcut"): `SolutionEvent` records (which task ran; events such as starting, running, errors) sent to `https://play.googleapis.com/log` through macOS's NSURLSession. Nothing found suggests frames are sent.
+- The failures are attempts before its upload window opens. A companion running since login is past that window, and a successful upload logs nothing, so usage records may already have been sent.
+- No switch to turn it off was found in the library's strings (no environment variable or flag).
+- §19 and `vision/README.md` say frames never leave the computer, which still holds; but they also imply nothing but observations does. To be decided with the user: block it (for example, run the launch agent without outbound network except to 127.0.0.1), or document it.
 
-**Suggested approach** (confirm with the user first):
-1. **Companion:** while `_unavailable` is set, send it with the report. The heartbeat has no body today; give it an optional `{ "cameraProblem": "<message>" }`, and add the same field to the observations request. The camera is closed while unavailable, so it sends heartbeats then anyway.
-2. **Backend:** keep the problem and since when on the companion's row in `companion_credentials` (migration V16), set by a report that carries it and cleared by one that does not. In `OffTaskService.status`, a session the camera should be checking whose connected companion has a problem is in a new state, `CAMERA_UNAVAILABLE`, with the message in the response. Decide with the user which wins when both apply; NOT_CONNECTED is the natural one, since an unconnected program says nothing.
-3. **Web app:** `OffTaskBanner` shows "The camera isn't checking this session: <message>" for `CAMERA_UNAVAILABLE`, like NOT_CONNECTED.
-4. **Tests:** companion unit tests (the problem goes out with the report, and stops once the camera opens), backend integration tests (state, message, cleared), a banner test, and, if cheap, an end-to-end test; a scripted detector cannot fail today, so that needs a script step for it (for example `unavailable 30s`).
-
-**Done when:** a camera the companion cannot use shows in the session screen within about 10 seconds, it clears once the camera works, §21 and the technical architecture say how, the "Known limits" entry below is removed, and `scripts/test-all.sh` passes.
-
-## After C2: C1d, accuracy
+## Next: C1d, accuracy
 
 **Goal.** Know how often each signal is right, and tune from that rather than from guesses. This is the research question in requirements §21.
 
