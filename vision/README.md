@@ -83,7 +83,8 @@ wherever the steps below say `focusquest-companion`.
    After 5 seconds of phone you are warned, and 60 seconds later the time stops counting. The web
    app shows the same warning.
 
-A script is a list of steps, each `present`, `away`, `phone` or `looking-away` with a duration in
+A script is a list of steps, each `present`, `away`, `phone`, `looking-away` or `unavailable` (the
+camera cannot be used, as when another app has it) with a duration in
 `s`, `m` or `h`, and optionally `@` a confidence (0.9 by default): `"away 3m @0.8, present 30s"`. It
 starts when the camera opens (so again after each resume), and after its last step you are present,
 unless you add `--loop`. `--no-notifications` writes the warnings to the terminal instead of
@@ -165,7 +166,8 @@ again.
   only what is in front of it: a phone held low in the lap, below a laptop camera's view, is not
   seen.
 - **A camera that cannot be used** (no permission, unplugged, taken by another app) is tried again at
-  each report. Meanwhile nothing is observed, so nothing is subtracted.
+  each report. Meanwhile nothing is observed, so nothing is subtracted, and each report says why
+  (`cameraProblem`), so the web app can say the session is not being checked.
 - **MediaPipe below 1.0.** 1.0.1 aborts on macOS as the face detector starts, so the extra pins
   `mediapipe<1`.
 - **Refused reports** (the session ended or paused in the meantime) are dropped, and the program

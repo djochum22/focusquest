@@ -148,14 +148,19 @@ class BackendClient:
         self._timeout = timeout
         self._opener = opener
 
-    def heartbeat(self) -> CompanionState:
-        return CompanionState.from_json(self._post("/api/companion/heartbeat", None))
+    def heartbeat(self, camera_problem: str | None = None) -> CompanionState:
+        """``camera_problem`` says why the camera cannot be used, while it cannot; the backend shows it in the web app."""
+        body = {"cameraProblem": camera_problem[:300]} if camera_problem else None
+        return CompanionState.from_json(self._post("/api/companion/heartbeat", body))
 
-    def report(self, session_id: int, observations: Sequence[Observation]) -> CompanionState:
+    def report(self, session_id: int, observations: Sequence[Observation],
+               camera_problem: str | None = None) -> CompanionState:
         """Sends observations for the session; the backend counts it as a heartbeat too."""
         if len(observations) > MAX_OBSERVATIONS_PER_REQUEST:
             raise ValueError(f"At most {MAX_OBSERVATIONS_PER_REQUEST} observations per request")
-        body = {"sessionId": session_id, "observations": [o.to_json() for o in observations]}
+        body: dict[str, Any] = {"sessionId": session_id, "observations": [o.to_json() for o in observations]}
+        if camera_problem:
+            body["cameraProblem"] = camera_problem[:300]
         return CompanionState.from_json(self._post("/api/companion/observations", body))
 
     def calibration(self, outcome: str, calibrated_at: datetime | None = None, message: str | None = None) -> None:

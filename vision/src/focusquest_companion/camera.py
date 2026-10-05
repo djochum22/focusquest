@@ -71,8 +71,8 @@ class Webcam:
         if not capture.isOpened():
             capture.release()
             raise DetectorUnavailable(
-                f"Cannot open {camera.name}. On macOS, allow your terminal to use the camera in "
-                "System Settings > Privacy & Security > Camera, then start it again.")
+                f"Cannot open {camera.name}. Check that the companion may use it in System Settings > "
+                "Privacy & Security > Camera: it is listed as Python, or as your terminal if you started it there.")
         width, height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self._log(f"Using {camera.name}, {width} by {height} pixels.")
         self._capture = capture

@@ -8,6 +8,8 @@ public enum OffTaskState {
     NOT_RUNNING,
     /** The session is running but the companion program has not reported lately: nothing is being checked. */
     NOT_CONNECTED,
+    /** The companion program is connected but cannot use the camera: nothing is being checked. */
+    CAMERA_UNAVAILABLE,
     /** No off-task signal is being seen, or the episode going on was disputed. */
     ON_TASK,
     /** An off-task signal is being seen, not yet for long enough to warn. */

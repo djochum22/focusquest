@@ -169,7 +169,6 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 
 ## Known limits
 
-- While the camera cannot be used, the companion still reports, so the web app shows the session as checked. Nothing is observed, so nothing is subtracted, but §21 says the web app should say it is not being verified. C2 fixes this.
 - Where off-task time crosses midnight or the start of the week, the day split can be off by up to a second.
 - Observations that arrive after their stretch of time was settled change nothing already settled.
 - Users cannot edit the camera profiles yet; this was decided (requirements §22, #17).
@@ -177,6 +176,7 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 - A user who turns away and then gets up within 2 seconds is reported as looking away until they are back, not as away. Both warn; looking away warns sooner (15 s against 90 s).
 - The launch agent points at `vision/.venv`'s Python. Moving or recreating the venv, or a Homebrew Python upgrade that breaks it, stops the agent from starting; run `install` again.
 - The calibration window is asked to stay in front of others (`WND_PROP_TOPMOST`); it did for the user, but not every OpenCV build on macOS honours it.
+- On macOS another app using the camera (Photo Booth, a video call) does not take it from the companion: both get pictures. Switching off the companion's camera permission does not stop a camera already open either; it takes effect the next time the companion opens it (after a pause, or a new session). To see C2's notice live, switch the permission off, then pause and resume.
 - The calibration is not tied to a camera. After moving the camera or switching to another, the user has to calibrate again; nothing detects it.
 - The looking-away margin, confidence curve, minimum zone size and default angles, the phone thresholds and the crops are guesses until C1d measures them.
 - A phone held low, in the lap, is below a laptop camera's view and is not seen. A hand gripping a phone is sometimes missed, and then the phone does not count.
@@ -185,7 +185,7 @@ The user tried C1b and C1c live: both worked, but both were too forgiving. C1e i
 ## Working in this repository
 
 - **Run every test:** `scripts/test-all.sh` (backend, frontend, extension, and the companion's unittest suite). `FOCUSQUEST_E2E=1 scripts/test-all.sh` also runs the Playwright end-to-end suite; Claude runs it outside the sandbox.
-- **Restart the backend after pulling:** schema changes are Flyway migrations and run at startup. The latest is `V15`.
+- **Restart the backend after pulling:** schema changes are Flyway migrations and run at startup. The latest is `V16`.
 - **Reload the web app after changing a Pinia store.** The dev server swaps components in place but keeps stores already created, so a page left open calls the old store (the user saw "action is not a function" after C3b).
 - **Commit only your own files.** Another Claude session has worked in this folder at the same time. Check `git status`, stage files by name, and do not sweep in someone else's unfinished work.
 - **Commits:** the user reviews each step, then asks for the commit. Each step is one commit, with a message explaining the why, ending with the co-author line the session is given.

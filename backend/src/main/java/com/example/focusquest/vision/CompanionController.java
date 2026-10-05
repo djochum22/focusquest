@@ -60,14 +60,16 @@ public class CompanionController {
     }
 
     @PostMapping("/api/companion/heartbeat")
-    public CompanionStateResponse heartbeat(@AuthenticationPrincipal UserDetails principal) {
-        return companionService.heartbeat(userService.getByUsername(principal.getUsername()));
+    public CompanionStateResponse heartbeat(@AuthenticationPrincipal UserDetails principal,
+                                            @Valid @RequestBody(required = false) CompanionHeartbeatRequest request) {
+        return companionService.heartbeat(userService.getByUsername(principal.getUsername()),
+                request == null ? null : request.cameraProblem());
     }
 
     @PostMapping("/api/companion/observations")
     public CompanionStateResponse observations(@AuthenticationPrincipal UserDetails principal,
                                                @Valid @RequestBody CompanionObservationsRequest request) {
         return companionService.observe(userService.getByUsername(principal.getUsername()),
-                request.sessionId(), request.observations());
+                request.sessionId(), request.observations(), request.cameraProblem());
     }
 }

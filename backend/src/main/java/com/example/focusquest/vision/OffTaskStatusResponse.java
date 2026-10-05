@@ -4,7 +4,8 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * A camera-verified session's off-task picture: whether the companion program is reporting, where it
+ * A camera-verified session's off-task picture: whether the companion program is reporting (and, while
+ * the state is {@code CAMERA_UNAVAILABLE}, why it cannot use the camera, {@code cameraProblem}), where it
  * stands now ({@code state}, with the episode going on, if any, in {@code current}, and once the user
  * is warned, when subtraction starts or started, {@code deductionStartsAt}), the off-task time so far
  * (settled plus provisional), and
@@ -15,6 +16,7 @@ public record OffTaskStatusResponse(
         Long sessionId,
         OffTaskState state,
         boolean companionConnected,
+        String cameraProblem,
         long offTaskSeconds,
         EpisodeResponse current,
         Instant deductionStartsAt,

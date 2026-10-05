@@ -47,6 +47,9 @@ public class CompanionCredential {
     @Column(name = "calibration_failure", length = 300)
     private String calibrationFailure;
 
+    @Column(name = "camera_problem", length = 300)
+    private String cameraProblem;
+
     protected CompanionCredential() {
     }
 
@@ -58,6 +61,11 @@ public class CompanionCredential {
 
     void recordSeen(Instant now) {
         this.lastSeenAt = now;
+    }
+
+    /** Why the program cannot use the camera, or null if it can (or is not asked to). */
+    void reportCameraProblem(String cameraProblem) {
+        this.cameraProblem = cameraProblem == null || cameraProblem.isBlank() ? null : cameraProblem;
     }
 
     /** The user asked for a calibration; any earlier outcome is forgotten. */
@@ -114,5 +122,9 @@ public class CompanionCredential {
 
     public String getCalibrationFailure() {
         return calibrationFailure;
+    }
+
+    public String getCameraProblem() {
+        return cameraProblem;
     }
 }

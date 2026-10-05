@@ -74,6 +74,19 @@ public class CompanionCredentialService {
         });
     }
 
+    /**
+     * Records a heartbeat or observations from the user's companion program, with why it cannot use the
+     * camera ({@code cameraProblem}), or null if it can or is not asked to. Each report replaces the last.
+     */
+    @Transactional
+    public void recordReport(User user, String cameraProblem) {
+        repository.findByUser(user).ifPresent(credential -> {
+            credential.recordSeen(clockProvider.now());
+            credential.reportCameraProblem(cameraProblem);
+            repository.save(credential);
+        });
+    }
+
     @Transactional(readOnly = true)
     public Optional<CompanionCredential> find(User user) {
         return repository.findByUser(user);

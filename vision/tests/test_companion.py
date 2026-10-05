@@ -18,13 +18,17 @@ class FakeClient:
         self.wall = wall
         self.answers = []
         self.calls = []
+        #: What each heartbeat and report said about the camera.
+        self.camera_problems = []
 
-    def heartbeat(self):
+    def heartbeat(self, camera_problem=None):
         self.calls.append(("heartbeat",))
+        self.camera_problems.append(camera_problem)
         return self._answer()
 
-    def report(self, session_id, observations):
+    def report(self, session_id, observations, camera_problem=None):
         self.calls.append(("report", session_id, list(observations)))
+        self.camera_problems.append(camera_problem)
         return self._answer()
 
     def calibration(self, outcome, calibrated_at=None, message=None):
@@ -243,6 +247,10 @@ class CompanionTest(unittest.TestCase):
         self.detector.opens_fail = False
         self.second(lambda now: watching(server_time=now))
         self.assertTrue(self.companion.camera_open)
+        self.second(lambda now: watching(server_time=now))
+        # The first report knew nothing yet; the next two said why; once open, nothing more.
+        self.assertEqual(self.client.camera_problems,
+                         [None, "Cannot open camera 0.", "Cannot open camera 0.", None])
 
     def test_a_camera_that_stops_is_closed_and_opened_again(self):
         self.detector = FlakyDetector()
@@ -258,6 +266,20 @@ class CompanionTest(unittest.TestCase):
         self.detector.detect_fails = False
         self.second(lambda now: watching(server_time=now))
         self.assertEqual(self.detector.opened, 2)
+        self.assertEqual(self.client.camera_problems[-1], "The camera stopped sending pictures.")
+        self.second(lambda now: watching(server_time=now))
+        self.assertIsNone(self.client.camera_problems[-1])
+
+    def test_says_nothing_about_a_camera_no_session_wants(self):
+        self.detector = FlakyDetector()
+        self.detector.opens_fail = True
+        self.companion = Companion(self.client, self.detector,
+                                   WarningPresenter(TerminalNotifier(self.notified.append)),
+                                   BackendClock(self.wall), log=self.lines.append)
+        self.second(lambda now: watching(server_time=now))
+        self.second(lambda now: off(now))                # the session paused or ended
+        self.second(lambda now: off(now))
+        self.assertEqual(self.client.camera_problems, [None, "Cannot open camera 0.", None])
 
 
 if __name__ == "__main__":

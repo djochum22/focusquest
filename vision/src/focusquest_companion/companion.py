@@ -29,7 +29,8 @@ class Companion:
     it does not, or as soon as the backend cannot be reached: nothing is watched that nobody asked for.
 
     A camera that cannot be opened, or stops sending pictures, is tried again at each report. Until
-    then nothing is observed, so nothing can be subtracted.
+    then nothing is observed, so nothing can be subtracted, and each report says why, so the web app
+    can say the session is not being checked.
 
     When the answer says ``calibrate`` (asked for in Settings), it calibrates with ``calibrator`` and
     says how it went; without one (a scripted detector) it says it cannot. Once connected, it says when
@@ -55,7 +56,8 @@ class Companion:
         self._camera_open = False
         self._reachable = True
         self._next_report = 0.0
-        #: Why the detector cannot see, while it cannot; said once, not at every retry.
+        #: Why the detector cannot see, while it cannot and the backend wants it to; logged once, not at
+        #: every retry, and sent with every report.
         self._unavailable: str | None = None
         #: The state last written to the terminal, "OFF" while nothing is watched.
         self._described: str | None = None
@@ -119,7 +121,7 @@ class Companion:
         pending = self._tracker.pending() if self._camera_open else []
         if pending and self._session_id is not None:
             try:
-                state = self._client.report(self._session_id, pending)
+                state = self._client.report(self._session_id, pending, self._unavailable)
             except Rejected as error:
                 # The session ended or paused in the meantime; what was seen is no longer wanted.
                 self._log(f"The backend refused the observations ({error}); leaving them out.")
@@ -129,14 +131,17 @@ class Companion:
                 signals = ", ".join(sorted({_name(o.signal) for o in pending}))
                 self._log(f"Reported {len(pending)} observation{'s' if len(pending) != 1 else ''}: {signals}.")
                 return state
-        return self._client.heartbeat()
+        return self._client.heartbeat(self._unavailable)
 
     def _follow(self, state: CompanionState) -> None:
         watch = state.camera_on and state.profile is not None and state.session_id is not None
         if self._camera_open and (not watch or state.session_id != self._session_id):
             self._close_camera()
         self._state = state
-        if watch and not self._camera_open:
+        if not watch:
+            # Nothing is asked of the camera, so there is nothing to report about it.
+            self._unavailable = None
+        elif not self._camera_open:
             try:
                 self._detector.open(self._clock.now())
             except DetectorUnavailable as error:

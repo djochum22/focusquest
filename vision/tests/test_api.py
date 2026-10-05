@@ -86,6 +86,12 @@ class BackendClientTest(unittest.TestCase):
             "clientEventId": "e1", "signal": "PHONE", "confidence": 0.9123,
             "startedAt": "2026-03-10T09:00:00.000Z", "observedUntil": "2026-03-10T09:00:01.500Z"}]})
 
+    def test_a_camera_problem_goes_with_a_heartbeat_or_a_report(self):
+        self.client.heartbeat("The camera stopped sending pictures.")
+        self.client.report(7, [], camera_problem="x" * 400)
+        self.assertEqual(FakeBackend.requests[0][2], {"cameraProblem": "The camera stopped sending pictures."})
+        self.assertEqual(FakeBackend.requests[1][2], {"sessionId": 7, "observations": [], "cameraProblem": "x" * 300})
+
     def test_an_answer_asking_to_calibrate(self):
         FakeBackend.body = {"cameraOn": False, "calibrate": True, "serverTime": "2026-03-10T09:00:00Z"}
         self.assertTrue(self.client.heartbeat().calibrate)

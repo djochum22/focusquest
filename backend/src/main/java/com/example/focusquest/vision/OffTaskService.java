@@ -198,8 +198,8 @@ public class OffTaskService implements OffTaskAccounting {
     public OffTaskStatusResponse status(FocusSession session, Instant now, Optional<TimeRange> uncreditedStretch,
                                         long offTaskSeconds) {
         if (!session.isCameraVerification()) {
-            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, false, 0, null, null,
-                    List.of());
+            return new OffTaskStatusResponse(session.getId(), OffTaskState.NOT_VERIFIED, false, null, 0, null,
+                    null, List.of());
         }
         Set<Instant> disputed = disputedEpisodeStarts(session);
         Map<Instant, List<OffTaskInterval>> settledByEpisode = new HashMap<>();
@@ -231,10 +231,14 @@ public class OffTaskService implements OffTaskAccounting {
         responses.sort(Comparator.comparing(OffTaskStatusResponse.EpisodeResponse::startedAt));
 
         boolean connected = companionCredentialService.isConnected(session.getUser());
+        // A program that is not connected says nothing, so its last word on the camera is no longer news.
+        String cameraProblem = !connected ? null : companionCredentialService.find(session.getUser())
+                .map(CompanionCredential::getCameraProblem).orElse(null);
         OffTaskStatusResponse.EpisodeResponse current = null;
         OffTaskState state = OffTaskState.NOT_RUNNING;
         if (session.getStatus() == SessionStatus.ACTIVE) {
-            state = connected ? OffTaskState.ON_TASK : OffTaskState.NOT_CONNECTED;
+            state = !connected ? OffTaskState.NOT_CONNECTED
+                    : cameraProblem != null ? OffTaskState.CAMERA_UNAVAILABLE : OffTaskState.ON_TASK;
             if (!responses.isEmpty()) {
                 OffTaskStatusResponse.EpisodeResponse latest = responses.getLast();
                 if (!latest.disputed() && !latest.endedAt().isBefore(now.minus(ONGOING_WITHIN))) {
@@ -248,7 +252,8 @@ public class OffTaskService implements OffTaskAccounting {
         Instant deductionStartsAt = current == null || current.warnedAt() == null ? null
                 : current.deductionStartedAt() != null ? current.deductionStartedAt()
                 : current.warnedAt().plus(cameraProfiles.forCategory(session.getTaskCategory()).grace());
-        return new OffTaskStatusResponse(session.getId(), state, connected, offTaskSeconds, current,
+        return new OffTaskStatusResponse(session.getId(), state, connected,
+                state == OffTaskState.CAMERA_UNAVAILABLE ? cameraProblem : null, offTaskSeconds, current,
                 deductionStartsAt, responses);
     }
 

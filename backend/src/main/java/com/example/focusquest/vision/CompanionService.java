@@ -36,16 +36,18 @@ public class CompanionService {
         this.clockProvider = clockProvider;
     }
 
+    /** {@code cameraProblem}: why the program cannot use the camera, or null if it can. */
     @Transactional
-    public CompanionStateResponse heartbeat(User user) {
-        companionCredentialService.recordSeen(user);
+    public CompanionStateResponse heartbeat(User user, String cameraProblem) {
+        companionCredentialService.recordReport(user, cameraProblem);
         return state(user);
     }
 
     /** Records observations for one of the user's sessions; a report is also a heartbeat. */
     @Transactional
-    public CompanionStateResponse observe(User user, Long sessionId, List<ObservationInput> observations) {
-        companionCredentialService.recordSeen(user);
+    public CompanionStateResponse observe(User user, Long sessionId, List<ObservationInput> observations,
+                                          String cameraProblem) {
+        companionCredentialService.recordReport(user, cameraProblem);
         offTaskService.recordObservations(sessionService.getOwnedSession(sessionId, user.getUsername()),
                 observations);
         return state(user);

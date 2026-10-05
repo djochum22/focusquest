@@ -164,6 +164,56 @@ class OffTaskApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.offTaskSeconds").value(10));
     }
 
+    /** A heartbeat from the companion program, saying why it cannot use the camera, or with no body if it can. */
+    private ResultActions companionHeartbeat(String cameraProblem) throws Exception {
+        var request = post("/api/companion/heartbeat");
+        if (cameraProblem != null) {
+            request.contentType(MediaType.APPLICATION_JSON).content(json("cameraProblem", cameraProblem));
+        }
+        return perform(companionToken, request);
+    }
+
+    @Test
+    void aCameraTheCompanionCannotUseIsShownUntilItWorksAgain() throws Exception {
+        token = setUpAccount("doug", "UTC");
+        enableCamera(true);
+        long id = startCameraSession("CODING");
+
+        advanceToSecond(10);
+        companionHeartbeat("The camera stopped sending pictures.")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cameraOn").value(true))                 // it keeps trying
+                .andExpect(jsonPath("$.state").value("CAMERA_UNAVAILABLE"));
+        getAs(token, SESSIONS + id + "/off-task")
+                .andExpect(jsonPath("$.state").value("CAMERA_UNAVAILABLE"))
+                .andExpect(jsonPath("$.companionConnected").value(true))
+                .andExpect(jsonPath("$.cameraProblem").value("The camera stopped sending pictures."));
+
+        // The camera works again: the next report says nothing about it.
+        advanceToSecond(12);
+        companionHeartbeat(null).andExpect(status().isOk());
+        getAs(token, SESSIONS + id + "/off-task")
+                .andExpect(jsonPath("$.state").value("ON_TASK"))
+                .andExpect(jsonPath("$.cameraProblem").doesNotExist());
+
+        // An episode still going on is shown as it is, until it ends.
+        advanceToSecond(30);
+        observe(id, "p1", OffTaskSignal.PHONE, 25, 30);
+        companionHeartbeat("The camera stopped sending pictures.").andExpect(status().isOk());
+        getAs(token, SESSIONS + id + "/off-task").andExpect(jsonPath("$.state").value("OFF_TASK"));
+        advanceToSecond(50);
+        companionHeartbeat("The camera stopped sending pictures.").andExpect(status().isOk());
+        getAs(token, SESSIONS + id + "/off-task").andExpect(jsonPath("$.state").value("CAMERA_UNAVAILABLE"));
+
+        // A program that stopped reporting is not connected, whatever it last said about the camera.
+        advanceToSecond(100);
+        getAs(token, SESSIONS + id + "/off-task")
+                .andExpect(jsonPath("$.state").value("NOT_CONNECTED"))
+                .andExpect(jsonPath("$.cameraProblem").doesNotExist());
+
+        companionHeartbeat("x".repeat(301)).andExpect(status().isBadRequest());
+    }
+
     @Test
     void pausedTimeIsNeverSubtractedAndTheRestIsSettledOnResume() throws Exception {
         token = setUpAccount("doug", "UTC");

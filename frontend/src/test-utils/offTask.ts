@@ -6,6 +6,7 @@ export function makeOffTaskStatus(overrides: Partial<OffTaskStatus> = {}): OffTa
     sessionId: 1,
     state: 'ON_TASK',
     companionConnected: true,
+    cameraProblem: null,
     offTaskSeconds: 0,
     current: null,
     deductionStartsAt: null,

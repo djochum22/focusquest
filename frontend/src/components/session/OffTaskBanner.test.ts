@@ -61,6 +61,22 @@ describe('OffTaskBanner', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
+  it('says the session is not being checked, and why, when the camera cannot be used', () => {
+    const wrapper = mount(OffTaskBanner, {
+      props: {
+        status: makeOffTaskStatus({
+          state: 'CAMERA_UNAVAILABLE',
+          cameraProblem: 'The camera stopped sending pictures.',
+        }),
+      },
+    })
+
+    expect(wrapper.get('[role="status"]').text()).toBe(
+      "The camera isn't checking this session. The camera stopped sending pictures.",
+    )
+    expect(wrapper.find('button').exists()).toBe(false)
+  })
+
   it.each(['ON_TASK', 'OFF_TASK'] as const)('shows nothing while %s', (state) => {
     const wrapper = mount(OffTaskBanner, { props: { status: makeOffTaskStatus({ state }) } })
 

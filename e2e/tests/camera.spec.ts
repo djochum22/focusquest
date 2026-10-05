@@ -85,6 +85,27 @@ test('a session goes on unverified when the companion program stops', async ({ p
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()   // a lost camera never interrupts a session
 })
 
+test('the session screen says when the camera cannot be used, until it can', async ({ page }, testInfo) => {
+  await setUpAccount(page)
+  const code = await turnOnCameraAndPair(page)
+  const companion = Companion.start(code, testInfo.outputPath('companion.json'), 'unavailable 1m, present 30m')
+  try {
+    await expectCompanionConnected(page)
+    await startCameraSession(page)
+    let seen = await companion.expectOutput(/^Camera on for session \d+/)
+    seen = await companion.expectOutput(/^The scripted camera is unavailable\. The session is not being checked/, seen)
+    const notice = page.getByText("The camera isn't checking this session. The scripted camera is unavailable.")
+    await expect(notice).toBeVisible(SHOWN_WITHIN)
+
+    await advanceBackendClock(60)   // the camera can be used again
+    await companion.expectOutput(/^Camera on for session \d+/, seen)
+    await expect(notice).toBeHidden(SHOWN_WITHIN)
+    await expect(page.getByRole('status').filter({ hasText: "The camera isn't checking" })).toHaveCount(0)
+  } finally {
+    await companion.stop()
+  }
+})
+
 test('Settings asks the companion program to calibrate, and shows how it went', async ({ page }, testInfo) => {
   await setUpAccount(page)
   const code = await turnOnCameraAndPair(page)

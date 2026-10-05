@@ -51,6 +51,9 @@ function onDispute() {
   <p v-else-if="status.state === 'NOT_CONNECTED'" class="off-task off-task--notice" role="status">
     The camera isn't checking this session: the companion program isn't connected.
   </p>
+  <p v-else-if="status.state === 'CAMERA_UNAVAILABLE'" class="off-task off-task--notice" role="status">
+    The camera isn't checking this session. {{ status.cameraProblem }}
+  </p>
 </template>
 
 <style scoped>
