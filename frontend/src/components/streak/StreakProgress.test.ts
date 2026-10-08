@@ -41,11 +41,12 @@ describe('StreakProgress', () => {
     expect(bar.get('div').attributes('style')).toContain('width: 50%')
   })
 
-  it('says nothing has been counted yet at the start of a period', () => {
+  it('shows nothing counted yet at the start of a period, inside the bar', () => {
     const wrapper = mountProgress()
+    const bar = wrapper.get('[role="progressbar"]')
 
-    expect(wrapper.text()).toContain('No focus time counted yet')
-    expect(wrapper.text()).toContain('30 min to go')
+    expect(bar.text()).toContain('0 min of 30 min')
+    expect(bar.text()).toContain('30 min to go')
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('0')
   })
 
@@ -58,9 +59,9 @@ describe('StreakProgress', () => {
 
     expect(wrapper.text()).toContain('Target reached')
     expect(wrapper.text()).not.toContain('to go')
-    expect(wrapper.text()).toContain('10 min of extra focus time')
+    expect(wrapper.get('[role="progressbar"]').text()).toContain('+10 min extra')
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('100')
-    expect(wrapper.find('.streak-progress__fill--reached').exists()).toBe(true)
+    expect(wrapper.find('.bar__fill--success').exists()).toBe(true)
   })
 
   it('states which sessions count and when the period resets', () => {

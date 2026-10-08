@@ -4,7 +4,9 @@ import { getErrorMessage } from '../api/apiError'
 import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
+import InfoTip from '../components/common/InfoTip.vue'
 import LoadingIndicator from '../components/common/LoadingIndicator.vue'
+import Modal from '../components/common/Modal.vue'
 import GemDisplay from '../components/progression/GemDisplay.vue'
 import XpDisplay from '../components/progression/XpDisplay.vue'
 import StreakConfigurationForm from '../components/streak/StreakConfigurationForm.vue'
@@ -50,6 +52,16 @@ async function load() {
   ready.value = true
 }
 
+/** The streak settings live in a dialog, one streak at a time. */
+const settingsOpen = ref(false)
+const settingsPeriod = ref<StreakPeriodType>('DAILY')
+
+function openSettings(periodType: StreakPeriodType = 'DAILY') {
+  settingsPeriod.value = periodType
+  saved.value = null
+  settingsOpen.value = true
+}
+
 async function onSave(periodType: StreakPeriodType, values: StreakConfigurationValues) {
   saveError[periodType] = null
   saved.value = null
@@ -77,7 +89,17 @@ onMounted(load)
 
 <template>
   <AppShell>
-    <h1 class="page-title">Streaks</h1>
+    <div class="streaks__title-row">
+      <h1 class="page-title">Streaks</h1>
+      <AppButton v-if="ready && streaks.configurationsLoaded" variant="secondary" @click="openSettings()">
+        <svg class="streaks__gear" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        Streak settings
+      </AppButton>
+    </div>
 
     <LoadingIndicator v-if="!ready" />
 
@@ -98,10 +120,10 @@ onMounted(load)
         <GemDisplay :balance="progression.loaded ? progression.gems : null" />
       </section>
 
-      <section v-if="streaks.currentLoaded" class="streaks__stack" aria-labelledby="progress-heading">
-        <h2 id="progress-heading" class="streaks__heading">Current progress</h2>
+      <section v-if="streaks.currentLoaded" class="streaks__stack" aria-label="Current progress">
         <StreakProgress
           v-if="streaks.daily"
+          class="streaks__block"
           :progress="streaks.daily"
           :streak-length="streaks.dailyStreak"
           :protected-days="streaks.dailyProtectedDays"
@@ -109,16 +131,18 @@ onMounted(load)
         />
         <StreakProgress
           v-if="streaks.weekly"
+          class="streaks__block"
           :progress="streaks.weekly"
           :streak-length="streaks.weeklyStreak ?? 0"
           :timezone="auth.user?.timezone"
         />
-        <p v-else class="muted">
-          No weekly streak yet. Add one below to track a Monday-to-Sunday target.
+        <p v-else class="muted streaks__empty streaks__block">
+          No weekly streak yet.
+          <AppButton variant="link" @click="openSettings('WEEKLY')">Add one</AppButton>
         </p>
       </section>
 
-      <div v-if="streaks.freezes" class="streaks__stack">
+      <div v-if="streaks.freezes" class="streaks__stack streaks__block">
         <ErrorMessage :message="freezeError" />
         <p v-if="freezeBought" class="streaks__saved" role="status">Streak freeze bought.</p>
         <StreakFreezeCard
@@ -128,41 +152,68 @@ onMounted(load)
           @buy="onBuyFreeze"
         />
       </div>
-
-      <section v-if="streaks.configurationsLoaded" class="streaks__stack" aria-labelledby="settings-heading">
-        <h2 id="settings-heading" class="streaks__heading">Streak settings</h2>
-        <p class="muted streaks__note">
-          Changes apply to periods that have not started. A day or week already in progress keeps the
-          settings it began with.
-        </p>
-        <p v-if="settingsLocked" class="streaks__locked" role="status">
-          Streak settings are locked while website blocking is active. End your session, or override
-          the blocking, to change them.
-        </p>
-
-        <section v-for="periodType in (['DAILY', 'WEEKLY'] as const)" :key="periodType" class="card">
-          <h3 class="streaks__card-title">{{ PERIOD_LABELS[periodType] }} streak</h3>
-          <ErrorMessage :message="saveError[periodType]" />
-          <p v-if="saved === periodType" class="streaks__saved" role="status">
-            {{ PERIOD_LABELS[periodType] }} streak saved.
-          </p>
-          <StreakConfigurationForm
-            :period-type="periodType"
-            :configuration="periodType === 'DAILY' ? streaks.dailyConfiguration : streaks.weeklyConfiguration"
-            :submitting="streaks.saving"
-            :locked="settingsLocked"
-            @submit="(values) => onSave(periodType, values)"
-          />
-        </section>
-      </section>
     </div>
+
+    <Modal :open="settingsOpen" title="Streak settings" @close="settingsOpen = false">
+      <fieldset class="streaks__switch">
+        <legend class="visually-hidden">Streak</legend>
+        <label v-for="periodType in (['DAILY', 'WEEKLY'] as const)" :key="periodType">
+          <input v-model="settingsPeriod" type="radio" name="streak-settings-period" :value="periodType" />
+          {{ PERIOD_LABELS[periodType] }}
+        </label>
+      </fieldset>
+
+      <p v-if="settingsLocked" class="streaks__locked" role="status">
+        Locked while website blocking is active
+        <InfoTip>End your session, or override the blocking, to change your streak settings.</InfoTip>
+      </p>
+      <p v-else class="muted streaks__note">
+        Changes apply from the next {{ settingsPeriod === 'DAILY' ? 'day' : 'week' }}
+        <InfoTip>A day or week already in progress keeps the settings it began with.</InfoTip>
+      </p>
+
+      <ErrorMessage :message="saveError[settingsPeriod]" />
+      <p v-if="saved === settingsPeriod" class="streaks__saved" role="status">
+        {{ PERIOD_LABELS[settingsPeriod] }} streak saved.
+      </p>
+      <StreakConfigurationForm
+        :key="settingsPeriod"
+        :period-type="settingsPeriod"
+        :configuration="settingsPeriod === 'DAILY' ? streaks.dailyConfiguration : streaks.weeklyConfiguration"
+        :submitting="streaks.saving"
+        :locked="settingsLocked"
+        @submit="(values) => onSave(settingsPeriod, values)"
+      />
+
+      <div class="streaks__close">
+        <AppButton variant="link" @click="settingsOpen = false">Close</AppButton>
+      </div>
+    </Modal>
   </AppShell>
 </template>
 
 <style scoped>
+.streaks__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.streaks__title-row .page-title {
+  margin: 0;
+}
+.streaks__title-row .app-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
 .streaks {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+.streaks > .streaks__stack {
   gap: 1.5rem;
 }
 .streaks__stack {
@@ -173,28 +224,60 @@ onMounted(load)
 .streaks__rewards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 1rem;
+  gap: 1.5rem 3rem;
 }
-.streaks__heading {
+/* No cards: each part of the page is set off from the one above by a hairline. */
+.streaks__block {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.streaks__empty {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   margin: 0;
-  font-size: 1.15rem;
 }
-.streaks__card-title {
+/* A two-way pill switch, like the session form's; the radios stay real inputs. */
+.streaks__switch {
+  display: flex;
+  align-self: flex-start;
   margin: 0;
-  font-size: 1.05rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
-.streaks__note {
-  margin: -0.5rem 0 0;
+.streaks__switch label {
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.streaks__switch label:has(input:checked) {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+.streaks__switch label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.streaks__switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.streaks__note,
+.streaks__locked {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
   font-size: 0.9rem;
 }
 .streaks__locked {
-  margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--notice);
-  border-radius: 8px;
-  background: var(--notice-bg);
   color: var(--notice);
-  font-size: 0.9rem;
+  font-weight: 600;
 }
 .streaks__saved {
   margin: 0;
@@ -204,5 +287,9 @@ onMounted(load)
   background: var(--success-bg);
   color: var(--success);
   font-size: 0.9rem;
+}
+.streaks__close {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

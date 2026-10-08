@@ -51,6 +51,11 @@ async function mountView() {
   return wrapper
 }
 
+/** Picks a streak in the settings dialog's Daily/Weekly switch. */
+async function chooseStreak(wrapper: Awaited<ReturnType<typeof mountView>>, period: 'DAILY' | 'WEEKLY') {
+  await wrapper.get(`input[name="streak-settings-period"][value="${period}"]`).setValue()
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
@@ -105,11 +110,26 @@ describe('StreaksView', () => {
     wrapper.unmount()
   })
 
-  it('invites the user to add a weekly streak when there is none', async () => {
+  it('keeps the streak settings behind a button that opens them in a dialog', async () => {
+    const wrapper = await mountView()
+    const dialog = wrapper.get('dialog')
+    expect(dialog.attributes('open')).toBeUndefined()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Streak settings')!.trigger('click')
+
+    expect(dialog.attributes('open')).toBeDefined()
+    expect(dialog.find('form[aria-label="Daily streak settings"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('invites the user to add a weekly streak when there is none, opening its settings', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('No weekly streak yet')
-    expect(wrapper.find('form[aria-label="Weekly streak settings"] button').text()).toBe('Add weekly streak')
+    await wrapper.findAll('button').find((b) => b.text() === 'Add one')!.trigger('click')
+
+    expect(wrapper.get('dialog').attributes('open')).toBeDefined()
+    expect(wrapper.get('form[aria-label="Weekly streak settings"] button').text()).toBe('Add weekly streak')
     wrapper.unmount()
   })
 
@@ -130,6 +150,7 @@ describe('StreaksView', () => {
 
     expect(wrapper.text()).toContain('Weekly streak')
     expect(wrapper.text()).not.toContain('No weekly streak yet')
+    await chooseStreak(wrapper, 'WEEKLY')
     expect(wrapper.find('form[aria-label="Weekly streak settings"] button').text()).toBe('Save changes')
     wrapper.unmount()
   })
@@ -137,7 +158,8 @@ describe('StreaksView', () => {
   it('explains that changes only affect periods that have not started', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Changes apply to periods that have not started')
+    expect(wrapper.text()).toContain('Changes apply from the next day')
+    expect(wrapper.text()).toContain('A day or week already in progress keeps the settings it began with.')
     wrapper.unmount()
   })
 
@@ -167,7 +189,7 @@ describe('StreaksView', () => {
     })
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Streak settings are locked while website blocking is active')
+    expect(wrapper.text()).toContain('Locked while website blocking is active')
     const save = wrapper.get('form[aria-label="Daily streak settings"] button')
     expect(save.attributes('disabled')).toBeDefined()
 
@@ -180,7 +202,7 @@ describe('StreaksView', () => {
   it('does not lock the settings when nothing is running', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).not.toContain('Streak settings are locked')
+    expect(wrapper.text()).not.toContain('Locked while website blocking is active')
     expect(wrapper.get('form[aria-label="Daily streak settings"] button').attributes('disabled')).toBeUndefined()
     wrapper.unmount()
   })
@@ -229,6 +251,7 @@ describe('StreaksView', () => {
       targetMinutes: 180,
     })
     const wrapper = await mountView()
+    await chooseStreak(wrapper, 'WEEKLY')
 
     await wrapper.get('form[aria-label="Weekly streak settings"]').trigger('submit')
     await flushPromises()

@@ -13,7 +13,7 @@ function mountCard(overrides: Partial<FreezeInventory> = {}, buying = false) {
   return mount(StreakFreezeCard, { props: { inventory: inventory(overrides), buying, timezone: 'UTC', now: NOW } })
 }
 
-const buyButton = (wrapper: ReturnType<typeof mountCard>) => wrapper.get('button')
+const buyButton = (wrapper: ReturnType<typeof mountCard>) => wrapper.get('button:not(.info__button)')
 
 describe('StreakFreezeCard', () => {
   it('shows how many freezes are held out of the limit and what one costs', () => {

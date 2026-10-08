@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { FreezeInventory } from '../../types/streak'
 import { formatDateTime } from '../../utils/dateTime'
 import AppButton from '../common/AppButton.vue'
+import InfoTip from '../common/InfoTip.vue'
 
 const props = defineProps<{
   inventory: FreezeInventory
@@ -50,20 +51,27 @@ function formatDay(iso: string): string {
 </script>
 
 <template>
-  <section class="card freezes" aria-labelledby="freezes-heading">
+  <section class="stage freezes" aria-labelledby="freezes-heading">
     <div class="freezes__head">
-      <h2 id="freezes-heading" class="freezes__title">Streak freezes</h2>
-      <p class="freezes__count" data-testid="freeze-count">
-        <span class="freezes__owned">{{ inventory.owned }}</span>
-        <span class="muted"> of {{ inventory.maxOwned }}</span>
+      <div class="freezes__name">
+        <h2 id="freezes-heading" class="freezes__title">Streak freezes</h2>
+        <InfoTip>
+          A freeze keeps your daily streak going when you miss a day. It is used automatically, but only
+          when your freezes cover every day you missed; a frozen day keeps the streak alive without
+          adding to it. A freeze only covers days that end after you buy it.
+        </InfoTip>
+      </div>
+      <p class="freezes__count">
+        <svg class="freezes__icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 4l3 2 3-2M9 20l3-2 3 2M4 10.5l1-3.4-3.4-1M20 13.5l-1 3.4 3.4 1M4 13.5l1 3.4-3.4 1M20 10.5l-1-3.4 3.4-1" />
+        </svg>
+        <span data-testid="freeze-count">
+          <span class="freezes__owned">{{ inventory.owned }}</span>
+          <span class="muted"> of {{ inventory.maxOwned }}</span>
+        </span>
       </p>
     </div>
-
-    <p class="muted freezes__text">
-      A freeze keeps your daily streak going when you miss a day. It is used automatically, but only
-      when your freezes cover every day you missed; a frozen day keeps the streak alive without adding
-      to it. A freeze only covers days that end after you buy it.
-    </p>
 
     <p v-if="recentUse" class="freezes__used" role="status">
       A streak freeze covered {{ formatDay(recentUse.periodStart) }}.
@@ -90,7 +98,7 @@ function formatDay(iso: string): string {
 .freezes__head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 1rem;
 }
 .freezes__title {
@@ -98,15 +106,22 @@ function formatDay(iso: string): string {
   font-size: 1.05rem;
 }
 .freezes__count {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
+}
+.freezes__icon {
+  color: var(--accent-secondary);
 }
 .freezes__owned {
   font-size: 1.5rem;
   font-weight: 700;
 }
-.freezes__text {
-  margin: 0;
-  font-size: 0.9rem;
+.freezes__name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .freezes__used {
   margin: 0;
