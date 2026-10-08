@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AppButton from './AppButton.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import { useAuthStore } from '../../stores/authStore'
 import { useExtensionStore } from '../../stores/extensionStore'
@@ -31,7 +30,13 @@ async function onLogout() {
       </nav>
       <ThemeToggle />
       <span class="shell__user">{{ auth.user?.displayName }}</span>
-      <AppButton variant="secondary" @click="onLogout">Sign out</AppButton>
+      <button type="button" class="shell__signout" @click="onLogout">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+        </svg>
+        Sign out
+      </button>
     </header>
     <main class="shell__main"><slot /></main>
   </div>
@@ -66,6 +71,24 @@ async function onLogout() {
 .shell__user {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+/* Quiet, like the navigation: signing out is rarely what the user came for. */
+.shell__signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.shell__signout:hover {
+  background: var(--surface-muted);
+  color: var(--text);
 }
 .shell__main {
   width: 100%;

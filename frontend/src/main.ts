@@ -4,6 +4,9 @@ import App from './App.vue'
 import router from './router'
 import { configureApiClient } from './api/client'
 import { useAuthStore } from './stores/authStore'
+// Bundled with the app rather than loaded from a font service, so it works offline.
+import '@fontsource-variable/atkinson-hyperlegible-next'
+import '@fontsource/young-serif'
 import './style.css'
 
 const app = createApp(App)
