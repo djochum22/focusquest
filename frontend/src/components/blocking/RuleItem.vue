@@ -23,10 +23,10 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
     <span class="rule-item__badge">{{ rule.targetType === 'DOMAIN' ? 'Domain' : 'Path' }}</span>
     <span v-if="!rule.active" class="rule-item__badge rule-item__badge--inactive">Paused</span>
     <div class="rule-item__actions">
-      <AppButton variant="secondary" :disabled="!canEdit" :aria-label="`Edit ${rule.targetValue}`" @click="emit('edit')">
+      <AppButton variant="link" :disabled="!canEdit" :aria-label="`Edit ${rule.targetValue}`" @click="emit('edit')">
         Edit
       </AppButton>
-      <AppButton variant="secondary" :disabled="!canDelete" :aria-label="`Delete ${rule.targetValue}`" @click="emit('delete')">
+      <AppButton variant="link" :disabled="!canDelete" :aria-label="`Delete ${rule.targetValue}`" @click="emit('delete')">
         Delete
       </AppButton>
     </div>
@@ -42,8 +42,8 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
   padding: 0.75rem 0;
   border-top: 1px solid var(--border);
 }
-.rule-item:first-child {
-  border-top: 0;
+.rule-item:last-child {
+  border-bottom: 1px solid var(--border);
 }
 .rule-item--inactive .rule-item__text {
   opacity: 0.6;
@@ -75,10 +75,6 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
 }
 .rule-item__actions {
   display: flex;
-  gap: 0.5rem;
-}
-.rule-item__actions :deep(.app-button) {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
+  gap: 1rem;
 }
 </style>

@@ -76,6 +76,22 @@ describe('BlockingRulesView', () => {
     wrapper.unmount()
   })
 
+  it('shows one list at a time, switched with their counts, blocked sites first', async () => {
+    backendHas([youtube], [docs])
+    const wrapper = await mountView()
+    const switchTo = (kind: 'block' | 'allow') => wrapper.get(`input[name="rules-list"][value="${kind}"]`)
+
+    expect(wrapper.get('fieldset').text()).toMatch(/Blocked\s*1\s*Allowed\s*1/)
+    expect(section(wrapper, 'Blocked sites').isVisible()).toBe(true)
+    expect(section(wrapper, 'Allowed sites').isVisible()).toBe(false)
+
+    await switchTo('allow').setValue()
+
+    expect(section(wrapper, 'Blocked sites').isVisible()).toBe(false)
+    expect(section(wrapper, 'Allowed sites').isVisible()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('says so when a list is empty', async () => {
     const wrapper = await mountView()
 
@@ -329,7 +345,7 @@ describe('BlockingRulesView', () => {
     it('only lets the rules get stricter', async () => {
       const wrapper = await mountEnforced()
 
-      expect(wrapper.get('[role="status"]').text()).toContain('Website blocking is active')
+      expect(wrapper.get('[role="status"]').text()).toContain('Blocking is active: rules can only get stricter')
       // Blocked sites: adding is fine, editing and removing are not.
       expect(wrapper.get('[aria-label="Edit youtube.com"]').attributes('disabled')).toBeDefined()
       expect(wrapper.get('[aria-label="Delete youtube.com"]').attributes('disabled')).toBeDefined()
@@ -367,7 +383,7 @@ describe('BlockingRulesView', () => {
 
       const wrapper = await mountView()
 
-      expect(wrapper.text()).not.toContain('Website blocking is active')
+      expect(wrapper.text()).not.toContain('Blocking is active: rules can only get stricter')
       expect(wrapper.get('[aria-label="Edit youtube.com"]').attributes('disabled')).toBeUndefined()
       wrapper.unmount()
     })

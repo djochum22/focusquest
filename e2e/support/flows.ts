@@ -15,7 +15,7 @@ export async function setUpAccount(page: Page): Promise<void> {
   await page.getByLabel('Confirm password').fill(PASSWORD)
   await expect(page.getByLabel('Time zone')).toHaveValue('UTC')
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Focus', exact: true })).toBeVisible()
 }
 
 /** Settings shows each area as a closed row; this opens one by its title. */

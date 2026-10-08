@@ -71,7 +71,7 @@ function timeRange(item: FocusSession) {
 
 <template>
   <AppShell>
-    <RouterLink :to="{ name: 'dashboard' }" class="history__back">← Dashboard</RouterLink>
+    <RouterLink :to="{ name: 'dashboard' }" class="history__back">← Focus</RouterLink>
     <h1 class="page-title">History</h1>
 
     <LoadingIndicator v-if="loading && !session.historyLoaded" />

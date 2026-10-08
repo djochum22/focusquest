@@ -116,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
 <template>
   <AppShell>
-    <h1 class="visually-hidden">Dashboard</h1>
+    <h1 class="visually-hidden">Focus</h1>
 
     <LoadingIndicator v-if="!session.currentLoaded && !loadError" />
 

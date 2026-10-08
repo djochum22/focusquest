@@ -8,6 +8,8 @@ defineProps<{
   rule?: RuleTarget | null
   submitting: boolean
   locked?: boolean
+  /** The one-line add form; see RuleForm. */
+  compact?: boolean
 }>()
 const emit = defineEmits<{ submit: [request: RuleTargetRequest] }>()
 </script>
@@ -18,6 +20,7 @@ const emit = defineEmits<{ submit: [request: RuleTargetRequest] }>()
     :rule="rule"
     :submitting="submitting"
     :locked="locked"
+    :compact="compact"
     label="Site to allow"
     hint="An exception to your blocked sites. Allowing example.com/docs keeps that section reachable while example.com is blocked."
     active-label="Allow this site during focus sessions"

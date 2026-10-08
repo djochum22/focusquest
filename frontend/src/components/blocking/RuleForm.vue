@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, useId } from 'vue'
 import AppButton from '../common/AppButton.vue'
 import FormField from '../common/FormField.vue'
+import InfoTip from '../common/InfoTip.vue'
 import type { RuleTarget, RuleTargetRequest } from '../../types/blocking'
 import { validateRuleForm, type RuleForm } from '../../utils/blockingRules'
 import { hasErrors, type FieldErrors } from '../../utils/validation'
@@ -27,6 +28,11 @@ const props = defineProps<{
   activeHint: string
   submitLabel: string
   formName: string
+  /**
+   * Just the address and the button, on one line, for adding quickly. The label is left to follow
+   * the address and the site starts switched on; both can be changed by editing it.
+   */
+  compact?: boolean
 }>()
 const emit = defineEmits<{ submit: [request: RuleTargetRequest] }>()
 
@@ -42,6 +48,7 @@ function initialForm(): RuleForm {
 
 const form = reactive<RuleForm>(initialForm())
 const errors = ref<FieldErrors<RuleForm>>({})
+const addressId = useId()
 
 function onSubmit() {
   if (props.locked) return
@@ -57,20 +64,44 @@ function onSubmit() {
 </script>
 
 <template>
-  <form class="rule-form" novalidate :aria-label="formName" @submit.prevent="onSubmit">
-    <FormField v-slot="{ id, invalid }" :label="label" :error="errors.targetValue">
+  <form v-if="compact" class="rule-form" novalidate :aria-label="formName" @submit.prevent="onSubmit">
+    <label :for="addressId" class="visually-hidden">{{ label }}</label>
+    <div class="rule-form__bar">
       <input
-        :id="id"
+        :id="addressId"
         v-model="form.targetValue"
+        class="rule-form__address"
         type="text"
         inputmode="url"
         autocomplete="off"
         autocapitalize="off"
         spellcheck="false"
         placeholder="example.com or example.com/path"
-        :aria-invalid="invalid"
+        :aria-invalid="Boolean(errors.targetValue)"
       />
-      <p class="rule-form__hint">{{ hint }}</p>
+      <AppButton type="submit" :loading="submitting" :disabled="locked">
+        {{ submitting ? 'Saving…' : submitLabel }}
+      </AppButton>
+    </div>
+    <p v-if="errors.targetValue" class="rule-form__error">{{ errors.targetValue }}</p>
+  </form>
+
+  <form v-else class="rule-form" novalidate :aria-label="formName" @submit.prevent="onSubmit">
+    <FormField :label="label" :error="errors.targetValue">
+      <template #default="{ id, invalid }">
+        <input
+          :id="id"
+          v-model="form.targetValue"
+          type="text"
+          inputmode="url"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="example.com or example.com/path"
+          :aria-invalid="invalid"
+        />
+      </template>
+      <template #info><InfoTip>{{ hint }}</InfoTip></template>
     </FormField>
 
     <FormField v-slot="{ id, invalid }" label="Label (optional)" :error="errors.displayName">
@@ -89,7 +120,8 @@ function onSubmit() {
         <input v-model="form.active" type="checkbox" />
         {{ activeLabel }}
       </label>
-      <p class="rule-form__hint">{{ activeHint }}</p>
+      <!-- Outside the label, so opening it does not tick the box. -->
+      <InfoTip>{{ activeHint }}</InfoTip>
     </div>
 
     <div>
@@ -106,15 +138,29 @@ function onSubmit() {
   flex-direction: column;
   gap: 1rem;
 }
-.rule-form__hint {
-  margin: 0;
-  color: var(--text-muted);
+.rule-form__bar {
+  display: flex;
+  gap: 0.5rem;
+}
+.rule-form__address {
+  flex: 1;
+  min-width: 0;
+  border-radius: 999px;
+  padding-left: 1rem;
+}
+.rule-form__bar .app-button {
+  flex: none;
+  border-radius: 999px;
+}
+.rule-form__error {
+  margin: -0.5rem 0 0;
+  color: var(--danger);
   font-size: 0.85rem;
 }
 .rule-form__active {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 .rule-form__active-label {
   display: flex;

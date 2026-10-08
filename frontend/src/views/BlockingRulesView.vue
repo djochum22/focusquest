@@ -8,6 +8,7 @@ import AppButton from '../components/common/AppButton.vue'
 import AppShell from '../components/common/AppShell.vue'
 import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
+import InfoTip from '../components/common/InfoTip.vue'
 import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import Modal from '../components/common/Modal.vue'
 import { useBlockingStore } from '../stores/blockingStore'
@@ -22,8 +23,10 @@ const SECTIONS = [
   {
     kind: 'block',
     title: 'Blocked sites',
-    description: 'These sites are blocked while a focus session is running.',
-    empty: 'No blocked sites yet. Add one below to have it blocked during sessions.',
+    tab: 'Blocked',
+    description: 'Blocked while a focus session is running',
+    help: 'A domain (youtube.com) blocks it and its subdomains. A domain and path (youtube.com/shorts) blocks only that section.',
+    empty: 'No blocked sites yet. Add one above to have it blocked during sessions.',
     listLabel: 'Blocked sites',
     form: BlockRuleForm,
     singular: 'blocked site',
@@ -31,7 +34,9 @@ const SECTIONS = [
   {
     kind: 'allow',
     title: 'Allowed sites',
-    description: 'Exceptions to your blocked sites. If two entries match a page, the more specific address wins, and on a tie the allowed site wins.',
+    tab: 'Allowed',
+    description: 'Exceptions to your blocked sites',
+    help: 'Allowing example.com/docs keeps that section reachable while example.com is blocked. If two entries match a page, the more specific address wins, and on a tie the allowed site wins.',
     empty: 'No allowed sites. Nothing is exempt from blocking.',
     listLabel: 'Allowed sites',
     form: AllowlistRuleForm,
@@ -52,6 +57,9 @@ const allowed = computed(() => ({
   block: { add: true, edit: !enforced.value, delete: !enforced.value },
   allow: { add: !enforced.value, edit: !enforced.value, delete: true },
 }))
+
+/** Which list is shown; the other stays mounted so its form keeps what was typed. */
+const shown = ref<RuleKind>('block')
 
 const ready = ref(false)
 const loadError = ref<string | null>(null)
@@ -133,7 +141,7 @@ onMounted(load)
 
 <template>
   <AppShell>
-    <h1 class="page-title">Blocked and allowed sites</h1>
+    <h1 class="page-title">Blocking</h1>
 
     <LoadingIndicator v-if="!ready" />
 
@@ -144,22 +152,48 @@ onMounted(load)
       </div>
 
       <template v-if="blocking.loaded">
+        <fieldset class="rules__switch">
+          <legend class="visually-hidden">List</legend>
+          <label v-for="section in SECTIONS" :key="section.kind">
+            <input v-model="shown" type="radio" name="rules-list" :value="section.kind" />
+            {{ section.tab }} <span class="rules__count">{{ rulesFor(section.kind).length }}</span>
+          </label>
+        </fieldset>
+
         <p v-if="enforced" class="rules__locked" role="status">
-          Website blocking is active. Until it ends you can add blocked sites and remove allowed sites,
-          but not edit or remove blocked sites, or add or edit allowed sites.
+          Blocking is active: rules can only get stricter
+          <InfoTip>
+            Until it ends you can add blocked sites and remove allowed sites, but not edit or remove blocked
+            sites, or add or edit allowed sites.
+          </InfoTip>
         </p>
         <ErrorMessage :message="actionError" />
         <p v-if="notice" class="rules__saved" role="status">{{ notice }}</p>
 
         <section
           v-for="section in SECTIONS"
+          v-show="shown === section.kind"
           :key="section.kind"
-          class="card"
+          class="rules__section"
           :aria-labelledby="`${section.kind}-heading`"
         >
-          <div class="rules__stack">
-            <h2 :id="`${section.kind}-heading`" class="rules__heading">{{ section.title }}</h2>
+          <div class="rules__head">
+            <h2 :id="`${section.kind}-heading`" class="visually-hidden">{{ section.title }}</h2>
             <p class="muted rules__note">{{ section.description }}</p>
+            <InfoTip>{{ section.help }}</InfoTip>
+          </div>
+
+          <div class="rules__stack">
+            <ErrorMessage :message="addError[section.kind]" />
+            <component
+              :is="section.form"
+              :key="formKey[section.kind]"
+              :existing="rulesFor(section.kind)"
+              :submitting="blocking.saving"
+              :locked="!allowed[section.kind].add"
+              compact
+              @submit="(request: RuleTargetRequest) => onAdd(section.kind, request)"
+            />
           </div>
 
           <RuleList
@@ -171,19 +205,6 @@ onMounted(load)
             @edit="(rule) => startEdit(section.kind, rule)"
             @delete="(rule) => (deleting = { kind: section.kind, rule })"
           />
-
-          <div class="rules__stack">
-            <h3 class="rules__subheading">Add {{ section.singular }}</h3>
-            <ErrorMessage :message="addError[section.kind]" />
-            <component
-              :is="section.form"
-              :key="formKey[section.kind]"
-              :existing="rulesFor(section.kind)"
-              :submitting="blocking.saving"
-              :locked="!allowed[section.kind].add"
-              @submit="(request: RuleTargetRequest) => onAdd(section.kind, request)"
-            />
-          </div>
         </section>
       </template>
     </div>
@@ -205,7 +226,7 @@ onMounted(load)
           @submit="onSaveEdit"
         />
         <div>
-          <AppButton variant="secondary" :disabled="blocking.saving" @click="editing = null">Cancel</AppButton>
+          <AppButton variant="link" :disabled="blocking.saving" @click="editing = null">Cancel</AppButton>
         </div>
       </template>
     </Modal>
@@ -232,41 +253,81 @@ onMounted(load)
 .rules {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 .rules__stack {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
-.rules__heading {
+/* A two-way pill switch, like the streak settings'; the radios stay real inputs. */
+.rules__switch {
+  display: flex;
+  align-self: flex-start;
   margin: 0;
-  font-size: 1.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
-.rules__subheading {
-  margin: 0;
-  font-size: 1rem;
+.rules__switch label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.rules__switch label:has(input:checked) {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+.rules__switch label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.rules__switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.rules__count {
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+.rules__section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rules__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .rules__note {
   margin: 0;
   font-size: 0.9rem;
 }
 .rules__locked {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--notice);
-  border-radius: 8px;
-  background: var(--notice-bg);
   color: var(--notice);
   font-size: 0.9rem;
+  font-weight: 600;
 }
 .rules__saved {
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--success);
-  border-radius: 8px;
-  background: var(--success-bg);
   color: var(--success);
   font-size: 0.9rem;
+  font-weight: 600;
 }
 </style>
