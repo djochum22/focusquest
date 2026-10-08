@@ -14,6 +14,7 @@ const user: User = {
   displayName: 'Douglas',
   timezone: 'UTC',
   createdAt: '2026-01-01T00:00:00Z',
+  keepHistoryForever: false,
 }
 const response: LoginResponse = { token: 'jwt-token', tokenType: 'Bearer', expiresInSeconds: 3600, user }
 const stub = { template: '<div />' }

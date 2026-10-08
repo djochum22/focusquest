@@ -41,12 +41,13 @@ function onDispute() {
         counting.
       </template>
       <template v-else>this time is about to stop counting.</template>
+      <AppButton variant="link" class="off-task__dispute" :disabled="busy" @click="onDispute">Not accurate?</AppButton>
     </p>
     <p v-else class="off-task__text">
       <strong>Off task: this time isn't counting.</strong>
       It counts again as soon as you are back at your work.
+      <AppButton variant="link" class="off-task__dispute" :disabled="busy" @click="onDispute">Not accurate?</AppButton>
     </p>
-    <AppButton variant="secondary" :disabled="busy" @click="onDispute">Not accurate?</AppButton>
   </div>
   <p v-else-if="status.state === 'NOT_CONNECTED'" class="off-task off-task--notice" role="status">
     The camera isn't checking this session: the companion program isn't connected.
@@ -64,11 +65,6 @@ function onDispute() {
   font-size: 0.95rem;
 }
 .off-task--warning {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
   border: 1px solid var(--danger);
   background: var(--danger-bg);
   color: var(--text);
@@ -80,6 +76,10 @@ function onDispute() {
 }
 .off-task__text {
   margin: 0;
-  flex: 1 1 16rem;
+}
+/* Part of the sentence rather than a separate control, so it reads as an aside. */
+.off-task .off-task__dispute {
+  margin-left: 0.35rem;
+  font-size: inherit;
 }
 </style>

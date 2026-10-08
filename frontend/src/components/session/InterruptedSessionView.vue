@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '../common/AppButton.vue'
+import InfoTip from '../common/InfoTip.vue'
 import SessionMeta from './SessionMeta.vue'
 import SessionTimer from './SessionTimer.vue'
 import type { FocusSession } from '../../types/session'
@@ -17,8 +18,15 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="card interrupted" aria-label="Interrupted session">
-    <p class="interrupted__badge" role="status">Interrupted</p>
+  <section class="stage interrupted" aria-label="Interrupted session">
+    <div class="interrupted__status">
+      <p class="interrupted__badge" role="status">Interrupted</p>
+      <InfoTip>
+        The browser extension stopped checking in, so the time after its last check-in could not be
+        verified and was not counted. The time before it still counts toward your streak. Websites are
+        unblocked until you resume.
+      </InfoTip>
+    </div>
     <SessionMeta :session="session" />
     <SessionTimer
       :planned-seconds="session.plannedFocusMinutes * 60"
@@ -26,11 +34,6 @@ const emit = defineEmits<{
       :received-at="receivedAt"
       :running="false"
     />
-    <p class="muted interrupted__note">
-      The browser extension stopped checking in, so the time after its last check-in could not be
-      verified and was not counted. The time before it still counts toward your streak. Websites are
-      unblocked until you resume.
-    </p>
     <div class="interrupted__actions">
       <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
@@ -42,7 +45,6 @@ const emit = defineEmits<{
 
 <style scoped>
 .interrupted__badge {
-  align-self: center;
   margin: 0;
   padding: 0.15rem 0.75rem;
   border-radius: 999px;
@@ -50,10 +52,11 @@ const emit = defineEmits<{
   color: var(--notice);
   font-weight: 700;
 }
-.interrupted__note {
-  margin: 0;
-  text-align: center;
-  font-size: 0.9rem;
+.interrupted__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 .interrupted__actions,
 .interrupted__leave {

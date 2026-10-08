@@ -34,6 +34,11 @@ export async function fetchHistory(limit?: number): Promise<FocusSession[]> {
   return data
 }
 
+/** Deletes every ended session. Refused (409) while website blocking is active. */
+export async function clearHistory(): Promise<void> {
+  await apiClient.delete(`${BASE}/history`)
+}
+
 async function transition(id: number, action: string): Promise<FocusSession> {
   const { data } = await apiClient.post<FocusSession>(`${BASE}/${id}/${action}`)
   return data

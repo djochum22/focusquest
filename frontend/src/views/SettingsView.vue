@@ -104,6 +104,23 @@ async function onDisconnectExtension() {
   }
 }
 
+const savingRetention = ref(false)
+const retentionError = ref<string | null>(null)
+
+async function onKeepHistoryForeverChange(event: Event) {
+  const checkbox = event.target as HTMLInputElement
+  retentionError.value = null
+  savingRetention.value = true
+  try {
+    await auth.updateHistoryRetention(checkbox.checked)
+  } catch (error) {
+    checkbox.checked = !checkbox.checked
+    retentionError.value = getErrorMessage(error)
+  } finally {
+    savingRetention.value = false
+  }
+}
+
 async function onExport() {
   exportError.value = null
   exportedFile.value = null
@@ -248,6 +265,24 @@ async function onConfirmDelete() {
 
       <CameraVerificationCard />
 
+      <section class="card" aria-labelledby="history-heading">
+        <h2 id="history-heading" class="settings__heading">Session history</h2>
+        <label class="settings__check">
+          <input
+            type="checkbox"
+            :checked="auth.user?.keepHistoryForever ?? false"
+            :disabled="savingRetention"
+            @change="onKeepHistoryForeverChange"
+          />
+          Keep session history forever
+        </label>
+        <p class="muted settings__text">
+          When off, finished sessions are deleted 30 days after they started, and turning it off deletes
+          older ones straight away. Streaks, XP and gems are never affected.
+        </p>
+        <ErrorMessage :message="retentionError" />
+      </section>
+
       <section class="card" aria-labelledby="export-heading">
         <h2 id="export-heading" class="settings__heading">Export your data</h2>
         <p class="muted settings__text">
@@ -367,6 +402,16 @@ async function onConfirmDelete() {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+.settings__check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.settings__check input {
+  flex: none;
+  width: auto;
+  margin: 0;
 }
 .settings__done {
   margin: 0;

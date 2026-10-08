@@ -27,7 +27,7 @@ export const useSessionStore = defineStore('session', () => {
    * after a reload it is fetched again rather than lost.
    */
   const planned = ref<FocusSession | null>(null)
-  /** The session the user just finished, kept so the dashboard can show how it ended. */
+  /** The session the user just finished, kept while it may still hold blocking that can be overridden. */
   const lastEnded = ref<FocusSession | null>(null)
   const history = ref<FocusSession[]>([])
   const historyLoaded = ref(false)
@@ -150,6 +150,12 @@ export const useSessionStore = defineStore('session', () => {
     historyLoaded.value = true
   }
 
+  /** Deletes the ended sessions, then reloads: a resumable interrupted session is kept. */
+  async function clearHistory() {
+    await sessionApi.clearHistory()
+    await fetchHistory()
+  }
+
   function dismissLastEnded() {
     lastEnded.value = null
   }
@@ -194,6 +200,7 @@ export const useSessionStore = defineStore('session', () => {
     override,
     fetchHistory,
     dismissLastEnded,
+    clearHistory,
     reset,
   }
 })

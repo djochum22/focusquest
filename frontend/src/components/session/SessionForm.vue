@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, useId, watch } from 'vue'
 import AppButton from '../common/AppButton.vue'
+import InfoTip from '../common/InfoTip.vue'
 import FormField from '../common/FormField.vue'
 import type { CreateSessionRequest } from '../../types/session'
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from '../../utils/sessionLabels'
@@ -39,6 +40,7 @@ const form = reactive<SessionForm>({
   plannedFocusMinutes: 25,
 })
 const errors = ref<FieldErrors<SessionForm>>({})
+const taskId = useId()
 
 function onSubmit() {
   errors.value = validateSession(form)
@@ -59,23 +61,42 @@ function onSubmit() {
 <template>
   <form class="session-form" novalidate @submit.prevent="onSubmit">
     <fieldset class="session-form__mode">
-      <legend>Session type</legend>
+      <legend class="visually-hidden">Session type</legend>
       <label><input v-model="form.taskMode" type="radio" value="TASK_REQUIRED" /> Working on a task</label>
       <label><input v-model="form.taskMode" type="radio" value="TASK_FREE" /> Task-free</label>
     </fieldset>
 
     <template v-if="form.taskMode === 'TASK_REQUIRED'">
-      <FormField v-slot="{ id, invalid }" label="What will you work on? (optional)" :error="errors.taskDescription">
+      <div class="session-form__task">
+        <label :for="taskId" class="visually-hidden">What will you work on? (optional)</label>
         <input
-          :id="id"
+          :id="taskId"
           v-model="form.taskDescription"
+          class="session-form__task-input"
           type="text"
+          placeholder="What will you work on?"
+          autocomplete="off"
           :maxlength="TASK_DESCRIPTION_MAX"
-          :aria-invalid="invalid"
+          :aria-invalid="Boolean(errors.taskDescription)"
         />
-      </FormField>
+        <p v-if="errors.taskDescription" class="session-form__error">{{ errors.taskDescription }}</p>
+      </div>
+    </template>
+    <p v-else class="muted session-form__note">
+      No task needed
+      <InfoTip>
+        Focus time is tracked without a task. It only counts toward streaks that accept task-free
+        sessions.
+      </InfoTip>
+    </p>
 
-      <FormField v-slot="{ id, invalid }" label="Category" :error="errors.taskCategory">
+    <div class="session-form__options">
+      <FormField
+        v-if="form.taskMode === 'TASK_REQUIRED'"
+        v-slot="{ id, invalid }"
+        label="Category"
+        :error="errors.taskCategory"
+      >
         <select :id="id" v-model="form.taskCategory" :aria-invalid="invalid">
           <option value="" disabled>Select a category</option>
           <option v-for="category in SELECTABLE_CATEGORIES" :key="category" :value="category">
@@ -83,35 +104,29 @@ function onSubmit() {
           </option>
         </select>
       </FormField>
-    </template>
-    <p v-else class="muted session-form__note">
-      Focus time is tracked without a task. It only counts toward streaks that accept task-free
-      sessions.
-    </p>
 
-    <FormField v-slot="{ id, invalid }" label="Duration (minutes)" :error="errors.plannedFocusMinutes">
-      <input
-        :id="id"
-        v-model.number="form.plannedFocusMinutes"
-        type="number"
-        inputmode="numeric"
-        :min="MIN_PLANNED_FOCUS_MINUTES"
-        step="1"
-        :aria-invalid="invalid"
-      />
-    </FormField>
+      <FormField v-slot="{ id, invalid }" label="Duration (minutes)" :error="errors.plannedFocusMinutes">
+        <input
+          :id="id"
+          v-model.number="form.plannedFocusMinutes"
+          type="number"
+          inputmode="numeric"
+          :min="MIN_PLANNED_FOCUS_MINUTES"
+          step="1"
+          :aria-invalid="invalid"
+        />
+      </FormField>
+    </div>
 
     <div v-if="cameraAvailable" class="session-form__camera">
       <label class="session-form__camera-label">
         <input v-model="useCamera" type="checkbox" @change="cameraTouched = true" />
         Verify with camera
       </label>
-      <p class="muted session-form__note">
-        The camera checks that you stay on task. Off-task time does not count toward the session.
-      </p>
+      <InfoTip>The camera checks that you stay on task. Off-task time does not count toward the session.</InfoTip>
     </div>
 
-    <AppButton type="submit" :loading="submitting">
+    <AppButton type="submit" class="session-form__submit" :loading="submitting">
       {{ submitting ? 'Creating…' : 'Create session' }}
     </AppButton>
   </form>
@@ -121,32 +136,69 @@ function onSubmit() {
 .session-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
+/* A two-way pill switch; the radios stay real inputs for keyboard and screen-reader use. */
 .session-form__mode {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
+  align-self: center;
   margin: 0;
-  padding: 0;
-  border: 0;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
-.session-form__mode legend {
-  margin-bottom: 0.3rem;
-  padding: 0;
+.session-form__mode label {
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+  color: var(--text-muted);
   font-size: 0.9rem;
+  cursor: pointer;
+}
+.session-form__mode label:has(input:checked) {
+  background: var(--surface-muted);
+  color: var(--text);
   font-weight: 600;
 }
+.session-form__mode label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .session-form__mode input {
-  width: auto;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.session-form__task {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.session-form__task-input {
+  padding: 1rem 1.25rem;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  text-align: center;
+}
+.session-form__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.session-form__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem;
 }
 .session-form__note {
   margin: 0;
+  text-align: center;
 }
 .session-form__camera {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 .session-form__camera-label {
   display: flex;
@@ -158,5 +210,12 @@ function onSubmit() {
   width: auto;
   margin: 0;
   padding: 0;
+}
+.session-form .session-form__submit {
+  align-self: center;
+  min-width: 12rem;
+  padding: 0.85rem 2rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
 }
 </style>

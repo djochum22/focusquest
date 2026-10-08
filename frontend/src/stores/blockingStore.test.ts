@@ -18,7 +18,7 @@ const signedIn: LoginResponse = {
   token: 't',
   tokenType: 'Bearer',
   expiresInSeconds: 3600,
-  user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '' },
+  user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '', keepHistoryForever: false },
 }
 
 const youtube = makeRule({ id: 1, targetValue: 'youtube.com' })

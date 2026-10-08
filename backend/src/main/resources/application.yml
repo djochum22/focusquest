@@ -45,6 +45,10 @@ focusquest:
     # A running session is interrupted when the Chrome extension, which checks in every 30 seconds,
     # has been silent for longer than this: the time after its last check-in cannot be verified.
     heartbeat-timeout: 3m
+  history:
+    # How often ended sessions past retention (30 days, unless the user keeps history forever) are
+    # deleted in the background. Reading the history also deletes them first.
+    cleanup-interval: 1h
   # The XP and gem economy; see docs/technical_architecture.md, section 19 (XP and gem economy).
   xp:
     # XP for completing a session, per planned focus minute. Only completed sessions earn it.

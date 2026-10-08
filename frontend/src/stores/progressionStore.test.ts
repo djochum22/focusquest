@@ -54,7 +54,7 @@ describe('progressionStore', () => {
       token: 't',
       tokenType: 'Bearer',
       expiresInSeconds: 3600,
-      user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '' },
+      user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '', keepHistoryForever: false },
     })
     const auth = useAuthStore()
     const store = useProgressionStore()

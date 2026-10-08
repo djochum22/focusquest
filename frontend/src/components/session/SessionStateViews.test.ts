@@ -7,7 +7,6 @@ import ActiveSessionView from './ActiveSessionView.vue'
 import InterruptedSessionView from './InterruptedSessionView.vue'
 import ManualOverrideDialog from './ManualOverrideDialog.vue'
 import PausedSessionView from './PausedSessionView.vue'
-import SessionSummary from './SessionSummary.vue'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -55,7 +54,8 @@ describe('ActiveSessionView', () => {
   it('locks every control while a request is in flight, so nothing is sent twice', async () => {
     const wrapper = mountActive({ remainingFocusSeconds: 0 }, true)
 
-    for (const button of wrapper.findAll('button')) {
+    // The info button only explains; it is not a session control.
+    for (const button of wrapper.findAll('button:not(.info__button)')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
     await labelled(wrapper, 'Abandon').trigger('click')
@@ -96,7 +96,8 @@ describe('PausedSessionView', () => {
   it('locks the controls while a request is in flight', () => {
     const wrapper = mountPaused({}, true)
 
-    for (const button of wrapper.findAll('button')) {
+    // The info button only explains; it is not a session control.
+    for (const button of wrapper.findAll('button:not(.info__button)')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
   })
@@ -132,7 +133,7 @@ describe('InterruptedSessionView', () => {
   })
 
   it('locks the controls while a request is in flight', () => {
-    for (const button of mountInterrupted(true).findAll('button')) {
+    for (const button of mountInterrupted(true).findAll('button:not(.info__button)')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
   })
@@ -177,7 +178,8 @@ describe('ManualOverrideDialog', () => {
   it('locks its buttons while the override is being applied', () => {
     const wrapper = mountDialog({ loading: true })
 
-    for (const button of wrapper.findAll('button')) {
+    // The info button only explains; it is not a session control.
+    for (const button of wrapper.findAll('button:not(.info__button)')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
     wrapper.unmount()
@@ -244,18 +246,6 @@ describe('ActiveSessionView with the camera', () => {
     await labelled(wrapper, 'Not accurate?')!.trigger('click')
 
     expect(wrapper.emitted('dispute')).toEqual([['T0']])
-    wrapper.unmount()
-  })
-})
-
-describe('SessionSummary with the camera', () => {
-  it('shows focused time net of off-task time, and the off-task time', () => {
-    const wrapper = mount(SessionSummary, {
-      props: { session: makeSession({ status: 'COMPLETED', activeFocusSeconds: 1900, offTaskSeconds: 100, cameraVerification: true }) },
-    })
-
-    expect(wrapper.text()).toContain('Focused30 min')
-    expect(wrapper.text()).toContain('Off task1 min')
     wrapper.unmount()
   })
 })

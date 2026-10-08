@@ -83,6 +83,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(request)
   }
 
+  async function updateHistoryRetention(keepForever: boolean) {
+    user.value = await authApi.updateHistoryRetention(keepForever)
+  }
+
   /** Reloads the signed-in user, for when their profile changed outside {@link updateProfile}. */
   async function refreshUser() {
     user.value = await authApi.fetchCurrentUser()
@@ -92,5 +96,5 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession()
   }
 
-  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, updateProfile, refreshUser, logout }
+  return { token, user, isAuthenticated, isSessionActive, fetchSetupRequired, login, setup, restoreSession, updateProfile, updateHistoryRetention, refreshUser, logout }
 })

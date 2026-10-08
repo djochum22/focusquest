@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '../common/AppButton.vue'
+import InfoTip from '../common/InfoTip.vue'
 import SessionMeta from './SessionMeta.vue'
 import SessionTimer from './SessionTimer.vue'
 import type { FocusSession } from '../../types/session'
@@ -18,8 +19,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="card paused" aria-label="Paused session">
-    <p class="paused__badge" role="status">Paused</p>
+  <section class="stage paused" aria-label="Paused session">
+    <div class="paused__status">
+      <p class="paused__badge" role="status">Paused</p>
+      <InfoTip>
+        The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
+        streak progress until you resume.
+        <template v-if="session.finalizedPausedSeconds > 0">
+          Earlier pauses: {{ formatMinutes(session.finalizedPausedSeconds) }}.
+        </template>
+      </InfoTip>
+    </div>
     <SessionMeta :session="session" />
     <SessionTimer
       :planned-seconds="session.plannedFocusMinutes * 60"
@@ -27,13 +37,6 @@ const emit = defineEmits<{
       :received-at="receivedAt"
       :running="false"
     />
-    <p class="muted paused__note">
-      The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
-      streak progress until you resume.
-      <template v-if="session.finalizedPausedSeconds > 0">
-        Earlier pauses: {{ formatMinutes(session.finalizedPausedSeconds) }}.
-      </template>
-    </p>
     <div class="paused__actions">
       <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
@@ -45,7 +48,6 @@ const emit = defineEmits<{
 
 <style scoped>
 .paused__badge {
-  align-self: center;
   margin: 0;
   padding: 0.15rem 0.75rem;
   border-radius: 999px;
@@ -53,10 +55,11 @@ const emit = defineEmits<{
   color: var(--notice);
   font-weight: 700;
 }
-.paused__note {
-  margin: 0;
-  text-align: center;
-  font-size: 0.9rem;
+.paused__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 .paused__actions,
 .paused__leave {

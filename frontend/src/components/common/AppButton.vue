@@ -2,7 +2,7 @@
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
-    variant?: 'primary' | 'secondary' | 'danger'
+    variant?: 'primary' | 'secondary' | 'danger' | 'link'
     loading?: boolean
     disabled?: boolean
   }>(),
@@ -57,5 +57,17 @@ withDefaults(
 }
 .app-button--danger:hover:not(:disabled) {
   background: var(--danger-solid-hover);
+}
+.app-button--link {
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.app-button--link:hover:not(:disabled) {
+  color: var(--text);
 }
 </style>

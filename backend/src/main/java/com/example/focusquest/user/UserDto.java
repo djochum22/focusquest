@@ -7,7 +7,9 @@ public record UserDto(
         String username,
         String displayName,
         String timezone,
-        Instant createdAt
+        Instant createdAt,
+        // Boxed so a backup made before this setting existed still reads; null means off.
+        Boolean keepHistoryForever
 ) {
 
     public static UserDto from(User user) {
@@ -16,7 +18,8 @@ public record UserDto(
                 user.getUsername(),
                 user.getDisplayName(),
                 user.getTimezone(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                user.isKeepHistoryForever()
         );
     }
 }

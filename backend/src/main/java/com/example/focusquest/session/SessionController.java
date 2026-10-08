@@ -1,6 +1,8 @@
 package com.example.focusquest.session;
 
+import com.example.focusquest.export.HistoryService;
 import com.example.focusquest.shared.time.ClockProvider;
+import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserService;
 import jakarta.validation.Valid;
 import java.time.Instant;
@@ -30,11 +32,14 @@ public class SessionController {
     private final SessionService sessionService;
     private final UserService userService;
     private final ClockProvider clockProvider;
+    private final HistoryService historyService;
 
-    public SessionController(SessionService sessionService, UserService userService, ClockProvider clockProvider) {
+    public SessionController(SessionService sessionService, UserService userService, ClockProvider clockProvider,
+                             HistoryService historyService) {
         this.sessionService = sessionService;
         this.userService = userService;
         this.clockProvider = clockProvider;
+        this.historyService = historyService;
     }
 
     @PostMapping
@@ -72,11 +77,16 @@ public class SessionController {
         sessionService.discardPlannedSession(id, principal.getUsername());
     }
 
-    /** Completed, abandoned and interrupted sessions, most recently started first. */
+    /**
+     * Completed, abandoned and interrupted sessions, most recently started first. Sessions past
+     * retention are deleted first, so they never show even if the background clean-up has not run.
+     */
     @GetMapping("/history")
     public List<FocusSessionDto> history(@AuthenticationPrincipal UserDetails principal,
                                           @RequestParam(name = "limit", defaultValue = "" + SessionService.DEFAULT_HISTORY_LIMIT) int limit) {
-        return sessionService.findHistory(userService.getByUsername(principal.getUsername()), limit).stream()
+        User user = userService.getByUsername(principal.getUsername());
+        historyService.deleteExpired(user);
+        return sessionService.findHistory(user, limit).stream()
                 .map(this::toDto)
                 .toList();
     }

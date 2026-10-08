@@ -133,6 +133,7 @@ public class RestoreService {
 
         user.changeDisplayName(backup.user().displayName());
         user.changeTimezone(backup.user().timezone());
+        user.changeKeepHistoryForever(Boolean.TRUE.equals(backup.user().keepHistoryForever()));
         User owner = userRepository.save(user);
 
         try {

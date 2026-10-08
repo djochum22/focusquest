@@ -5,6 +5,8 @@ export interface User {
   displayName: string
   timezone: string
   createdAt: string
+  /** Off: ended sessions are deleted 30 days after they started. */
+  keepHistoryForever: boolean
 }
 
 /** Mirrors the backend `LoginRequest`. */

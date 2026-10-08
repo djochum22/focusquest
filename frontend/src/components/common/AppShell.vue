@@ -25,7 +25,6 @@ async function onLogout() {
       <span class="shell__brand">FocusQuest</span>
       <nav class="shell__nav" aria-label="Main">
         <RouterLink :to="{ name: 'dashboard' }">Dashboard</RouterLink>
-        <RouterLink :to="{ name: 'history' }">History</RouterLink>
         <RouterLink :to="{ name: 'streaks' }">Streaks</RouterLink>
         <RouterLink :to="{ name: 'blocking-rules' }">Blocking</RouterLink>
         <RouterLink :to="{ name: 'settings' }">Settings</RouterLink>

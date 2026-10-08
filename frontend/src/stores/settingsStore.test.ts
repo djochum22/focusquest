@@ -22,7 +22,7 @@ async function signIn() {
     token: 't',
     tokenType: 'Bearer',
     expiresInSeconds: 3600,
-    user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '' },
+    user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '', keepHistoryForever: false },
   })
   const auth = useAuthStore()
   await auth.login({ username: 'u', password: 'p' })
@@ -86,7 +86,7 @@ describe('settingsStore', () => {
     vi.mocked(settingsApi.restoreData).mockResolvedValue()
     const auth = await signIn()
     vi.mocked(authApi.fetchCurrentUser).mockResolvedValue(
-      { id: 1, username: 'u', displayName: 'From backup', timezone: 'Europe/Berlin', createdAt: '' })
+      { id: 1, username: 'u', displayName: 'From backup', timezone: 'Europe/Berlin', createdAt: '', keepHistoryForever: false })
     const session = useSessionStore()
     session.history = [{ id: 9 } as never]
     const backup = { exportedAt: '2026-03-10T12:00:00Z', schemaVersion: '2.0' }

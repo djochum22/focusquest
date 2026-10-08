@@ -315,7 +315,7 @@ describe('sessionStore', () => {
       token: 't',
       tokenType: 'Bearer',
       expiresInSeconds: 3600,
-      user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '' },
+      user: { id: 1, username: 'u', displayName: 'U', timezone: 'UTC', createdAt: '', keepHistoryForever: false },
     } satisfies LoginResponse)
     const store = useSessionStore()
     await auth.login({ username: 'u', password: 'p' })

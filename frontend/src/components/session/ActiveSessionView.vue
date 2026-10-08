@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import AppButton from '../common/AppButton.vue'
+import InfoTip from '../common/InfoTip.vue'
 import OffTaskBanner from './OffTaskBanner.vue'
 import SessionMeta from './SessionMeta.vue'
 import SessionTimer from './SessionTimer.vue'
@@ -50,7 +51,7 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
 </script>
 
 <template>
-  <section class="card active" aria-label="Active session">
+  <section class="stage active" aria-label="Active session">
     <SessionMeta :session="session" />
     <OffTaskBanner v-if="offTask" :status="offTask" :busy="busy" @dispute="(start) => emit('dispute', start)" />
     <SessionTimer
@@ -61,7 +62,8 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
       @elapsed="emit('elapsed')"
     />
     <p v-if="offTaskSeconds > 0" class="muted active__hint" data-testid="off-task-total">
-      Off task so far: {{ formatMinutes(offTaskSeconds) }}. It does not count toward the session.
+      Off task so far: {{ formatMinutes(offTaskSeconds) }}
+      <InfoTip>Off-task time does not count toward the session.</InfoTip>
     </p>
     <div class="active__actions">
       <AppButton variant="secondary" :disabled="busy" @click="emit('pause')">Pause</AppButton>

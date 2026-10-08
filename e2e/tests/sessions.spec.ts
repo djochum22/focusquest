@@ -29,14 +29,14 @@ test('a blocked site stays blocked until the daily target is reached, and comple
   await advanceBackendClock(5 * 60)
   await page.reload()
   await page.getByRole('button', { name: 'Complete' }).click()
-  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Session complete' })).toBeVisible()
   await expectSiteBlocked(site)   // 5 of today's 30 minutes: the daily target is not reached yet
 
   await startSession(page, 25)
   await advanceBackendClock(25 * 60)
   await page.reload()
   await page.getByRole('button', { name: 'Complete' }).click()
-  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Session complete' })).toBeVisible()
   await expectSiteOpen(site)      // 30 minutes: the daily target is reached
 
   await page.goto(`${FRONTEND_URL}/streaks`)
@@ -52,16 +52,22 @@ test('an abandoned session keeps blocking until the user overrides it at an XP p
 
   await page.getByRole('button', { name: 'Abandon' }).click()
   await page.getByRole('button', { name: 'Abandon session' }).click()
-  await expect(page.getByRole('heading', { name: 'Session abandoned' })).toBeVisible()
+  await expect(page.getByText('Websites are still blocked from your last session')).toBeVisible()
   await expectSiteBlocked(site)   // today's 30-minute daily target is not reached
 
   await page.getByRole('button', { name: 'Override blocking' }).click()
   await page.getByRole('button', { name: 'Override and take the penalty' }).click()
-  await expect(page.getByRole('heading', { name: 'Blocking overridden' })).toBeVisible()
+  await expect(page.getByText('Websites are still blocked from your last session')).toBeHidden()
   await expectSiteOpen(site)
 
-  await page.goto(`${FRONTEND_URL}/history`)
-  await expect(page.getByText('Override used · XP penalty applied')).toBeVisible()
+  await page.getByRole('link', { name: 'Session history' }).click()
+  await page.getByRole('button', { expanded: false }).first().click()   // sessions start collapsed
+  await expect(page.getByText('Overridden, XP penalty applied')).toBeVisible()
+
+  // With blocking released by the override, the history can be cleared.
+  await page.getByRole('button', { name: 'Clear history' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Clear history' }).click()
+  await expect(page.getByText('No finished sessions yet.')).toBeVisible()
 })
 
 test('blocking rules cannot be loosened while a session runs', async ({ page }) => {

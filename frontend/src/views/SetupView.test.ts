@@ -13,7 +13,7 @@ const setupResponse = {
   token: 'jwt-token',
   tokenType: 'Bearer',
   expiresInSeconds: 3600,
-  user: { id: 1, username: 'doug', displayName: 'Doug', timezone: 'UTC', createdAt: '' },
+  user: { id: 1, username: 'doug', displayName: 'Doug', timezone: 'UTC', createdAt: '', keepHistoryForever: false },
 }
 
 async function mountView() {

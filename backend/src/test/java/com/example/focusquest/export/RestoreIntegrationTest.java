@@ -351,7 +351,7 @@ class RestoreIntegrationTest {
         UserDto profile = backup.user();
         LocalDataExportDto bad = new LocalDataExportDto(backup.exportedAt(), backup.schemaVersion(),
                 new UserDto(profile.id(), profile.username(), profile.displayName(), "Mars/Olympus",
-                        profile.createdAt()),
+                        profile.createdAt(), profile.keepHistoryForever()),
                 backup.focusSessions(), backup.sessionPauses(), backup.streakConfigurations(),
                 backup.streakPeriods(), backup.streakContributions(), backup.streakFreezes(),
                 backup.experienceTransactions(),

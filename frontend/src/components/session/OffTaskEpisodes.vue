@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { getErrorMessage } from '../../api/apiError'
 import * as offTaskApi from '../../api/offTaskApi'
 import type { OffTaskEpisode } from '../../types/offTask'
-import { formatDateTime } from '../../utils/dateTime'
+import { formatTime } from '../../utils/dateTime'
 import { formatMinutes } from '../../utils/duration'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
@@ -48,7 +48,8 @@ async function onDispute(startedAt: string) {
   }
 }
 
-const time = (iso: string) => formatDateTime(iso, props.timezone)
+// The session's date is already shown above the list, so only the time of day.
+const time = (iso: string) => formatTime(iso, props.timezone)
 </script>
 
 <template>
@@ -60,21 +61,17 @@ const time = (iso: string) => formatDateTime(iso, props.timezone)
     </p>
     <ul v-else-if="episodes !== null" class="episodes__list">
       <li v-for="episode in episodes" :key="episode.startedAt" class="episodes__item">
+        <span class="episodes__time">{{ time(episode.startedAt) }}</span>
         <span>
-          {{ time(episode.startedAt) }}:
           <template v-if="episode.disputed">marked as inaccurate, nothing subtracted</template>
           <template v-else-if="episode.deductedSeconds > 0">{{ formatMinutes(episode.deductedSeconds) }} subtracted</template>
           <template v-else-if="episode.warnedAt">warned, back in time</template>
           <template v-else>too short to warn</template>
+          <template v-if="canDispute && !episode.disputed && episode.warnedAt">
+            <span class="muted" aria-hidden="true"> · </span>
+            <AppButton variant="link" :disabled="busy" @click="onDispute(episode.startedAt)">Not accurate?</AppButton>
+          </template>
         </span>
-        <AppButton
-          v-if="canDispute && !episode.disputed && episode.warnedAt"
-          variant="secondary"
-          :disabled="busy"
-          @click="onDispute(episode.startedAt)"
-        >
-          Not accurate?
-        </AppButton>
       </li>
     </ul>
   </details>
@@ -98,11 +95,15 @@ const time = (iso: string) => formatDateTime(iso, props.timezone)
   padding: 0;
   list-style: none;
 }
+/* Times in their own column so each episode's outcome lines up. */
 .episodes__item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.episodes__time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 </style>

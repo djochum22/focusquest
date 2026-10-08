@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ErrorMessage from './ErrorMessage.vue'
 import FormField from './FormField.vue'
+import InfoTip from './InfoTip.vue'
 import Modal from './Modal.vue'
 import ThemeToggle from './ThemeToggle.vue'
 
@@ -224,5 +225,44 @@ describe('ThemeToggle', () => {
     await toggle.trigger('click')
     expect(wrapper.find('[data-testid="icon-moon"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="icon-sun"]').exists()).toBe(false)
+  })
+})
+
+describe('InfoTip', () => {
+  const mountTip = () => mount(InfoTip, { slots: { default: 'Why this matters' } })
+
+  it('describes its button with the explanation, hidden until asked for', () => {
+    const wrapper = mountTip()
+    const tip = wrapper.get('[role="tooltip"]')
+
+    expect(wrapper.get('button').attributes('aria-describedby')).toBe(tip.attributes('id'))
+    expect(tip.text()).toBe('Why this matters')
+    expect(tip.classes()).not.toContain('info__tip--open')
+  })
+
+  it('opens on hover and on focus, and closes on Escape', async () => {
+    const wrapper = mountTip()
+    const tip = () => wrapper.get('[role="tooltip"]').classes()
+
+    await wrapper.trigger('mouseenter')
+    expect(tip()).toContain('info__tip--open')
+    await wrapper.trigger('mouseleave')
+    expect(tip()).not.toContain('info__tip--open')
+
+    await wrapper.get('button').trigger('focus')
+    expect(tip()).toContain('info__tip--open')
+    await wrapper.get('button').trigger('keydown', { key: 'Escape' })
+    expect(tip()).not.toContain('info__tip--open')
+  })
+
+  it('opens on a tap, for touch screens, and stays open when focused first', async () => {
+    const wrapper = mountTip()
+
+    // A tap focuses the button and then clicks it; the click must not close what focus opened.
+    await wrapper.get('button').trigger('focus')
+    await wrapper.get('button').trigger('click')
+
+    expect(wrapper.get('[role="tooltip"]').classes()).toContain('info__tip--open')
+    expect(wrapper.get('button').attributes('aria-expanded')).toBe('true')
   })
 })

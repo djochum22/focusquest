@@ -54,7 +54,7 @@ beforeEach(async () => {
     token: 't',
     tokenType: 'Bearer',
     expiresInSeconds: 3600,
-    user: { id: 1, username: 'doug', displayName: 'Doug', timezone: 'America/New_York', createdAt: '' },
+    user: { id: 1, username: 'doug', displayName: 'Doug', timezone: 'America/New_York', createdAt: '', keepHistoryForever: false },
   })
   await useAuthStore().login({ username: 'doug', password: 'pw' })
   vi.mocked(bridge.getExtensionState).mockResolvedValue({ hasToken: false, status: 'signed-out' })
@@ -69,6 +69,47 @@ beforeEach(async () => {
 })
 
 describe('SettingsView', () => {
+  describe('session history', () => {
+    const keepForever = (wrapper: Awaited<ReturnType<typeof mountView>>['wrapper']) =>
+      wrapper.get('[aria-labelledby="history-heading"] input[type="checkbox"]')
+
+    it('deletes history after 30 days by default', async () => {
+      const { wrapper } = await mountView()
+
+      expect((keepForever(wrapper).element as HTMLInputElement).checked).toBe(false)
+      expect(wrapper.text()).toContain('deleted 30 days after they started')
+      wrapper.unmount()
+    })
+
+    it('saves keeping history forever as soon as it is ticked', async () => {
+      vi.mocked(authApi.updateHistoryRetention).mockResolvedValue(
+        { id: 1, username: 'doug', displayName: 'Doug', timezone: 'America/New_York', createdAt: '', keepHistoryForever: true })
+      const { wrapper } = await mountView()
+
+      await keepForever(wrapper).setValue(true)
+      await flushPromises()
+
+      expect(authApi.updateHistoryRetention).toHaveBeenCalledWith(true)
+      expect(useAuthStore().user?.keepHistoryForever).toBe(true)
+      wrapper.unmount()
+    })
+
+    it('puts the box back and says why when saving fails', async () => {
+      vi.mocked(authApi.updateHistoryRetention).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 500, data: { code: 'INTERNAL_ERROR', message: 'Could not save' } },
+      })
+      const { wrapper } = await mountView()
+
+      await keepForever(wrapper).setValue(true)
+      await flushPromises()
+
+      expect((keepForever(wrapper).element as HTMLInputElement).checked).toBe(false)
+      expect(wrapper.get('[aria-labelledby="history-heading"] [role="alert"]').text()).toContain('Could not save')
+      wrapper.unmount()
+    })
+  })
+
   it('shows the account details', async () => {
     const { wrapper } = await mountView()
 
@@ -81,7 +122,7 @@ describe('SettingsView', () => {
 
   it('saves the display name and time zone and shows the saved profile', async () => {
     vi.mocked(authApi.updateProfile).mockResolvedValue({
-      id: 1, username: 'doug', displayName: 'Douglas', timezone: 'Europe/Berlin', createdAt: '',
+      id: 1, username: 'doug', displayName: 'Douglas', timezone: 'Europe/Berlin', createdAt: '', keepHistoryForever: false,
     })
     const { wrapper } = await mountView()
 
@@ -185,7 +226,7 @@ describe('SettingsView', () => {
     it('restores after confirmation and shows the restored profile', async () => {
       vi.mocked(settingsApi.restoreData).mockResolvedValue()
       vi.mocked(authApi.fetchCurrentUser).mockResolvedValue(
-        { id: 1, username: 'doug', displayName: 'Restored Doug', timezone: 'Europe/Berlin', createdAt: '' })
+        { id: 1, username: 'doug', displayName: 'Restored Doug', timezone: 'Europe/Berlin', createdAt: '', keepHistoryForever: false })
       const { wrapper } = await mountView()
       await chooseFile(wrapper, backupJson)
 

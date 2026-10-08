@@ -36,6 +36,10 @@ public class User {
     @Column(name = "last_extension_heartbeat_at")
     private Instant lastExtensionHeartbeatAt;
 
+    // Off: ended sessions are deleted 30 days after they started. On: history is kept forever.
+    @Column(name = "keep_history_forever", nullable = false)
+    private boolean keepHistoryForever;
+
     protected User() {
     }
 
@@ -75,12 +79,20 @@ public class User {
         return lastExtensionHeartbeatAt;
     }
 
+    public boolean isKeepHistoryForever() {
+        return keepHistoryForever;
+    }
+
     public void changeDisplayName(String displayName) {
         this.displayName = displayName;
     }
 
     public void changeTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public void changeKeepHistoryForever(boolean keepHistoryForever) {
+        this.keepHistoryForever = keepHistoryForever;
     }
 
     public void recordExtensionHeartbeat(Instant now) {

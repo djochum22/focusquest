@@ -28,3 +28,9 @@ export async function updateProfile(request: UpdateProfileRequest): Promise<User
   const { data } = await apiClient.put<User>('/api/me/profile', request)
   return data
 }
+
+/** Keep session history forever, or only for 30 days. Turning it off deletes older sessions at once. */
+export async function updateHistoryRetention(keepForever: boolean): Promise<User> {
+  const { data } = await apiClient.put<User>('/api/me/history-retention', { keepForever })
+  return data
+}

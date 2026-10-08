@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface OffTaskIntervalRepository extends JpaRepository<OffTaskInterval, Long> {
@@ -18,4 +19,8 @@ public interface OffTaskIntervalRepository extends JpaRepository<OffTaskInterval
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from OffTaskInterval i where i.session in (select s from FocusSession s where s.user = :user)")
     void deleteAllByUser(@Param("user") User user);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from OffTaskInterval i where i.session in :sessions")
+    void deleteAllBySessionIn(@Param("sessions") Collection<FocusSession> sessions);
 }

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.focusquest.auth.ExtensionCredentialService;
+import com.example.focusquest.export.HistoryService;
 import com.example.focusquest.vision.CompanionCredentialService;
 import com.example.focusquest.security.JwtService;
 import com.example.focusquest.shared.exception.InvalidSessionStateException;
@@ -48,6 +49,9 @@ class SessionControllerTest {
 
     @MockitoBean
     private ClockProvider clockProvider;
+
+    @MockitoBean
+    private HistoryService historyService;
 
     @MockitoBean
     private JwtService jwtService;

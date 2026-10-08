@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getErrorMessage } from '../../api/apiError'
+import { useAuthStore } from '../../stores/authStore'
 import { useCameraStore } from '../../stores/cameraStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import type { CreateSessionRequest } from '../../types/session'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
+import InfoTip from '../common/InfoTip.vue'
 import SessionForm from './SessionForm.vue'
 import SessionMeta from './SessionMeta.vue'
 
@@ -15,6 +17,15 @@ import SessionMeta from './SessionMeta.vue'
  */
 const session = useSessionStore()
 const camera = useCameraStore()
+const auth = useAuthStore()
+
+/** The start page opens with a time-of-day greeting. */
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const name = auth.user?.displayName
+  return name ? `${part}, ${name}` : part
+})
 
 // Only decides whether the form offers the camera; without it the form simply does not.
 onMounted(() => {
@@ -43,25 +54,31 @@ async function onStart() {
 </script>
 
 <template>
-  <section v-if="session.planned" class="card" aria-label="Session ready">
+  <section v-if="session.planned" class="stage planner" aria-label="Session ready">
     <ErrorMessage :message="submitError" />
     <SessionMeta :session="session.planned" />
-    <p class="muted ready__note">
-      Your session is ready. Starting it begins the timer. Websites stay blocked while it runs and
-      until today's daily streak is reached.
+    <p class="muted planner__note">
+      Your session is ready
+      <InfoTip>
+        Starting it begins the timer. Websites stay blocked while it runs and until today's daily
+        streak is reached.
+      </InfoTip>
     </p>
-    <div class="ready__actions">
-      <AppButton variant="secondary" :disabled="session.busy" @click="session.discardPlanned">
-        Change details
-      </AppButton>
+    <div class="planner__actions">
       <AppButton :loading="session.busy" @click="onStart">
         {{ session.busy ? 'Starting…' : 'Start session' }}
+      </AppButton>
+      <AppButton variant="link" :disabled="session.busy" @click="session.discardPlanned">
+        Change details
       </AppButton>
     </div>
   </section>
 
-  <section v-else class="card" aria-label="New focus session">
-    <h2 class="planner__title">Start a focus session</h2>
+  <section v-else class="stage planner" aria-label="New focus session">
+    <header class="planner__hero">
+      <p class="planner__greeting muted">{{ greeting }}</p>
+      <h2 class="planner__title">Ready to focus?</h2>
+    </header>
     <ErrorMessage :message="submitError" />
     <SessionForm
       :submitting="session.busy"
@@ -73,16 +90,29 @@ async function onStart() {
 </template>
 
 <style scoped>
-.planner__title,
-.ready__note {
-  margin: 0;
+.planner {
+  gap: 1.75rem;
 }
-.ready__note {
+.planner__hero {
   text-align: center;
 }
-.ready__actions {
+.planner__greeting {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+.planner__title {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1.15;
+}
+.planner__note {
+  margin: 0;
+  text-align: center;
+}
+.planner__actions {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   gap: 0.75rem;
 }
 </style>

@@ -188,3 +188,20 @@ a {
 .muted {
   color: var(--text-muted);
 }
+
+/* An unframed column for the dashboard's session states: the page itself is the surface. */
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Hidden on screen, still read by screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

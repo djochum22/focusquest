@@ -86,7 +86,7 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
-  it('offers the form only after the ended session is dismissed', async () => {
+  it('goes straight back to the form once a session ends, without a summary', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
     vi.mocked(sessionApi.abandonSession).mockResolvedValue(
       makeSession({ status: 'ABANDONED', blockingState: 'RELEASED' }),
@@ -95,14 +95,60 @@ describe('DashboardView', () => {
     await button(wrapper, 'Abandon')!.trigger('click')
     await button(wrapper, 'Abandon session')!.trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Session abandoned')
-    expect(wrapper.find('form').exists()).toBe(false)
 
-    await button(wrapper, 'Start another session')!.trigger('click')
-
-    expect(wrapper.text()).not.toContain('Session abandoned')
     expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Session abandoned')
+    expect(wrapper.text()).not.toContain('still blocked')
+    expect(button(wrapper, 'Override blocking')).toBeUndefined()
     wrapper.unmount()
+  })
+
+  it('acknowledges a completed session briefly, then leaves only the form', async () => {
+    vi.useFakeTimers()
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(
+      makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 }),
+    )
+    const wrapper = await mountDashboard()
+
+    await button(wrapper, 'Complete')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Session complete · 25 min focused')
+    expect(wrapper.find('form').exists()).toBe(true)
+
+    vi.advanceTimersByTime(6000)
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Session complete')
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
+
+  it('does not acknowledge an abandoned session', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    vi.mocked(sessionApi.abandonSession).mockResolvedValue(
+      makeSession({ status: 'ABANDONED', blockingState: 'RELEASED' }),
+    )
+    const wrapper = await mountDashboard()
+    await button(wrapper, 'Abandon')!.trigger('click')
+    await button(wrapper, 'Abandon session')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Session complete')
+    wrapper.unmount()
+  })
+
+  it('links to the session history from the start page only', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    const idle = await mountDashboard()
+    expect(idle.get('a[href="/history"]').text()).toContain('Session history')
+    idle.unmount()
+
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    const running = await mountDashboard()
+    expect(running.find('main a[href="/history"]').exists()).toBe(false)
+    running.unmount()
   })
 
   it('creates a session from the form, then starts it in place', async () => {
@@ -228,7 +274,7 @@ describe('DashboardView', () => {
     await flushPromises()
 
     expect(sessionApi.overrideSession).toHaveBeenCalledWith(1)
-    expect(wrapper.text()).toContain('Blocking overridden')
+    expect(wrapper.text()).not.toContain('still blocked')
     expect(button(wrapper, 'Override blocking')).toBeUndefined()
     wrapper.unmount()
   })
@@ -250,7 +296,7 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
-  it('shows the abandoned session and its override after a reload', async () => {
+  it('offers the override for an abandoned session still holding blocking after a reload', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
     vi.mocked(sessionApi.fetchHistory).mockResolvedValue([
       makeSession({ status: 'ABANDONED', blockingState: 'ACTIVE' }),
@@ -258,14 +304,13 @@ describe('DashboardView', () => {
 
     const wrapper = await mountDashboard()
 
-    expect(wrapper.text()).toContain('Session abandoned')
-    expect(wrapper.text()).toContain('Websites stay blocked')
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Websites are still blocked from your last session')
     expect(button(wrapper, 'Override blocking')).toBeDefined()
-    expect(button(wrapper, 'Dismiss')).toBeUndefined()
     wrapper.unmount()
   })
 
-  it('shows no summary after a reload when the latest session is not holding blocking', async () => {
+  it('offers no override after a reload when the latest session is not holding blocking', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
     vi.mocked(sessionApi.fetchHistory).mockResolvedValue([
       makeSession({ status: 'COMPLETED', blockingState: 'RELEASED' }),
@@ -313,8 +358,8 @@ describe('DashboardView', () => {
     await flushPromises()
 
     expect(sessionApi.abandonSession).toHaveBeenCalledWith(1)
-    expect(wrapper.text()).toContain('Session abandoned')
-    expect(wrapper.text()).toContain('Websites stay blocked')
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Websites are still blocked from your last session')
     wrapper.unmount()
   })
 
