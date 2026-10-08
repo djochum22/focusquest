@@ -44,6 +44,10 @@ class AgentTest(unittest.TestCase):
         self.assertIn("(deny network-outbound)", service.ONLY_THIS_COMPUTER)
         self.assertIn('(allow network-outbound (remote ip "localhost:*"))', service.ONLY_THIS_COMPUTER)
 
+    def test_any_command_can_run_in_the_sandbox(self):
+        self.assertEqual(service.sandboxed(["python", "-m", "x"]),
+                         ["/usr/bin/sandbox-exec", "-p", service.ONLY_THIS_COMPUTER, "python", "-m", "x"])
+
     def test_without_the_sandbox_for_a_backend_elsewhere(self):
         definition = service.agent(Path("/c.json"), Path("/c.log"), python="/venv/bin/python",
                                    only_this_computer=False)

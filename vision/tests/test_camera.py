@@ -7,8 +7,8 @@ from pathlib import Path
 
 from focusquest_companion import calibration
 from focusquest_companion.calibration import Calibration, CalibrationFailed, HeadPose, Range, Zone
-from focusquest_companion.camera import (CameraCalibrator, CameraDetector, Face, guided_calibration, pose_from_matrix,
-                                         watch_poses)
+from focusquest_companion.camera import (CameraCalibrator, CameraDetector, Face, Readings, guided_calibration,
+                                         pose_from_matrix, watch_poses)
 from focusquest_companion.detector import AWAY, LOOKING_AWAY, PHONE, Detection, DetectorUnavailable
 from focusquest_companion.phones import Found
 
@@ -161,6 +161,13 @@ class LookingAwayTest(unittest.TestCase):
             detector.detect(self.at(second), WRITING)
         self.assertEqual(len(lines), 2)
         self.assertRegex(lines[0], r"^Head turned [+-]\d+, looking down [+-]\d+: outside the work area \(screen .* or desk .*\)\.$")
+
+    def test_keeps_the_angles_and_the_face_score_behind_each_look(self):
+        detector = self.detector([face(0.876543), None], [HeadPose(31.25, -4.04)])
+        detector.detect(self.at(0), WRITING)
+        self.assertEqual(detector.last_readings, Readings(face_score=0.877, yaw=31.2, pitch=-4.0))
+        detector.detect(self.at(5), WRITING)
+        self.assertEqual(detector.last_readings, Readings(face_score=0.0))
 
     def test_reading_at_the_desk_is_on_task_where_the_desk_counts(self):
         detector = self.detector([face(0.9)], [HeadPose(0, 40)])
@@ -333,6 +340,18 @@ class PhoneTest(unittest.TestCase):
         detector = self.detector([[self.IN_HAND]], [[self.HAND]])
         self.assertEqual(detector.detect(T0, None), Detection())
         self.assertEqual(self.phones.asked, 0)
+
+    def test_keeps_the_best_phone_and_the_best_one_in_a_hand_whatever_its_score(self):
+        doubtful_in_hand = Found(0.2, (150, 150, 60, 100))
+        detector = self.detector([[self.ON_DESK, doubtful_in_hand], [], [Found(0.1, self.HAND)]],
+                                 [[self.HAND, self.HAND]])
+        detector.detect(T0, CREATIVE)
+        self.assertEqual(detector.last_readings,
+                         Readings(face_score=0.9, phone_score=0.9, held_phone_score=0.2, hands=2))
+        detector.detect(T0, CREATIVE)
+        self.assertEqual(detector.last_readings, Readings(face_score=0.9, phone_score=0.0))
+        detector.detect(T0, CREATIVE)   # no hands looked for below PHONE_FROM, so none recorded
+        self.assertEqual(detector.last_readings, Readings(face_score=0.9, phone_score=0.1))
 
     def test_closing_closes_the_phone_and_hand_models(self):
         detector = self.detector([], [])

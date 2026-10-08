@@ -289,6 +289,10 @@ class Preview:
         self._on_top = on_top
         self._scale = scale
         self._raised = False
+        #: Lines shown above what was found, the first of them as the headline (``label``: the label).
+        self.notes: Sequence[str] = ()
+        #: A key pressed in the window while it was drawn, not yet taken by :meth:`next_key`.
+        self._pressed: str | None = None
 
     def annotate(self, frame: Frame, marks: Sequence[Mark], lines: Sequence[str]) -> Frame:
         """A copy of ``frame`` with the marks outlined and the lines written on a dark band at the top."""
@@ -323,14 +327,21 @@ class Preview:
     def show(self, frame: Frame, marks: Sequence[Mark], lines: Sequence[str]) -> None:
         import cv2
 
-        cv2.imshow(self.TITLE, self.annotate(frame, marks, lines))
+        cv2.imshow(self.TITLE, self.annotate(frame, marks, [*self.notes, *lines]))
         if self._on_top and not self._raised:
             try:
                 cv2.setWindowProperty(self.TITLE, cv2.WND_PROP_TOPMOST, 1)
             except cv2.error:
                 pass   # not every OpenCV build can; the window still opens
             self._raised = True
-        cv2.waitKey(1)
+        self._pressed = _key(cv2.waitKey(1)) or self._pressed
+
+    def next_key(self, seconds: float) -> str | None:
+        """A key pressed in the window: one pressed while it was last drawn, or else the first within ``seconds``."""
+        import cv2
+
+        pressed, self._pressed = self._pressed, None
+        return pressed or _key(cv2.waitKey(max(1, int(seconds * 1000))))
 
     def close(self) -> None:
         import cv2
@@ -340,6 +351,11 @@ class Preview:
             cv2.waitKey(1)
         except cv2.error:
             pass   # never shown: the camera closed before its first frame
+
+
+def _key(code: int) -> str | None:
+    """OpenCV's key code as a character, None for no key."""
+    return chr(code & 0xFF) if code != -1 else None
 
 
 def watch_poses(camera: Camera, poses: PoseFinder | None, seconds: float, preview: Preview | None = None,
@@ -441,6 +457,27 @@ class CameraCalibrator:
         return angles
 
 
+@dataclass(frozen=True)
+class Readings:
+    """The numbers behind one look, before any rule is applied: with them, a new threshold can be tried
+    on what was recorded, without recording again. Numbers only, never a picture.
+
+    None where the model was not asked: the head's angles only for a face found where the profile checks
+    looking away; phones only where it checks a phone; hands only once a phone scored ``PHONE_FROM``.
+    """
+
+    #: The best face's score, 0 if none was found.
+    face_score: float
+    yaw: float | None = None
+    pitch: float | None = None
+    #: The best phone's score, 0 if none was found.
+    phone_score: float | None = None
+    #: The best score of a phone overlapping a hand, whatever its score; None if none did.
+    held_phone_score: float | None = None
+    #: How many hands were found; one may be counted twice, in the whole frame and in a closer look.
+    hands: int | None = None
+
+
 class CameraDetector:
     """Looks at the latest frame when asked.
 
@@ -475,6 +512,8 @@ class CameraDetector:
         self._turned: tuple[datetime, float] | None = None
         #: How surely, while the face is lost after a turn away.
         self._lost_turned: float | None = None
+        #: What the models gave at the last look, for measuring accuracy (``label``). None before the first.
+        self.last_readings: Readings | None = None
 
     def open(self, now: datetime) -> None:
         self._camera.open()
@@ -514,6 +553,15 @@ class CameraDetector:
                 signals[PHONE] = phones.confidence(in_hand)
 
         detection = Detection(signals)
+        looked_at_hands = any(phone.score >= phones.PHONE_FROM for phone in found)
+        surest_held = phones.held(found, hands, least=0.0) if looked_at_hands else None
+        self.last_readings = Readings(
+            face_score=round(face.score if face is not None else 0.0, 3),
+            yaw=round(pose.yaw, 1) if pose is not None else None,
+            pitch=round(pose.pitch, 1) if pose is not None else None,
+            phone_score=round(max((phone.score for phone in found), default=0.0), 3) if checks_phone else None,
+            held_phone_score=round(surest_held.score, 3) if surest_held is not None else None,
+            hands=len(hands) if looked_at_hands else None)
         if self._preview is not None:
             self._preview.show(frame, _marks(face, found, hands, in_hand),
                                self._describe(detection, pose, work_area, checks_phone))

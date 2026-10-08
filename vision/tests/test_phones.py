@@ -28,6 +28,10 @@ class HeldTest(unittest.TestCase):
     def test_a_doubtful_phone_does_not_count_even_in_a_hand(self):
         self.assertIsNone(held([Found(0.2, (150, 150, 60, 100))], [HAND]))
 
+    def test_measuring_may_lower_the_floor(self):
+        phone = Found(0.2, (150, 150, 60, 100))
+        self.assertEqual(held([phone], [HAND], least=0.0), phone)
+
     def test_the_surest_phone_in_a_hand_is_taken(self):
         lying = Found(0.9, (400, 400, 60, 100))
         doubtful = Found(0.3, (110, 110, 30, 30))

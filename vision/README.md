@@ -124,6 +124,28 @@ then runs without it, and `install` says so. A `run` in a terminal is not sandbo
 Moving or recreating `.venv` (or a Python upgrade that breaks it) breaks the agent; run `install`
 again.
 
+## Measuring accuracy
+
+To find out how often each signal is right, say what you are doing while the camera looks:
+
+```bash
+focusquest-companion label --category CODING    # or WRITING, ...; --out FILE, --camera as for run
+```
+
+A camera window opens. Press a key in it whenever you change what you do: `1` on task, `2` away,
+`3` phone, `4` looking away, and `q` to stop (Ctrl+C in the terminal also stops). The window shows the
+current label. Once a second the program looks, with the category's profile as in a session, and
+writes one row to a CSV file, by default `~/Documents/FocusQuest/labels-<date>-<time>.csv`: the time,
+the category, your label, what was reported and how surely, and the raw readings behind it (the face's
+score, the head's angles, the best phone's score, the best score of a phone in a hand, how many hands).
+Only numbers, never a picture; the file stays on this computer. It never overwrites a file. With the
+raw readings, a new threshold can be tried on the same file without labelling again.
+
+It needs no backend and no session. On macOS it starts itself again in the same sandbox as the
+background program, so MediaPipe's usage logging cannot leave the computer; the first time, macOS may
+ask whether your terminal may use the camera. The background program may keep running, but do not run
+a session with **Verify with camera** while labelling. Calibrate first (Settings, **Calibrate**).
+
 ## How it works
 
 | File | What it does |
@@ -138,6 +160,7 @@ again.
 | `observations.py` | Turns moment-by-moment detections into stretches of one signal, each sent again with a later end while it lasts |
 | `api.py` | The backend's companion endpoints, and its clock |
 | `notifications.py` | System notifications for warnings |
+| `labelling.py` | `label`: the rows written while you say what you are doing, and a copy of the backend's camera profiles |
 | `cli.py`, `config.py` | The command, and where the pairing is kept |
 | `service.py` | The macOS launch agent that runs it in the background |
 

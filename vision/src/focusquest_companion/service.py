@@ -40,6 +40,15 @@ ONLY_THIS_COMPUTER = """(version 1)
 """
 
 
+#: Set in the environment of a program started again inside the sandbox, so it does not start itself again.
+SANDBOXED = "FOCUSQUEST_SANDBOXED"
+
+
+def sandboxed(command: Sequence[str]) -> list[str]:
+    """``command`` run in the sandbox that lets it connect only to this computer."""
+    return [SANDBOX_EXEC, "-p", ONLY_THIS_COMPUTER, *command]
+
+
 def _run(command: Sequence[str]) -> subprocess.CompletedProcess:
     return subprocess.run(list(command), capture_output=True, text=True)
 
@@ -65,7 +74,7 @@ def agent(config_path: Path, log: Path, python: str = sys.executable, *, only_th
     """The launch agent's definition: what to run, and when; with ``only_this_computer``, in the sandbox."""
     command = [python, "-m", "focusquest_companion", "--config", str(config_path), "run", "--camera", "--background"]
     if only_this_computer:
-        command = [SANDBOX_EXEC, "-p", ONLY_THIS_COMPUTER, *command]
+        command = sandboxed(command)
     return {
         "Label": LABEL,
         "ProgramArguments": command,

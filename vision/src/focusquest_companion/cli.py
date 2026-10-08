@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 import signal
 import sys
 import threading
 from datetime import datetime
 from pathlib import Path
 
-from . import calibration, config, models, service
+from . import calibration, config, labelling, models, service
 from .api import DEFAULT_BACKEND_URL, BackendClient, BackendClock, BackendError, Unauthorized
 from .cameras import CameraChoice, list_cameras
 from .companion import Companion
@@ -67,9 +68,19 @@ def main(argv: list[str] | None = None) -> int:
     install.add_argument("--backend", default=DEFAULT_BACKEND_URL,
                          help=f"the backend's address, if not paired yet (default: {DEFAULT_BACKEND_URL})")
 
+    label = commands.add_parser(
+        "label", help="say what you are doing while the camera looks, to measure how often it is right "
+                      "(numbers only, written to a CSV file on this computer)")
+    label.add_argument("--category", required=True, type=str.upper, choices=sorted(labelling.WORK_AREAS),
+                       help="the session category to check for, as in a session")
+    label.add_argument("--out", type=Path, default=None,
+                       help="the CSV file to write (default: ~/Documents/FocusQuest/labels-<date>-<time>.csv)")
+    label.add_argument("--camera", default="built-in", metavar="CAMERA", help="as for `run --camera`")
+
     commands.add_parser("uninstall", help="stop watching in the background, and do not start at login")
     commands.add_parser("status", help="whether the program runs in the background, and where its log is")
 
+    argv = sys.argv[1:] if argv is None else argv
     args = parser.parse_args(argv)
     path = args.config or config.default_path()
     try:
@@ -82,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cameras()
         if args.command == "calibrate":
             return _calibrate(calibration.default_path(path), args.camera)
+        if args.command == "label":
+            return _label(path, args, argv)
         if args.command == "install":
             return _install(path, args.code, args.backend)
         if args.command == "uninstall":
@@ -130,7 +143,9 @@ def _run(path: Path, args: argparse.Namespace, no_notifications: bool) -> int:
         source = "replaying a script instead of a camera"
     else:
         angles = calibration.load(calibration.default_path(path))
-        detector = _camera_detector(args.camera, args.preview, angles, log)
+        from .camera import Preview
+
+        detector = _camera_detector(args.camera, Preview() if args.preview else None, angles, log)
         if detector is None:
             return 2
         calibrator = _camera_calibrator(calibration.default_path(path), args.camera, log, detector.use_calibration)
@@ -284,6 +299,67 @@ def _calibrate(path: Path, wanted: str) -> int:
     return 0
 
 
+def _label(path: Path, args: argparse.Namespace, argv: list[str]) -> int:
+    if not _camera_installed():
+        return 2
+    if service.supported() and os.environ.get(service.SANDBOXED) != "1":
+        return _label_in_sandbox(argv)
+    out = args.out or labelling.default_path(datetime.now())
+    angles = calibration.load(calibration.default_path(path))
+    from .camera import Preview
+
+    window = Preview()
+    detector = _camera_detector(args.camera, window, angles, _flushing_print)
+    if detector is None:
+        return 2
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        file = out.open("x", newline="")
+    except FileExistsError:
+        print(f"{out} already exists. Give another file with --out.", file=sys.stderr)
+        return 2
+    profile = labelling.profile_for(args.category)
+    print(f"Labelling a {args.category} session: press keys in the camera window, {labelling.KEY_HELP}. "
+          "Press the key as soon as you change what you do.")
+    print(f"Writing one row of numbers a second to {out}; never a picture, and nothing leaves this computer.")
+    if not angles.calibrated:
+        print("Not calibrated yet: looking away is judged against fixed angles. Calibrate from Settings first.")
+    if service.supported() and service.LaunchAgent().status().running:
+        print("The companion also runs in the background. That is fine, but do not run a session with "
+              "Verify with camera while labelling.")
+
+    def show_label(label: str) -> None:
+        window.notes = [f"Labelled: {label.lower().replace('_', ' ')}", labelling.KEY_HELP]
+
+    labeller = labelling.Labeller(detector, profile, file, window.next_key, show_label)
+    try:
+        with file:
+            labeller.run()
+    except KeyboardInterrupt:
+        pass
+    except DetectorUnavailable as error:
+        print(error, file=sys.stderr)
+        print(f"Wrote {labeller.rows} seconds to {out} before the camera stopped.", file=sys.stderr)
+        return 1
+    print(f"Wrote {labeller.rows} seconds to {out}.")
+    return 0
+
+
+def _label_in_sandbox(argv: list[str]) -> int:
+    """Starts ``label`` again in the sandbox that lets it connect only to this computer, as the launch
+    agent runs, so MediaPipe's usage logging cannot reach Google. The models are downloaded first,
+    outside it. Returns only if it cannot start."""
+    try:
+        for model in (models.FACE_DETECTOR, models.FACE_LANDMARKER, models.OBJECT_DETECTOR, models.HAND_LANDMARKER):
+            models.ensure(model, log=_flushing_print)
+    except models.ModelError as error:
+        print(error, file=sys.stderr)
+        return 1
+    command = service.sandboxed([sys.executable, "-m", "focusquest_companion", *argv])
+    os.execve(command[0], command, {**os.environ, service.SANDBOXED: "1"})
+    return 1   # not reached: execve replaces this program, or raises
+
+
 def _camera_calibrator(path: Path, wanted: str, log, on_calibrated=lambda angles: None):
     """Calibrates with its own view of the camera: the detector's is closed whenever calibrating is allowed."""
     from .camera import CameraCalibrator, MediaPipePoses, Webcam
@@ -306,10 +382,11 @@ def _camera_installed() -> bool:
     return True
 
 
-def _camera_detector(wanted: str, preview: bool, angles: calibration.Calibration, log):
+def _camera_detector(wanted: str, preview, angles: calibration.Calibration, log):
+    """``preview``: the window (a :class:`~.camera.Preview`) to show what it sees in, or None."""
     if not _camera_installed():
         return None
-    from .camera import CameraDetector, MediaPipeFaces, MediaPipeHands, MediaPipePhones, MediaPipePoses, Preview, Webcam
+    from .camera import CameraDetector, MediaPipeFaces, MediaPipeHands, MediaPipePhones, MediaPipePoses, Webcam
 
     try:
         face_model, pose_model, phone_model, hand_model = (models.ensure(model, log=log) for model in (
@@ -321,7 +398,7 @@ def _camera_detector(wanted: str, preview: bool, angles: calibration.Calibration
     webcam = Webcam(lambda: choice.resolve(list_cameras()), log)
     return CameraDetector(webcam, lambda: MediaPipeFaces(face_model), poses=lambda: MediaPipePoses(pose_model),
                           phones=lambda: MediaPipePhones(phone_model), hands=lambda: MediaPipeHands(hand_model),
-                          calibration=angles, preview=Preview() if preview else None, log=log)
+                          calibration=angles, preview=preview, log=log)
 
 
 def _flushing_print(line: str) -> None:

@@ -73,10 +73,10 @@ def overlaps(a: Box, b: Box) -> bool:
     return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
 
 
-def held(phones: Sequence[Found], hands: Sequence[Box]) -> Found | None:
-    """The surest phone at or above :data:`PHONE_FROM` that overlaps a hand, if any."""
+def held(phones: Sequence[Found], hands: Sequence[Box], least: float = PHONE_FROM) -> Found | None:
+    """The surest phone at or above ``least`` (:data:`PHONE_FROM` unless measuring) that overlaps a hand, if any."""
     in_hand = [phone for phone in phones
-               if phone.score >= PHONE_FROM and any(overlaps(phone.box, hand) for hand in hands)]
+               if phone.score >= least and any(overlaps(phone.box, hand) for hand in hands)]
     return max(in_hand, key=lambda phone: phone.score, default=None)
 
 

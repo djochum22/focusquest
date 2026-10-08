@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from focusquest_companion import cli, config
 from focusquest_companion.cli import main
@@ -58,6 +59,30 @@ class CliTest(unittest.TestCase):
         code, err = self.run_cli("run", "--script", "phone for a while")
         self.assertEqual(code, 2)
         self.assertIn("Cannot read the step", err)
+
+
+class LabelTest(unittest.TestCase):
+
+    def test_starts_itself_again_in_the_sandbox_with_the_models_downloaded_first(self):
+        calls = []
+        with mock.patch.object(cli, "_camera_installed", return_value=True), \
+                mock.patch.object(cli.service, "supported", return_value=True), \
+                mock.patch.dict(cli.os.environ, {}, clear=False), \
+                mock.patch.object(cli.models, "ensure", side_effect=lambda model, log: calls.append(model.file_name)), \
+                mock.patch.object(cli.os, "execve", side_effect=lambda *a: calls.append(a)):
+            cli.os.environ.pop(cli.service.SANDBOXED, None)
+            main(["--config", "/c.json", "label", "--category", "coding"])
+        *downloaded, (program, command, environment) = calls
+        self.assertEqual(len(downloaded), 4)
+        self.assertEqual(program, "/usr/bin/sandbox-exec")
+        self.assertEqual(command[3:], [cli.sys.executable, "-m", "focusquest_companion",
+                                       "--config", "/c.json", "label", "--category", "coding"])
+        self.assertEqual(environment[cli.service.SANDBOXED], "1")
+
+    def test_asks_for_a_known_category(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
+            main(["label", "--category", "napping"])
+        self.assertIn("invalid choice", err.getvalue())
 
 
 class AwaitPairingTest(unittest.TestCase):

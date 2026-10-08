@@ -14,7 +14,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
 - Everything is committed (last: `e888f94`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
-**Next: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy": it lists what to ask the user first, then the `label` command, what the user labels, and how to measure. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
+**Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built. Next, the user labels (see "What the user labels"), then step 2, the `accuracy` command. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
 **Before starting:**
 
@@ -92,7 +92,7 @@ While trying C2 live, the companion's log showed `portable_clearcut_uploader.cc:
 
 ### Ask the user first
 
-Confirm the plan below, and settle these:
+Settled on 8 October 2026: the plan as written, and all four answers as proposed (keys in the camera window; `~/Documents/FocusQuest`; the sandbox; the whole labelling plan). The questions were:
 
 1. **Keys.** Labelling with keys pressed in the camera window (proposed: `1` on task, `2` away, `3` phone, `4` looking away, `q` to stop), or in the terminal.
 2. **Where the CSV goes.** Proposed: a path the user gives, defaulting to `~/Documents/FocusQuest/labels-<date>-<time>.csv`. It stays on the computer and is never sent anywhere.
@@ -100,6 +100,8 @@ Confirm the plan below, and settle these:
 4. **How much labelling.** Proposed: the plan under "What the user labels", about 20 to 30 minutes in all, in one sitting or several.
 
 ### Step 1: the `label` command
+
+**Built** (8 October 2026), as planned below. As built: `CameraDetector.last_readings` (a `Readings`, in `camera.py`) holds the raw readings; `labelling.py` holds the `Labeller` and the copy of the profiles, checked by a test against `CameraProfiles.java` and `application.yml`; `Preview.notes` shows the label as the window's headline and `Preview.next_key` takes the keys; `service.sandboxed` builds the sandboxed command for both the launch agent and `label`, which starts itself again under it with `FOCUSQUEST_SANDBOXED=1` after downloading the models. The CSV's columns: `time, category, label, away, phone, looking_away, face_score, yaw, pitch, phone_score, held_phone_score, hands` (empty where not looked at: angles only for a face found where looking away is checked, hands only once a phone scored 0.25). `held_phone_score` is the best phone overlapping a hand at any score, so `PHONE_FROM` can be raised, and `CERTAIN_FROM` moved, on the recorded file; lowering `PHONE_FROM` below 0.25 cannot be tried, since hands are not looked for below it. Checked with the real models on MediaPipe's sample portrait inside the sandbox; not yet run with the webcam.
 
 `focusquest-companion label --category CODING [--out FILE] [--camera NAME]`: the real `CameraDetector`, with the category's profile, in a preview window, without a session or the backend.
 
