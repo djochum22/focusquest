@@ -12,9 +12,23 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - The companion program runs in the background (C3a): `focusquest-companion install` set up a macOS launch agent that starts it at login. Its log is `~/Library/Logs/FocusQuest/companion.log`.
 - Calibration starts from Settings (C3b): a "Calibrate" button, and the companion guides the user in its camera window.
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
-- Everything is committed (last: `e888f94`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
+- Everything is committed (last: `364f204`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
 **Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built (`0e37818`). Next, the user labels (see "What the user labels"), then step 2, the `accuracy` command. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
+
+**To do later, by the user: label** (nothing else in C1d can go on until this is done). About 20 to 30 minutes, in one sitting or several:
+
+1. Calibrate first: Settings, under Camera verification, "Calibrate".
+2. Don't run a session with "Verify with camera" while labelling. The background companion may keep running.
+3. For each part in "What the user labels" (on task at the screen, on task with paper on the desk, away, phone, looking away), run from `vision/`:
+
+   ```bash
+   .venv/bin/focusquest-companion label --category CODING     # WRITING for the paper part
+   ```
+
+   In the camera window press `1` on task, `2` away, `3` phone, `4` looking away, as soon as you change what you do, and `q` to stop. Each part 2 to 3 minutes, with a few changes of label inside it. The first time, macOS may ask for the camera again.
+4. If possible, do it once in daylight and once with lamps.
+5. Each run writes a new file to `~/Documents/FocusQuest/labels-<date>-<time>.csv`: numbers only, never a picture. Then tell Claude it is done, and where the files are, to start step 2.
 
 **Before starting:**
 
