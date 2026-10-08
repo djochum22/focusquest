@@ -8,7 +8,10 @@ import CameraVerificationCard from '../components/settings/CameraVerificationCar
 import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import ErrorMessage from '../components/common/ErrorMessage.vue'
 import FormField from '../components/common/FormField.vue'
+import InfoTip from '../components/common/InfoTip.vue'
+import SettingsSection from '../components/settings/SettingsSection.vue'
 import { useAuthStore } from '../stores/authStore'
+import { useCameraStore } from '../stores/cameraStore'
 import { useExtensionStore } from '../stores/extensionStore'
 import { useSessionStore } from '../stores/sessionStore'
 import { readBackupFile, useSettingsStore } from '../stores/settingsStore'
@@ -22,6 +25,16 @@ const settings = useSettingsStore()
 const extension = useExtensionStore()
 const session = useSessionStore()
 const router = useRouter()
+const camera = useCameraStore()
+
+/** The one-word status each collapsed section shows. */
+const EXTENSION_SUMMARY = {
+  unknown: 'Checking…',
+  connected: 'Connected',
+  disconnected: 'Not connected',
+  'not-installed': 'Not installed',
+  problem: 'Cannot reach the backend',
+} as const
 
 const profile = reactive<ProfileForm>({
   displayName: auth.user?.displayName ?? '',
@@ -182,64 +195,67 @@ async function onConfirmDelete() {
     <h1 class="page-title">Settings</h1>
 
     <div class="settings">
-      <form class="card" aria-labelledby="account-heading" novalidate @submit.prevent="onSaveProfile">
-        <h2 id="account-heading" class="settings__heading">Account</h2>
-        <dl class="settings__details">
+      <SettingsSection title="Account" :summary="auth.user?.displayName">
+        <form class="settings__form" aria-label="Account" novalidate @submit.prevent="onSaveProfile">
+          <p class="settings__text"><span class="muted">Username</span> {{ auth.user?.username }}</p>
+
+          <FormField v-slot="{ id, invalid }" label="Display name" :error="profileErrors.displayName">
+            <input
+              :id="id"
+              v-model="profile.displayName"
+              type="text"
+              autocomplete="name"
+              :maxlength="DISPLAY_NAME_MAX"
+              :aria-invalid="invalid"
+            />
+          </FormField>
+
+          <FormField label="Time zone" :error="profileErrors.timezone">
+            <template #default="{ id, invalid }">
+              <select :id="id" v-model="profile.timezone" :disabled="timezoneLocked" :aria-invalid="invalid">
+                <option v-for="zone in timezones" :key="zone" :value="zone">{{ zone }}</option>
+              </select>
+            </template>
+            <template #info>
+              <InfoTip>
+                A new time zone takes effect from your next day and week. Today and this week keep their
+                current start and end.
+              </InfoTip>
+            </template>
+          </FormField>
+          <p v-if="timezoneLocked" class="settings__locked">
+            The time zone cannot be changed while website blocking is active
+            <InfoTip>End your session, or override the blocking, first.</InfoTip>
+          </p>
+
+          <ErrorMessage :message="profileError" />
+          <p v-if="profileSaved" class="settings__done" role="status">Profile saved.</p>
           <div>
-            <dt>Username</dt>
-            <dd>{{ auth.user?.username }}</dd>
+            <AppButton type="submit" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
           </div>
-        </dl>
+        </form>
+      </SettingsSection>
 
-        <FormField v-slot="{ id, invalid }" label="Display name" :error="profileErrors.displayName">
-          <input
-            :id="id"
-            v-model="profile.displayName"
-            type="text"
-            autocomplete="name"
-            :maxlength="DISPLAY_NAME_MAX"
-            :aria-invalid="invalid"
-          />
-        </FormField>
-
-        <FormField v-slot="{ id, invalid }" label="Time zone" :error="profileErrors.timezone">
-          <select :id="id" v-model="profile.timezone" :disabled="timezoneLocked" :aria-invalid="invalid">
-            <option v-for="zone in timezones" :key="zone" :value="zone">{{ zone }}</option>
-          </select>
-        </FormField>
-        <p v-if="timezoneLocked" class="muted settings__text">
-          The time zone cannot be changed while website blocking is active. End your session, or override
-          it, first.
-        </p>
-        <p v-else class="muted settings__text">
-          A new time zone takes effect from your next day and week. Today and this week keep their
-          current start and end.
-        </p>
-
-        <ErrorMessage :message="profileError" />
-        <p v-if="profileSaved" class="settings__done" role="status">Profile saved.</p>
-        <div>
-          <AppButton type="submit" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
-        </div>
-      </form>
-
-      <section class="card" aria-labelledby="extension-heading">
-        <h2 id="extension-heading" class="settings__heading">Chrome extension</h2>
-        <p class="muted settings__text">
-          The extension blocks websites during a focus session. Connecting it signs it in once, with no
-          copying of tokens, and it stays connected across restarts.
-        </p>
-        <p v-if="extension.connection === 'unknown'" class="muted settings__text">Checking…</p>
-        <p v-else-if="extension.connection === 'connected'" class="settings__done">Connected.</p>
-        <p v-else-if="extension.connection === 'not-installed'" class="settings__text">
-          The extension was not found. Install it (see <code>extension/README.md</code>), make sure it is
-          enabled, then reload this page.
-        </p>
-        <p v-else-if="extension.connection === 'problem'" class="settings__text">
-          The extension has a token but cannot reach the backend. Check that the backend is running.
-        </p>
-        <p v-else class="settings__text">
-          Not connected. Sites are not blocked until it is.
+      <SettingsSection title="Chrome extension">
+        <template #summary>
+          <span :class="{ 'settings__ok': extension.connection === 'connected' }">{{ EXTENSION_SUMMARY[extension.connection] }}</span>
+        </template>
+        <p class="settings__text settings__status">
+          <span v-if="extension.connection === 'unknown'" class="muted">Checking…</span>
+          <span v-else-if="extension.connection === 'connected'" class="settings__done">Connected</span>
+          <span v-else-if="extension.connection === 'not-installed'">
+            The extension was not found. Install it (see <code>extension/README.md</code>), enable it, then
+            reload this page.
+          </span>
+          <span v-else-if="extension.connection === 'problem'">
+            The extension cannot reach the backend. Check that the backend is running.
+          </span>
+          <span v-else>Not connected. Sites are not blocked until it is.</span>
+          <InfoTip>
+            The extension blocks websites during a focus session. Connecting signs it in once, with no
+            copying of tokens, and it stays connected across restarts. Disconnecting during a session
+            leaves blocking on until you connect again.
+          </InfoTip>
         </p>
         <ErrorMessage :message="extensionError" />
         <div class="settings__actions">
@@ -253,89 +269,96 @@ async function onConfirmDelete() {
             <AppButton variant="secondary" :loading="extension.working" @click="onConnectExtension">
               Reconnect
             </AppButton>
-            <AppButton variant="secondary" :loading="extension.working" @click="onDisconnectExtension">
+            <AppButton variant="link" :disabled="extension.working" @click="onDisconnectExtension">
               Disconnect
             </AppButton>
           </template>
         </div>
-        <p v-if="extension.connection === 'connected'" class="muted settings__text">
-          Disconnecting during a session leaves blocking on until you connect again.
-        </p>
-      </section>
+      </SettingsSection>
 
-      <CameraVerificationCard />
+      <SettingsSection title="Camera verification">
+        <template #summary>
+          <span :class="{ 'settings__ok': camera.settings?.enabled }">{{ camera.settings?.enabled ? 'On' : 'Off' }}</span>
+        </template>
+        <CameraVerificationCard />
+      </SettingsSection>
 
-      <section class="card" aria-labelledby="history-heading">
-        <h2 id="history-heading" class="settings__heading">Session history</h2>
-        <label class="settings__check">
-          <input
-            type="checkbox"
-            :checked="auth.user?.keepHistoryForever ?? false"
-            :disabled="savingRetention"
-            @change="onKeepHistoryForeverChange"
-          />
-          Keep session history forever
-        </label>
-        <p class="muted settings__text">
-          When off, finished sessions are deleted 30 days after they started, and turning it off deletes
-          older ones straight away. Streaks, XP and gems are never affected.
-        </p>
+      <SettingsSection
+        title="Session history"
+        :summary="auth.user?.keepHistoryForever ? 'Kept forever' : 'Kept for 30 days'"
+      >
+        <div class="settings__check-row">
+          <label class="settings__check">
+            <input
+              type="checkbox"
+              :checked="auth.user?.keepHistoryForever ?? false"
+              :disabled="savingRetention"
+              @change="onKeepHistoryForeverChange"
+            />
+            Keep session history forever
+          </label>
+          <InfoTip>
+            When off, finished sessions are deleted 30 days after they started, and turning it off deletes
+            older ones straight away. Streaks, XP and gems are never affected.
+          </InfoTip>
+        </div>
         <ErrorMessage :message="retentionError" />
-      </section>
+      </SettingsSection>
 
-      <section class="card" aria-labelledby="export-heading">
-        <h2 id="export-heading" class="settings__heading">Export your data</h2>
-        <p class="muted settings__text">
-          Download a JSON file with your sessions, streaks, XP and blocking rules. Use it as a backup.
-        </p>
+      <SettingsSection title="Your data" summary="Export, restore or delete">
         <ErrorMessage :message="exportError" />
-        <p v-if="exportedFile" class="settings__done" role="status">Saved {{ exportedFile }}.</p>
-        <div>
-          <AppButton variant="secondary" :loading="settings.exporting" @click="onExport">
-            {{ settings.exporting ? 'Exporting…' : 'Export data' }}
-          </AppButton>
-        </div>
-      </section>
-
-      <section class="card" aria-labelledby="restore-heading">
-        <h2 id="restore-heading" class="settings__heading">Restore from a backup</h2>
-        <p class="muted settings__text">
-          Replace everything in FocusQuest with an exported file. Your sign-in and Chrome extension
-          connection stay as they are. Restoring is not possible while website blocking is active.
-        </p>
         <ErrorMessage :message="restoreError" />
-        <p v-if="restoredFrom" class="settings__done" role="status">
-          Restored the backup from {{ restoredFrom }}.
-        </p>
-        <div>
-          <input
-            ref="backupInput"
-            type="file"
-            accept="application/json,.json"
-            aria-label="Backup file"
-            hidden
-            @change="onBackupChosen"
-          />
-          <AppButton variant="secondary" :loading="settings.restoring" @click="backupInput?.click()">
-            {{ settings.restoring ? 'Restoring…' : 'Restore from file' }}
-          </AppButton>
-        </div>
-      </section>
-
-      <section class="card settings__danger" aria-labelledby="delete-heading">
-        <h2 id="delete-heading" class="settings__heading">Delete all data</h2>
-        <p class="muted settings__text">
-          Permanently removes your sessions, streaks, XP, blocking rules and account. FocusQuest then
-          starts again from first-time setup. Deletion is not possible while website blocking is
-          active.
-        </p>
         <ErrorMessage :message="deleteError" />
-        <div>
-          <AppButton variant="danger" :disabled="settings.deleting" @click="confirmingDelete = true">
-            Delete all data
-          </AppButton>
+        <p v-if="exportedFile" class="settings__done" role="status">Saved {{ exportedFile }}.</p>
+        <p v-if="restoredFrom" class="settings__done" role="status">Restored the backup from {{ restoredFrom }}.</p>
+
+        <div class="settings__data">
+          <div class="settings__data-row">
+            <span class="settings__data-name">
+              Export your data
+              <InfoTip>Download a JSON file with your sessions, streaks, XP and blocking rules. Use it as a backup.</InfoTip>
+            </span>
+            <AppButton variant="secondary" :loading="settings.exporting" @click="onExport">
+              {{ settings.exporting ? 'Exporting…' : 'Export data' }}
+            </AppButton>
+          </div>
+
+          <div class="settings__data-row">
+            <span class="settings__data-name">
+              Restore from a backup
+              <InfoTip>
+                Replace everything in FocusQuest with an exported file. Your sign-in and Chrome extension
+                connection stay as they are. Restoring is not possible while website blocking is active.
+              </InfoTip>
+            </span>
+            <input
+              ref="backupInput"
+              type="file"
+              accept="application/json,.json"
+              aria-label="Backup file"
+              hidden
+              @change="onBackupChosen"
+            />
+            <AppButton variant="secondary" :loading="settings.restoring" @click="backupInput?.click()">
+              {{ settings.restoring ? 'Restoring…' : 'Restore from file' }}
+            </AppButton>
+          </div>
+
+          <div class="settings__data-row">
+            <span class="settings__data-name settings__data-name--danger">
+              Delete all data
+              <InfoTip>
+                Permanently removes your sessions, streaks, XP, blocking rules and account. FocusQuest then
+                starts again from first-time setup. Deletion is not possible while website blocking is
+                active.
+              </InfoTip>
+            </span>
+            <AppButton variant="danger" :disabled="settings.deleting" @click="confirmingDelete = true">
+              Delete all data
+            </AppButton>
+          </div>
         </div>
-      </section>
+      </SettingsSection>
     </div>
 
     <ConfirmDialog
@@ -372,35 +395,44 @@ async function onConfirmDelete() {
 </template>
 
 <style scoped>
+/* A plain list of collapsible rows divided by hairlines, like the history. */
 .settings {
+  border-top: 1px solid var(--border);
+}
+.settings__form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
-.settings__heading {
-  margin: 0;
-  font-size: 1.15rem;
-}
 .settings__text {
   margin: 0;
 }
-.settings__details {
+/* The info button follows the status inline, so a long message does not push it onto a line of its own. */
+.settings__status > span {
+  margin-right: 0.4rem;
+}
+.settings__ok {
+  color: var(--success);
+  font-weight: 600;
+}
+.settings__locked {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 2rem;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
-}
-.settings__details dt {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-.settings__details dd {
-  margin: 0;
+  color: var(--notice);
+  font-size: 0.9rem;
   font-weight: 600;
 }
 .settings__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.settings__check-row {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 .settings__check {
@@ -417,8 +449,30 @@ async function onConfirmDelete() {
   margin: 0;
   color: var(--success);
   font-size: 0.9rem;
+  font-weight: 600;
 }
-.settings__danger {
-  border-color: var(--danger);
+/* Each data action on one line: what it does on the left, its button on the right. */
+.settings__data {
+  display: flex;
+  flex-direction: column;
+}
+.settings__data-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0;
+}
+.settings__data-row + .settings__data-row {
+  border-top: 1px dashed var(--border);
+}
+.settings__data-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.settings__data-name--danger {
+  color: var(--danger);
 }
 </style>

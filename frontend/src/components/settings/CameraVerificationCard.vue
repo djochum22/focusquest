@@ -8,6 +8,7 @@ import { formatShortDuration, groupProfiles } from '../../utils/cameraProfiles'
 import { formatDateTime } from '../../utils/dateTime'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
+import InfoTip from '../common/InfoTip.vue'
 
 const auth = useAuthStore()
 const camera = useCameraStore()
@@ -108,16 +109,14 @@ function onDefaultChange(event: Event) {
 </script>
 
 <template>
-  <section class="card camera" aria-labelledby="camera-heading">
-    <h2 id="camera-heading" class="camera__heading">Camera verification</h2>
+  <div class="camera">
     <p class="muted camera__text">
-      Optionally, let a camera check that you stay on task during a session. It is off unless you
-      turn it on.
-    </p>
-    <p class="camera__notice" role="note">
-      The companion program checks that you are at your desk, looking at your work, and not holding
-      a phone where the camera can see it. Calibrate it once so it knows where your screen and desk
-      are.
+      Optionally, a camera checks that you stay on task during a session.
+      <InfoTip>
+        The companion program checks that you are at your desk, looking at your work, and not holding
+        a phone where the camera can see it. Calibrate it once so it knows where your screen and desk
+        are. It is off unless you turn it on.
+      </InfoTip>
     </p>
     <ErrorMessage :message="error" />
 
@@ -139,22 +138,25 @@ function onDefaultChange(event: Event) {
       <p class="camera__on" role="status">
         On since {{ formatDateTime(camera.settings.consentedAt, auth.user?.timezone) }}.
       </p>
-      <label class="camera__option">
-        <input
-          type="checkbox"
-          :checked="camera.settings.verifyNewSessionsByDefault"
-          :disabled="camera.saving"
-          @change="onDefaultChange"
-        />
-        Use the camera for new sessions by default
-      </label>
-      <p class="muted camera__hint">You can still switch it off for a single session when you plan it.</p>
+      <div class="camera__option-row">
+        <label class="camera__option">
+          <input
+            type="checkbox"
+            :checked="camera.settings.verifyNewSessionsByDefault"
+            :disabled="camera.saving"
+            @change="onDefaultChange"
+          />
+          Use the camera for new sessions by default
+        </label>
+        <!-- Outside the label, so opening it does not tick the box. -->
+        <InfoTip>You can still switch it off for a single session when you plan it.</InfoTip>
+      </div>
 
       <section class="camera__companion" aria-labelledby="companion-heading">
-        <h3 id="companion-heading" class="camera__subheading">Companion program</h3>
-        <p class="muted camera__hint">
-          The companion program runs on this computer and reads the camera. Pair it once with a code.
-        </p>
+        <div class="camera__subhead">
+          <h3 id="companion-heading" class="camera__subheading">Companion program</h3>
+          <InfoTip>The companion program runs on this computer and reads the camera. Pair it once with a code.</InfoTip>
+        </div>
         <template v-if="companion?.paired">
           <p class="camera__companion-status" data-testid="companion-status">
             Paired {{ formatDateTime(companion.pairedAt, auth.user?.timezone) }}.
@@ -179,11 +181,8 @@ function onDefaultChange(event: Event) {
               </template>
               <template v-else>Not calibrated yet, so it does not know where your screen and desk are.</template>
             </p>
-            <p class="muted camera__hint">
-              Calibrate sitting as you usually work, and again after moving the camera.
-              <template v-if="!companion.connected">Start the companion program to calibrate.</template>
-            </p>
-            <div>
+            <p v-if="!companion.connected" class="muted camera__hint">Start the companion program to calibrate.</p>
+            <div class="camera__actions">
               <AppButton
                 variant="secondary"
                 :disabled="!companion.connected || calibrating"
@@ -192,6 +191,7 @@ function onDefaultChange(event: Event) {
               >
                 {{ calibration?.calibratedAt ? 'Calibrate again' : 'Calibrate' }}
               </AppButton>
+              <InfoTip>Calibrate sitting as you usually work, and again after moving the camera.</InfoTip>
             </div>
           </div>
         </template>
@@ -202,8 +202,8 @@ function onDefaultChange(event: Event) {
             <AppButton variant="secondary" @click="onCopy">{{ copied ? 'Copied' : 'Copy' }}</AppButton>
           </div>
           <p class="muted camera__hint">
-            Enter it in the companion program when it asks for a pairing code. It is shown only once;
-            pairing again makes a new one and the old one stops working.
+            Enter it in the companion program. It is shown only once.
+            <InfoTip>Pairing again makes a new code, and the old one stops working.</InfoTip>
           </p>
         </div>
         <div class="camera__actions">
@@ -215,7 +215,7 @@ function onDefaultChange(event: Event) {
       </section>
 
       <div>
-        <AppButton variant="secondary" :loading="camera.saving" @click="onTurnOff">
+        <AppButton variant="link" :disabled="camera.saving" @click="onTurnOff">
           Turn off camera verification
         </AppButton>
       </div>
@@ -238,31 +238,20 @@ function onDefaultChange(event: Event) {
         </AppButton>
       </div>
     </template>
-  </section>
+  </div>
 </template>
 
 <style scoped>
 .camera {
-  gap: 0.75rem;
-}
-.camera__heading {
-  margin: 0;
-  font-size: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 .camera__text,
 .camera__hint {
   margin: 0;
 }
 .camera__hint {
-  font-size: 0.9rem;
-}
-.camera__notice {
-  margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--notice);
-  border-radius: 8px;
-  background: var(--notice-bg);
-  color: var(--notice);
   font-size: 0.9rem;
 }
 .camera__on {
@@ -302,9 +291,14 @@ function onDefaultChange(event: Event) {
 .camera__companion {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
+  gap: 0.6rem;
+  padding: 0.85rem 0 0 1rem;
+  border-left: 2px solid var(--border);
+}
+.camera__subhead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .camera__subheading {
   margin: 0;
@@ -346,6 +340,12 @@ function onDefaultChange(event: Event) {
 .camera__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.camera__option-row {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 .camera__option {

@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { advanceBackendClock, expect, test } from '../support/fixtures'
 import { Companion } from '../support/companion'
 import { FRONTEND_URL } from '../support/env'
-import { setUpAccount } from '../support/flows'
+import { openSettingsSection, setUpAccount } from '../support/flows'
 
 // The companion reports every 2 seconds and the web app checks every 5: a change on the backend shows
 // in the session screen within about 10 seconds.
@@ -11,6 +11,7 @@ const SHOWN_WITHIN = { timeout: 15_000 }
 /** Consents in Settings, pairs the companion program and returns its code, shown once. */
 async function turnOnCameraAndPair(page: Page): Promise<string> {
   await page.goto(`${FRONTEND_URL}/settings`)
+  await openSettingsSection(page, 'Camera verification')
   await page.getByLabel('I have read this and agree').check()
   await page.getByRole('button', { name: 'Turn on camera verification' }).click()
   await page.getByRole('button', { name: 'Pair the companion program' }).click()
@@ -22,6 +23,7 @@ async function turnOnCameraAndPair(page: Page): Promise<string> {
 async function expectCompanionConnected(page: Page): Promise<void> {
   await expect(async () => {
     await page.goto(`${FRONTEND_URL}/settings`)
+    await openSettingsSection(page, 'Camera verification')
     await expect(page.getByTestId('companion-status')).toContainText('Connected.', { timeout: 1_000 })
   }).toPass({ timeout: 10_000 })
 }

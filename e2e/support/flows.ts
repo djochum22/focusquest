@@ -18,10 +18,17 @@ export async function setUpAccount(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 }
 
+/** Settings shows each area as a closed row; this opens one by its title. */
+export async function openSettingsSection(page: Page, title: string): Promise<void> {
+  const row = page.getByRole('button', { name: new RegExp(`^${title}`) })
+  if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click()
+}
+
 /** The web app hands the extension its token on its own after sign-in; Settings reports the result. */
 export async function expectExtensionConnected(page: Page): Promise<void> {
   await page.goto(`${FRONTEND_URL}/settings`)
-  await expect(page.getByText('Connected.')).toBeVisible()
+  // The closed row already says how the extension is doing.
+  await expect(page.getByRole('button', { name: /^Chrome extension/ })).toContainText('Connected')
 }
 
 export async function addBlockedSite(page: Page, site = SITE_HOST): Promise<void> {

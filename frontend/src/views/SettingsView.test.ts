@@ -40,6 +40,10 @@ async function mountView() {
 const button = (wrapper: Awaited<ReturnType<typeof mountView>>['wrapper'], label: string) =>
   wrapper.findAll('button').find((b) => b.text() === label)
 
+/** A settings section, found by its title. */
+const section = (wrapper: Awaited<ReturnType<typeof mountView>>['wrapper'], title: string) =>
+  wrapper.findAll('section').find((s) => s.find('h2 .section__title').text() === title)!
+
 /** The confirm dialog is rendered even while closed, so match its button by label. */
 const dialogButton = (label: string) =>
   Array.from(document.querySelectorAll<HTMLButtonElement>('dialog button')).find((b) => b.textContent?.trim() === label)
@@ -69,15 +73,33 @@ beforeEach(async () => {
 })
 
 describe('SettingsView', () => {
+  it('shows each area as a closed row with its status, opening on click', async () => {
+    const { wrapper } = await mountView()
+    const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())
+    expect(titles).toEqual(['Account', 'Chrome extension', 'Camera verification', 'Session history', 'Your data'])
+    const account = section(wrapper, 'Account')
+    const row = account.get('button[aria-expanded]')
+    expect(row.attributes('aria-expanded')).toBe('false')
+    expect(row.text()).toContain('Doug')
+    expect(section(wrapper, 'Camera verification').get('button[aria-expanded]').text()).toContain('Off')
+
+    await row.trigger('click')
+
+    expect(row.attributes('aria-expanded')).toBe('true')
+    expect(account.get(`#${row.attributes('aria-controls')}`).isVisible()).toBe(true)
+    wrapper.unmount()
+  })
+
   describe('session history', () => {
     const keepForever = (wrapper: Awaited<ReturnType<typeof mountView>>['wrapper']) =>
-      wrapper.get('[aria-labelledby="history-heading"] input[type="checkbox"]')
+      section(wrapper, 'Session history').get('input[type="checkbox"]')
 
     it('deletes history after 30 days by default', async () => {
       const { wrapper } = await mountView()
 
       expect((keepForever(wrapper).element as HTMLInputElement).checked).toBe(false)
       expect(wrapper.text()).toContain('deleted 30 days after they started')
+      expect(section(wrapper, 'Session history').text()).toContain('Kept for 30 days')
       wrapper.unmount()
     })
 
@@ -105,7 +127,7 @@ describe('SettingsView', () => {
       await flushPromises()
 
       expect((keepForever(wrapper).element as HTMLInputElement).checked).toBe(false)
-      expect(wrapper.get('[aria-labelledby="history-heading"] [role="alert"]').text()).toContain('Could not save')
+      expect(section(wrapper, 'Session history').get('[role="alert"]').text()).toContain('Could not save')
       wrapper.unmount()
     })
   })
@@ -336,7 +358,7 @@ describe('SettingsView', () => {
       const { wrapper } = await mountView()
 
       expect(bridge.sendTokenToExtension).toHaveBeenCalledWith('fqx_new')
-      expect(wrapper.text()).toContain('Connected.')
+      expect(wrapper.text()).toContain('Connected')
       wrapper.unmount()
     })
 
@@ -349,7 +371,7 @@ describe('SettingsView', () => {
       await flushPromises()
 
       expect(bridge.sendTokenToExtension).toHaveBeenCalledWith('fqx_new')
-      expect(wrapper.text()).toContain('Connected.')
+      expect(wrapper.text()).toContain('Connected')
       expect(button(wrapper, 'Connect extension')).toBeUndefined()
       wrapper.unmount()
     })
@@ -367,7 +389,7 @@ describe('SettingsView', () => {
       vi.mocked(bridge.getExtensionState).mockResolvedValue({ hasToken: true, status: 'ok' })
       vi.mocked(bridge.disconnectExtension).mockResolvedValue({ hasToken: false, status: 'signed-out' })
       const { wrapper } = await mountView()
-      expect(wrapper.text()).toContain('Connected.')
+      expect(wrapper.text()).toContain('Connected')
 
       await button(wrapper, 'Disconnect')!.trigger('click')
       await flushPromises()
