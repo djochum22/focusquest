@@ -5,8 +5,10 @@ withDefaults(
     variant?: 'primary' | 'secondary' | 'danger' | 'link'
     loading?: boolean
     disabled?: boolean
+    /** Small suits a button inside a panel, beside text rather than leading a page. */
+    size?: 'normal' | 'small'
   }>(),
-  { type: 'button', variant: 'primary', loading: false, disabled: false },
+  { type: 'button', variant: 'primary', loading: false, disabled: false, size: 'normal' },
 )
 </script>
 
@@ -14,7 +16,7 @@ withDefaults(
   <button
     :type="type"
     class="app-button"
-    :class="`app-button--${variant}`"
+    :class="[`app-button--${variant}`, { 'app-button--small': size === 'small' }]"
     :disabled="disabled || loading"
     :aria-busy="loading"
   >
@@ -31,6 +33,11 @@ withDefaults(
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s;
+}
+.app-button--small {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
 }
 .app-button:disabled {
   opacity: 0.6;

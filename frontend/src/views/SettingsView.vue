@@ -231,7 +231,7 @@ async function onConfirmDelete() {
           <ErrorMessage :message="profileError" />
           <p v-if="profileSaved" class="settings__done" role="status">Profile saved.</p>
           <div>
-            <AppButton type="submit" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
+            <AppButton type="submit" size="small" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
           </div>
         </form>
       </SettingsSection>
@@ -244,8 +244,7 @@ async function onConfirmDelete() {
           <span v-if="extension.connection === 'unknown'" class="muted">Checking…</span>
           <span v-else-if="extension.connection === 'connected'" class="settings__done">Connected</span>
           <span v-else-if="extension.connection === 'not-installed'">
-            The extension was not found. Install it (see <code>extension/README.md</code>), enable it, then
-            reload this page.
+            Install the FocusQuest extension, then reload this page.
           </span>
           <span v-else-if="extension.connection === 'problem'">
             The extension cannot reach the backend. Check that the backend is running.
@@ -259,14 +258,14 @@ async function onConfirmDelete() {
         </p>
         <ErrorMessage :message="extensionError" />
         <div class="settings__actions">
-          <AppButton v-if="extension.connection === 'disconnected'" :loading="extension.working" @click="onConnectExtension">
+          <AppButton v-if="extension.connection === 'disconnected'" size="small" :loading="extension.working" @click="onConnectExtension">
             Connect extension
           </AppButton>
-          <AppButton v-else-if="extension.connection === 'not-installed'" variant="secondary" @click="extension.refresh()">
+          <AppButton v-else-if="extension.connection === 'not-installed'" variant="secondary" size="small" @click="extension.refresh()">
             Check again
           </AppButton>
           <template v-else-if="extension.connection === 'connected' || extension.connection === 'problem'">
-            <AppButton variant="secondary" :loading="extension.working" @click="onConnectExtension">
+            <AppButton variant="link" :disabled="extension.working" @click="onConnectExtension">
               Reconnect
             </AppButton>
             <AppButton variant="link" :disabled="extension.working" @click="onDisconnectExtension">
@@ -318,7 +317,7 @@ async function onConfirmDelete() {
               Export your data
               <InfoTip>Download a JSON file with your sessions, streaks, XP and blocking rules. Use it as a backup.</InfoTip>
             </span>
-            <AppButton variant="secondary" :loading="settings.exporting" @click="onExport">
+            <AppButton variant="secondary" size="small" :loading="settings.exporting" @click="onExport">
               {{ settings.exporting ? 'Exporting…' : 'Export data' }}
             </AppButton>
           </div>
@@ -339,7 +338,7 @@ async function onConfirmDelete() {
               hidden
               @change="onBackupChosen"
             />
-            <AppButton variant="secondary" :loading="settings.restoring" @click="backupInput?.click()">
+            <AppButton variant="secondary" size="small" :loading="settings.restoring" @click="backupInput?.click()">
               {{ settings.restoring ? 'Restoring…' : 'Restore from file' }}
             </AppButton>
           </div>
@@ -353,7 +352,7 @@ async function onConfirmDelete() {
                 active.
               </InfoTip>
             </span>
-            <AppButton variant="danger" :disabled="settings.deleting" @click="confirmingDelete = true">
+            <AppButton variant="danger" size="small" :disabled="settings.deleting" @click="confirmingDelete = true">
               Delete all data
             </AppButton>
           </div>

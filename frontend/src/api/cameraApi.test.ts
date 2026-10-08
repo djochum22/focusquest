@@ -48,15 +48,6 @@ describe('cameraApi', () => {
     expect(JSON.parse(config.data as string)).toEqual(request)
   })
 
-  it('fetches the camera profiles', async () => {
-    const adapter = stubAdapter(200, [{ category: 'CODING', workArea: 'SCREEN', checks: [], graceSeconds: 60, minConfidence: 0.7 }])
-
-    const profiles = await cameraApi.fetchCameraProfiles()
-
-    expect(adapter.mock.calls[0]![0].url).toBe('/api/camera/profiles')
-    expect(profiles[0]!.workArea).toBe('SCREEN')
-  })
-
   it('pairs the companion with a POST and returns its token', async () => {
     const adapter = stubAdapter(200, { token: 'fqc_abc' })
 

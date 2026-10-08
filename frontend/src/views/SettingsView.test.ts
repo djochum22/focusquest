@@ -69,7 +69,6 @@ beforeEach(async () => {
   vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(
     { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true,
       companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false, calibration: null } })
-  vi.mocked(cameraApi.fetchCameraProfiles).mockResolvedValue([])
 })
 
 describe('SettingsView', () => {
@@ -380,7 +379,7 @@ describe('SettingsView', () => {
       vi.mocked(bridge.getExtensionState).mockResolvedValue(null)
       const { wrapper } = await mountView()
 
-      expect(wrapper.text()).toContain('The extension was not found')
+      expect(wrapper.text()).toContain('Install the FocusQuest extension, then reload this page.')
       expect(button(wrapper, 'Check again')).toBeDefined()
       wrapper.unmount()
     })
