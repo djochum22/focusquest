@@ -1,47 +1,60 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { disconnectExtension, getExtensionState, notifyExtensionOfChange, sendTokenToExtension } from './extensionBridge'
 
-type Responder = (message: unknown, callback: (response: unknown) => void) => void
+type Responder = (message: unknown) => unknown
 
-/** Installs a fake `chrome.runtime`; `lastError` is set for the duration of the callback, as Chrome does. */
-function installChrome(responder: Responder, lastError?: { message: string }) {
-  const runtime = {
-    lastError: undefined as { message?: string } | undefined,
-    sendMessage: vi.fn((_id: string, message: unknown, callback: (response: unknown) => void) => {
-      responder(message, (response) => {
-        runtime.lastError = lastError
-        callback(response)
-        runtime.lastError = undefined
-      })
-    }),
+let stopFake: (() => void) | undefined
+
+/**
+ * Delivers a message as a browser does when the content script posts it: from this window and origin.
+ * jsdom's own postMessage leaves both empty, which the bridge rightly ignores.
+ */
+function answer(data: unknown, from: { source?: Window | null; origin?: string } = {}) {
+  const event = new MessageEvent('message', {
+    data,
+    source: from.source === undefined ? window : from.source,
+    origin: from.origin ?? window.location.origin,
+  })
+  setTimeout(() => window.dispatchEvent(event))
+}
+
+/**
+ * Stands in for the extension's content script: marks the page, and answers each request with what
+ * `responder` returns (undefined: no answer at all), as if `from` there. Returns the messages it received.
+ */
+function installExtension(responder: Responder, from: Parameters<typeof answer>[1] = {}) {
+  const received: unknown[] = []
+  document.documentElement.setAttribute('data-focusquest-extension', 'ready')
+  const onMessage = (event: MessageEvent) => {
+    const data = event.data as { source?: string; id?: string; message?: unknown }
+    if (data?.source !== 'focusquest-web-app') return
+    received.push(data.message)
+    const response = responder(data.message)
+    if (response !== undefined) answer({ source: 'focusquest-extension', id: data.id, response }, from)
   }
-  vi.stubGlobal('chrome', { runtime })
-  return runtime
+  window.addEventListener('message', onMessage)
+  stopFake = () => window.removeEventListener('message', onMessage)
+  return received
 }
 
 afterEach(() => {
-  vi.unstubAllGlobals()
+  stopFake?.()
+  stopFake = undefined
+  document.documentElement.removeAttribute('data-focusquest-extension')
   vi.useRealTimers()
 })
 
 describe('extensionBridge', () => {
-  it('reports null when the page has no chrome.runtime (other browsers, or an extension that does not trust the page)', async () => {
-    vi.stubGlobal('chrome', undefined)
-    expect(await getExtensionState()).toBeNull()
-
-    vi.stubGlobal('chrome', {})
-    expect(await getExtensionState()).toBeNull()
-  })
-
-  it('reports null when the extension is not installed', async () => {
-    installChrome((_m, done) => done(undefined), { message: 'Could not establish connection.' })
+  it('reports null at once when no extension marked the page (none installed, or it does not trust this origin)', async () => {
+    const postMessage = vi.spyOn(window, 'postMessage')
 
     expect(await getExtensionState()).toBeNull()
+    expect(postMessage).not.toHaveBeenCalled()
   })
 
   it('reports null when the extension never answers', async () => {
+    installExtension(() => undefined)
     vi.useFakeTimers()
-    installChrome(() => {})
 
     const pending = getExtensionState()
     await vi.advanceTimersByTimeAsync(5000)
@@ -50,28 +63,49 @@ describe('extensionBridge', () => {
   })
 
   it('reads the extension\'s state', async () => {
-    const runtime = installChrome((_m, done) => done({ ok: true, hasToken: true, status: 'ok' }))
+    const received = installExtension(() => ({ ok: true, hasToken: true, status: 'ok' }))
 
     expect(await getExtensionState()).toEqual({ hasToken: true, status: 'ok' })
-    expect(runtime.sendMessage).toHaveBeenCalledWith(
-      'heccfmagjlcnoaodleaclgbbdlpibphf',
-      { type: 'focusquest.status' },
-      expect.any(Function),
-    )
+    expect(received).toEqual([{ type: 'focusquest.status' }])
   })
 
   it('sends the token and returns how the extension\'s first check-in went', async () => {
-    const runtime = installChrome((_m, done) => done({ ok: true, hasToken: true, status: 'unauthorized' }))
+    const received = installExtension(() => ({ ok: true, hasToken: true, status: 'unauthorized' }))
 
     expect(await sendTokenToExtension('fqx_abc')).toEqual({ hasToken: true, status: 'unauthorized' })
-    expect(runtime.sendMessage.mock.calls[0]![1]).toEqual({ type: 'focusquest.connect', token: 'fqx_abc' })
+    expect(received).toEqual([{ type: 'focusquest.connect', token: 'fqx_abc' }])
   })
 
-  it('asks the extension to check in after a change, without waiting for an answer', () => {
-    const runtime = installChrome(() => {})   // never answers
+  it.each([
+    ['another origin', { origin: 'https://evil.example' }],
+    ['a frame', { source: null }],
+  ])('ignores an answer from %s', async (_name, from) => {
+    installExtension(() => ({ ok: true, hasToken: true, status: 'ok' }), from)
+    vi.useFakeTimers()
+
+    const pending = getExtensionState()
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(await pending).toBeNull()
+  })
+
+  it('matches each answer to its own request', async () => {
+    installExtension((message) => {
+      const connecting = (message as { type: string }).type === 'focusquest.connect'
+      return { ok: true, hasToken: connecting, status: connecting ? 'ok' : 'signed-out' }
+    })
+
+    const [state, connected] = await Promise.all([getExtensionState(), sendTokenToExtension('fqx_abc')])
+
+    expect(state).toEqual({ hasToken: false, status: 'signed-out' })
+    expect(connected).toEqual({ hasToken: true, status: 'ok' })
+  })
+
+  it('asks the extension to check in after a change, without waiting for an answer', async () => {
+    const received = installExtension(() => undefined) // never answers
 
     expect(notifyExtensionOfChange()).toBeUndefined()
-    expect(runtime.sendMessage.mock.calls[0]![1]).toEqual({ type: 'focusquest.sync' })
+    await vi.waitFor(() => expect(received).toEqual([{ type: 'focusquest.sync' }]))
   })
 
   it('notifies quietly when there is no extension to tell', () => {
@@ -79,20 +113,20 @@ describe('extensionBridge', () => {
   })
 
   it('asks the extension to disconnect', async () => {
-    const runtime = installChrome((_m, done) => done({ ok: true, hasToken: false, status: 'signed-out' }))
+    const received = installExtension(() => ({ ok: true, hasToken: false, status: 'signed-out' }))
 
     expect(await disconnectExtension()).toEqual({ hasToken: false, status: 'signed-out' })
-    expect(runtime.sendMessage.mock.calls[0]![1]).toEqual({ type: 'focusquest.disconnect' })
+    expect(received).toEqual([{ type: 'focusquest.disconnect' }])
   })
 
   it('throws the extension\'s reason when it refuses', async () => {
-    installChrome((_m, done) => done({ ok: false, error: 'Not allowed' }))
+    installExtension(() => ({ ok: false, error: 'Not allowed' }))
 
     await expect(sendTokenToExtension('fqx_abc')).rejects.toThrow('Not allowed')
   })
 
   it('throws when the answer is not what was expected', async () => {
-    installChrome((_m, done) => done({ ok: true }))
+    installExtension(() => ({ ok: true }))
 
     await expect(getExtensionState()).rejects.toThrow(/unexpected/)
   })

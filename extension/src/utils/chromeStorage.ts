@@ -1,7 +1,8 @@
 // Typed access to chrome.storage.local. Local storage (not session) is used deliberately: it
 // survives a browser restart, which is what lets blocking be restored without the network.
 //
-// The extension registers no content scripts, so nothing running in a website can read these keys.
+// Only extension code reads these keys. The one content script, the web app bridge, never touches them, and
+// page scripts cannot reach its isolated world.
 
 import type { BlockingSnapshot, SyncHealth } from '../types/blocking'
 

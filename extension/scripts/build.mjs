@@ -4,7 +4,7 @@
 //
 // The end-to-end suite builds a copy pointed at its own ports with these environment variables:
 //   FOCUSQUEST_BACKEND_URL    backend base URL (default http://127.0.0.1:8080)
-//   FOCUSQUEST_FRONTEND_URL   web app origin; also the only origin allowed to message the extension
+//   FOCUSQUEST_FRONTEND_URL   web app origin; also the only origin the bridge runs on and is trusted from
 //   FOCUSQUEST_OUT_DIR        output folder (default dist/)
 import { build, context } from 'esbuild'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
@@ -35,9 +35,16 @@ const options = {
   },
 }
 
+// A content script cannot be an ES module, so the bridge is built on its own as a plain script.
+const contentOptions = {
+  ...options,
+  entryPoints: { 'content/webAppBridge': path.join(root, 'src/content/webAppBridgeScript.ts') },
+  format: 'iife',
+}
+
 async function copyStatic() {
   const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'))
-  if (frontendUrl) manifest.externally_connectable.matches = [`${new URL(frontendUrl).origin}/*`]
+  if (frontendUrl) manifest.content_scripts[0].matches = [`${new URL(frontendUrl).origin}/*`]
   await mkdir(dist, { recursive: true })
   await writeFile(path.join(dist, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
   for (const [page, files] of [
@@ -53,11 +60,11 @@ async function copyStatic() {
 
 await rm(dist, { recursive: true, force: true })
 if (watch) {
-  const ctx = await context(options)
-  await ctx.watch()
+  const contexts = await Promise.all([context(options), context(contentOptions)])
+  await Promise.all(contexts.map((ctx) => ctx.watch()))
   await copyStatic()
   console.log('watching for changes (static files are copied once; re-run to refresh them)')
 } else {
-  await build(options)
+  await Promise.all([build(options), build(contentOptions)])
   await copyStatic()
 }

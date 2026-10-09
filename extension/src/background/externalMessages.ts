@@ -1,7 +1,7 @@
 // Lets the FocusQuest web app connect the extension without the user copying anything. The web app
-// (the only origins Chrome lets message us; see externally_connectable in the manifest) sends the
-// extension token it got from the backend, and we store it. It is checked again here, so widening the
-// manifest by mistake would not let another site sign the extension in.
+// (through the bridge, content/webAppBridge.ts, which runs only on its origins) sends the extension
+// token it got from the backend, and we store it. The origin is checked again here, so widening the
+// manifest's content_scripts by mistake would not let another site sign the extension in.
 //
 // The web app also sends `focusquest.sync` after every session or rule change, so blocking follows
 // at once instead of at the next 30-second alarm. It only triggers a check-in with the backend,

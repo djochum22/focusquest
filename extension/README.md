@@ -98,13 +98,15 @@ How it works, and why it is safe to leave connected:
   backend stores only as a hash. It never expires, survives backend restarts, and can only call the
   three `/api/extension` endpoints: it cannot start sessions, read history or delete data.
   Reconnecting replaces it, and disconnecting or deleting all data revokes it.
-- The web app reaches the extension through `externally_connectable` (see `manifest.json`), which is
-  limited to the web app's origins: `http://localhost:8080`, `http://127.0.0.1:8080` and the dev server's
-  `http://localhost:5173`. The extension checks the sender's origin again and accepts only
-  tokens starting `fqx_`.
-- The manifest carries a public `key`, which makes the extension's id
-  `heccfmagjlcnoaodleaclgbbdlpibphf` on every machine, so the web app can find it. To use a different
-  id (for example a store build), set `VITE_EXTENSION_ID` for the web app.
+- The web app reaches the extension through a small content script, the bridge
+  (`src/content/webAppBridge.ts`), which runs only on the web app's origins: `http://localhost:8080`,
+  `http://127.0.0.1:8080` and the dev server's `http://localhost:5173`. The page posts its request with
+  `window.postMessage`, the bridge passes it to the service worker and posts the answer back. This works
+  in every browser, unlike Chrome's `externally_connectable`, which it replaces. The service worker checks
+  the page's origin again and accepts only tokens starting `fqx_`.
+- The bridge marks the page (`data-focusquest-extension` on `<html>`), so the web app knows at once
+  whether an extension is listening. When the extension is installed or reloaded, it adds the bridge to
+  web app tabs that are already open, so they need no reload.
 
 The toolbar badge shows the state at a glance: nothing when all is well, a red **!** when the
 extension is not connected (sites are not blocked until it is), and a grey **?** when it cannot reach
@@ -202,13 +204,16 @@ worker**). Tokens are never logged.
 | `webNavigation` | The navigation guard (single-page navigations, URL spellings) |
 | `storage` | Extension token, synchronized state, sync health |
 | `alarms` | The 30-second sync, which survives the worker being shut down |
+| `scripting` | Adds the bridge to web app tabs already open when the extension is installed or reloaded |
 
-`externally_connectable` lets only the web app's origins (`WEB_APP_ORIGINS` in `src/utils/config.ts`) message the extension, which is
-how it hands over the token. The manifest's `action` adds the toolbar button, badge and popup.
+`content_scripts` runs the bridge on the web app's origins only (`WEB_APP_ORIGINS` in
+`src/utils/config.ts`, which must match), which is how the web app hands over the token. The manifest's
+`action` adds the toolbar button, badge and popup.
 
 `web_accessible_resources` exposes only the blocked page, to http(s) pages, because a redirect from a
-website to an extension page requires it. The extension has no content scripts, so the token is never
-reachable from website code.
+website to an extension page requires it. The bridge is the only content script and runs only on the
+web app's own pages. It keeps nothing, and page scripts cannot reach its isolated world, so the token
+is never reachable from website code.
 
 ## Follow-up work
 

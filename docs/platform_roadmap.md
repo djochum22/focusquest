@@ -12,7 +12,16 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 **Where things stand (9 October 2026).** Steps 1 and 2 are committed. The user checked both by hand: step 1 under `bootRun`, step 2 with `docker compose up` on :8080 (account setup, the extension connected and blocking, data and sign-in surviving `docker compose restart`). OrbStack is installed (if `docker info` fails, `orb start`), and the user's `.env` holds a generated secret.
 
-**Under way: step 3, every browser.** Start with the bridge (see "Later steps", step 3).
+**Under way: step 3, every browser.** Part 1, the bridge, is committed; the user checked it by hand in Chrome (connected on reload, blocking, "not installed" at once with the extension off). What it is:
+- `extension/src/content/webAppBridge.ts` (the relay, tested in `tests/webAppBridge.test.ts`) and `webAppBridgeScript.ts` (the content script entry, built as a plain script by `scripts/build.mjs`).
+- The manifest: `content_scripts` on the three web app origins at `document_start`, in place of `externally_connectable`, and the `scripting` permission.
+- The service worker takes the bridge's messages through `runtime.onMessage`, checks the page's origin as before (`handleExternalMessage`), and on install adds the bridge to web app tabs already open.
+- `frontend/src/utils/extensionBridge.ts` posts to the page and waits for the matching reply. With no `data-focusquest-extension` mark it reports "not installed" at once. `VITE_EXTENSION_ID` is gone. The manifest `key` stays: it keeps the id stable, and the backend's CORS list still names it.
+- Docs: `extension/README.md`, `docs/technical_architecture.md`.
+- All suites pass, end-to-end included.
+- Remember: the web app on :8080 is the build from when that copy started. After a web app change, `docker compose up -d --build`, or restart `bootRun`. (The first hand check failed only because the container still served the old web app.)
+
+Next in step 3: the API namespace (`browser ?? chrome`), the Firefox manifest and build, then the options page for the backend address, then Safari.
 
 `.vscode/settings.json` stays out of the commits: VS Code's Java extension changed it on its own.
 

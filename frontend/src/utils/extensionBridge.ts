@@ -1,10 +1,14 @@
 /**
- * Talks to the FocusQuest Chrome extension from the page, so the user never copies a token by hand.
+ * Talks to the FocusQuest browser extension from the page, so the user never copies a token by hand.
  *
- * Chrome only lets a page message an extension that lists the page's origin under
- * `externally_connectable` in its manifest, and only exposes `chrome.runtime` to such a page. So when
- * the extension is not installed, or does not trust this origin, every call here reports "not reachable"
- * (null) rather than failing.
+ * The extension runs a content script on the web app's own origins (extension/src/content/webAppBridge.ts)
+ * that marks <html> with `data-focusquest-extension` and relays what this page posts with
+ * window.postMessage to the extension, posting the answer back. That works in every browser. When the
+ * mark is missing (no extension, or one that does not trust this origin) every call here reports "not
+ * reachable" (null) at once rather than failing; an extension that marked the page but does not answer
+ * is reported the same way after a few seconds.
+ *
+ * The envelopes must match the extension's webAppBridge.ts.
  */
 
 /** What the extension's service worker reports about its own connection. */
@@ -15,41 +19,33 @@ export interface ExtensionState {
   status: 'never-synced' | 'ok' | 'signed-out' | 'unauthorized' | 'offline' | 'error'
 }
 
-/** The id the extension's pinned manifest key produces (see extension/manifest.json). */
-const DEFAULT_EXTENSION_ID = 'heccfmagjlcnoaodleaclgbbdlpibphf'
-
+const PRESENCE_ATTRIBUTE = 'data-focusquest-extension'
 const REPLY_TIMEOUT_MS = 4000
 
-interface ChromeRuntime {
-  sendMessage(extensionId: string, message: unknown, callback: (response: unknown) => void): void
-  lastError?: { message?: string }
-}
-
-function runtime(): ChromeRuntime | undefined {
-  return (globalThis as { chrome?: { runtime?: ChromeRuntime } }).chrome?.runtime
-}
-
-function extensionId(): string {
-  return import.meta.env.VITE_EXTENSION_ID ?? DEFAULT_EXTENSION_ID
-}
+let lastRequestId = 0
 
 /** Resolves to the extension's reply, or null when the extension cannot be reached. */
 function send(message: unknown): Promise<unknown> {
-  const chromeRuntime = runtime()
-  if (!chromeRuntime?.sendMessage) return Promise.resolve(null)
+  if (typeof window === 'undefined' || !document.documentElement.hasAttribute(PRESENCE_ATTRIBUTE)) {
+    return Promise.resolve(null)
+  }
+  const id = `${Date.now()}-${++lastRequestId}`
+  const origin = window.location.origin
 
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), REPLY_TIMEOUT_MS)
-    try {
-      chromeRuntime.sendMessage(extensionId(), message, (response) => {
-        clearTimeout(timer)
-        // Reading lastError acknowledges it; an uninstalled extension shows up here.
-        resolve(chromeRuntime.lastError ? null : response)
-      })
-    } catch {
+    const finish = (response: unknown) => {
       clearTimeout(timer)
-      resolve(null)
+      window.removeEventListener('message', onMessage)
+      resolve(response)
     }
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== origin) return
+      const data = event.data as { source?: unknown; id?: unknown; response?: unknown } | null
+      if (data?.source === 'focusquest-extension' && data.id === id) finish(data.response ?? null)
+    }
+    const timer = setTimeout(() => finish(null), REPLY_TIMEOUT_MS)
+    window.addEventListener('message', onMessage)
+    window.postMessage({ source: 'focusquest-web-app', id, message }, origin)
   })
 }
 
