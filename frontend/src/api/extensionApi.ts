@@ -7,7 +7,7 @@ export interface ExtensionToken {
   createdAt: string
 }
 
-/** Issues the token the Chrome extension signs in with. Any earlier one stops working. */
+/** Issues the token the browser extension signs in with. Any earlier one stops working. */
 export async function issueExtensionToken(): Promise<ExtensionToken> {
   const { data } = await apiClient.post<ExtensionToken>('/api/auth/extension-token')
   return data

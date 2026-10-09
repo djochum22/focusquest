@@ -236,7 +236,7 @@ async function onConfirmDelete() {
         </form>
       </SettingsSection>
 
-      <SettingsSection title="Chrome extension">
+      <SettingsSection title="Browser extension">
         <template #summary>
           <span :class="{ 'settings__ok': extension.connection === 'connected' }">{{ EXTENSION_SUMMARY[extension.connection] }}</span>
         </template>
@@ -326,7 +326,7 @@ async function onConfirmDelete() {
             <span class="settings__data-name">
               Restore from a backup
               <InfoTip>
-                Replace everything in FocusQuest with an exported file. Your sign-in and Chrome extension
+                Replace everything in FocusQuest with an exported file. Your sign-in and browser extension
                 connection stay as they are. Restoring is not possible while website blocking is active.
               </InfoTip>
             </span>

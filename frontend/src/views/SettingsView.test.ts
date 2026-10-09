@@ -75,7 +75,7 @@ describe('SettingsView', () => {
   it('shows each area as a closed row with its status, opening on click', async () => {
     const { wrapper } = await mountView()
     const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())
-    expect(titles).toEqual(['Account', 'Chrome extension', 'Camera verification', 'Session history', 'Your data'])
+    expect(titles).toEqual(['Account', 'Browser extension', 'Camera verification', 'Session history', 'Your data'])
     const account = section(wrapper, 'Account')
     const row = account.get('button[aria-expanded]')
     expect(row.attributes('aria-expanded')).toBe('false')
@@ -347,7 +347,7 @@ describe('SettingsView', () => {
     wrapper.unmount()
   })
 
-  describe('Chrome extension', () => {
+  describe('Browser extension', () => {
     // The app shell connects an unconnected extension by itself; these tests are about the buttons.
     beforeEach(() => setAutoConnectOff(true))
 

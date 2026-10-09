@@ -26,7 +26,7 @@ function classify(state: ExtensionState | null): ExtensionConnection {
 }
 
 /**
- * The Chrome extension's link to this account. Connecting issues a long-lived token limited to the
+ * The browser extension's link to this account. Connecting issues a long-lived token limited to the
  * extension's own endpoints and passes it straight to the extension, which is the only place it is kept.
  * Actions that the user asked for throw on failure so the view can show it.
  */

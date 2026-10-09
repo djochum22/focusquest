@@ -28,7 +28,7 @@ export async function openSettingsSection(page: Page, title: string): Promise<vo
 export async function expectExtensionConnected(page: Page): Promise<void> {
   await page.goto(`${FRONTEND_URL}/settings`)
   // The closed row already says how the extension is doing.
-  await expect(page.getByRole('button', { name: /^Chrome extension/ })).toContainText('Connected')
+  await expect(page.getByRole('button', { name: /^Browser extension/ })).toContainText('Connected')
 }
 
 export async function addBlockedSite(page: Page, site = SITE_HOST): Promise<void> {
