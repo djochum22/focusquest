@@ -10,25 +10,43 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 ## Start here
 
-**Where things stand (9 October 2026, end of day).**
-- Steps 1 (one origin) and 2 (container) are committed, and so is step 3's first part, the bridge (`45aa0e0`).
-- Step 3's second part, **Firefox, is committed**. The user checked it in Firefox 157, after the port fix ("Step 3 so far", part 2). The rename of "Chrome extension" to "Browser extension" in the web app is its own commit after it.
-- All suites pass, end-to-end included. The container on :8080 is current.
+**Where things stand (9 October 2026, end of day).** Step 3 is done except Safari:
 
-**First thing next time: go on with step 3.**
-1. **The options page for the backend address** (see "Later steps", step 3). Bear in mind that Firefox's match patterns cannot name a port, so a content script registered at run time for another address has the same limit; the bridge's own origin check covers it.
-2. **Safari**, which goes into the step 4 Mac app.
-3. **Edge and Brave** by hand (load `dist/` unpacked).
-4. **A decision for the user, later:** a temporary Firefox add-on is gone after each restart. Using Firefox every day needs either Mozilla's signing (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public) or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
-5. **Optional:** the backend comments and the docs still say "Chrome extension".
+| Commit | What |
+| --- | --- |
+| `45aa0e0` | The bridge: a content script in place of `externally_connectable` |
+| `fd19bb7` | The Firefox build, checked by the user in Firefox 157 |
+| `7522901` | "Browser extension" in place of "Chrome extension" in the web app |
+| `95b33d7` | The options page: the FocusQuest address |
+
+All suites pass, end-to-end included. The container on :8080 is current. Nothing is uncommitted but `.vscode/settings.json`.
+
+**Waiting on the user:**
+
+1. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
+   1. Click the toolbar icon, then **Change the FocusQuest address**.
+   2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
+   3. Open http://localhost:8080 and check Settings shows **Browser extension: Connected** again. The extension is signed out on each change and reconnects by itself.
+
+   Not yet checked: a real sync through another address while connected. The unit tests cover where the calls go, and the browser checks ran without an account.
+2. **Camera labelling** (C1d, 20 to 30 minutes). **Still not done** on 9 October 2026: `~/Documents/FocusQuest/` has no label files. No camera code can go on until it is done. The steps are in `docs/camera_roadmap.md`, "To do later, by the user: label": calibrate first (Settings, **Calibrate**), then run `.venv/bin/focusquest-companion label --category CODING` from `vision/` for each part. Then tell Claude where the files are, to build step 2, the `accuracy` command.
+3. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
+
+**Next for Claude (only after the user says go):**
+
+1. **Safari** (the last of step 3). Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
+2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
+3. **Step 4, the Tauri desktop app** (see "Later steps"). It slips first if time runs short.
+4. Optional: the backend comments and the docs still say "Chrome extension".
 
 **Checking Firefox again** (about 10 minutes): `cd extension && npm run build:firefox`; in Firefox open `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on…**, choose `extension/dist-firefox/manifest.json` (or **Reload** if loaded); open http://localhost:8080, sign in, and check Settings shows **Connected**, that a blocked site is blocked, and that the toolbar popup opens. On trouble, see the add-on's console (**Inspect** in `about:debugging`) and the tab's console.
 
-**Remember:** the web app on :8080 is whatever was built when that copy started. After a web app or backend change, `docker compose up -d --build`, or restart `bootRun`. Only `npm run dev` (:5173) picks changes up live.
+**Testing in a real browser without the user** (how the Firefox port bug and the options page were checked): Firefox runs headless with `--remote-debugging-port` (add `--remote-allow-system-access` to reach extension pages) and takes `webExtension.install` over WebDriver BiDi; Chromium through Playwright's `launchPersistentContext` with `--load-extension`, as in `e2e/support/fixtures.ts`. A small Node proxy on another port gives the web app a second address.
 
-`.vscode/settings.json` stays out of every commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
-
-**Also waiting on the user: camera labelling** (C1d; see `docs/camera_roadmap.md`, "To do later, by the user: label"). It takes 20 to 30 minutes, and no camera code can go on until it is done. C1d step 2 (the `accuracy` command) comes after the desktop app, or whenever the labels are in.
+**Remember:**
+- The web app on :8080 is whatever was built when that copy started. After a web app or backend change, `docker compose up -d --build` (if `docker info` fails, `orb start` first), or restart `bootRun`. Only `npm run dev` (:5173) picks changes up live.
+- Firefox's match patterns cannot name a port: one that does installs without complaint and never matches.
+- `.vscode/settings.json` stays out of every commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
 
 ## The two-week goal (from 8 October 2026)
 
@@ -45,7 +63,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge and Firefox done; options page and Safari open |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
 | 4 | Tauri desktop app, with Mac app blocking | Open |
 
 ## Done: step 1, one app, one origin
@@ -113,6 +131,13 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - `web-ext` is a dev dependency: `npm run lint:firefox` (0 errors; one warning about Firefox for Android, not a target) and `npm run package:firefox`.
 - The backend refused `moz-extension://` and `safari-web-extension://` origins (403). `CorsConfig` now admits them by pattern on `/api/extension/**` only; tested in `SecurityConfigurationIntegrationTest`.
 - Docs: both READMEs (loading in Firefox, signing, private windows).
+
+**Part 3, the options page (`95b33d7`; not yet tried by the user).**
+- One setting, "FocusQuest address", because the backend serves its API and the web app from one origin. `src/utils/address.ts` parses it (`localhost:9000` gives `http://localhost:9000`), stores it in `chrome.storage.local` as `webAppUrl`, and gives the API base, the web app's link and the trusted origins; unset, `config.ts`'s defaults apply.
+- Saving a new address removes the token, so it is never sent to another host; the web app connects again by itself. Failed syncs keep the last snapshot, so blocking does not end.
+- `src/background/bridgeRegistration.ts` registers the bridge for the address with `chrome.scripting.registerContentScripts`, unless a manifest pattern already covers it (in Firefox, any port of localhost). The bridge takes `loadConfiguredOrigin` and marks the page a moment later on that address.
+- The backend client reads the address for each request; the popup links there and has a quiet **Change the FocusQuest address** link; the blocked page links there.
+- Tests: `tests/address.test.ts`, one more in `backendClient.test.ts` and `webAppBridge.test.ts`. Checked by hand in headless Firefox (WebDriver BiDi, with `--remote-allow-system-access` to reach the options page) and in Playwright's Chromium, against a proxy on :8090: the bridge answers there after saving, still on :8080, and not on an unrelated page; "Use this computer" removes the registration.
 
 **Decided 9 October 2026:** the extension's backend address in an options page moved here from step 2. Before the bridge, `externally_connectable` fixed the web app's origins in the manifest, so an extension pointed elsewhere could not be connected; and with each computer running its own copy on 127.0.0.1:8080, nothing needs it yet.
 
