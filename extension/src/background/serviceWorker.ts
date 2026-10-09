@@ -1,10 +1,12 @@
 // Service worker entry point. Event listeners are registered synchronously at the top level, as
 // Manifest V3 requires, so that Chrome can wake the worker for them.
 
-import { SYNC_PERIOD_MINUTES, WEB_APP_BRIDGE_SCRIPT, WEB_APP_ORIGINS } from '../utils/config'
+import { loadWebAppOrigins } from '../utils/address'
+import { SYNC_PERIOD_MINUTES, WEB_APP_BRIDGE_SCRIPT } from '../utils/config'
 import { getItem, onItemChanged, removeItem, setItem } from '../utils/chromeStorage'
 import { logger } from '../utils/logger'
 import { createBackendClient } from './backendClient'
+import { syncBridgeRegistration } from './bridgeRegistration'
 import { loadSyncHealth } from './blockingStateStore'
 import { isBridgedMessage } from '../content/webAppBridge'
 import { handleExternalMessage } from './externalMessages'
@@ -48,18 +50,32 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // Signing the extension in (or out) by writing the token to storage triggers a sync right away.
 onItemChanged('token', () => void synchronizer.sync('token-changed'))
 
+// A new address on the options page: run the bridge there. Saving it also signed the extension out.
+onItemChanged('webAppUrl', () => void updateBridgeRegistration())
+
+async function updateBridgeRegistration(): Promise<void> {
+  try {
+    await syncBridgeRegistration()
+  } catch (error) {
+    logger.warn('Could not run the bridge on the FocusQuest address', error)
+  }
+}
+
 // The web app connects the extension by sending it a token (see externalMessages.ts). Its requests come
 // through the content script on its pages (content/webAppBridge.ts), so the origin checked is the page's.
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id || sender.tab === undefined || !isBridgedMessage(message)) return false
-  void handleExternalMessage(message.message, senderOrigin(sender), {
-    allowedOrigins: WEB_APP_ORIGINS,
-    getToken: () => getItem('token'),
-    setToken: (token) => setItem('token', token),
-    removeToken: () => removeItem('token'),
-    sync: (reason) => synchronizer.sync(reason),
-    getStatus: async () => (await loadSyncHealth()).status,
-  })
+  void loadWebAppOrigins()
+    .then((allowedOrigins) =>
+      handleExternalMessage(message.message, senderOrigin(sender), {
+        allowedOrigins,
+        getToken: () => getItem('token'),
+        setToken: (token) => setItem('token', token),
+        removeToken: () => removeItem('token'),
+        sync: (reason) => synchronizer.sync(reason),
+        getStatus: async () => (await loadSyncHealth()).status,
+      }),
+    )
     .then(sendResponse)
     .catch(() => sendResponse({ ok: false, error: 'The extension could not handle that request' }))
   return true // the response is sent asynchronously
@@ -79,7 +95,7 @@ function senderOrigin(sender: chrome.runtime.MessageSender): string | undefined 
  * web app tab already open would find no extension until reloaded. Add the bridge to those tabs now.
  */
 async function addBridgeToOpenTabs(): Promise<void> {
-  const tabs = await chrome.tabs.query({ url: WEB_APP_ORIGINS.map((origin) => `${origin}/*`) })
+  const tabs = await chrome.tabs.query({ url: (await loadWebAppOrigins()).map((origin) => `${origin}/*`) })
   for (const tab of tabs) {
     if (tab.id === undefined) continue
     await chrome.scripting
@@ -99,5 +115,6 @@ registerOpenTabGuard()
 
 // Runs each time the worker starts, whatever woke it.
 void ensureSyncAlarm()
+void updateBridgeRegistration()
 void synchronizer.sync('worker-wake')
 void refreshBadge()

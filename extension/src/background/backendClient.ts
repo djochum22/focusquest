@@ -8,7 +8,8 @@ import type {
   HeartbeatRequest,
   HeartbeatResponse,
 } from '../types/api'
-import { BACKEND_BASE_URL, REQUEST_TIMEOUT_MS } from '../utils/config'
+import { loadBackendUrl } from '../utils/address'
+import { REQUEST_TIMEOUT_MS } from '../utils/config'
 import { getItem } from '../utils/chromeStorage'
 
 export type BackendErrorKind =
@@ -41,6 +42,7 @@ export interface BackendClient {
 }
 
 export interface BackendClientOptions {
+  /** Defaults to the FocusQuest address, read for each request so a change applies at once. */
   baseUrl?: string
   /** Where the bearer token comes from; defaults to chrome.storage. */
   getToken?: () => Promise<string | undefined>
@@ -49,7 +51,6 @@ export interface BackendClientOptions {
 }
 
 export function createBackendClient(options: BackendClientOptions = {}): BackendClient {
-  const baseUrl = options.baseUrl ?? BACKEND_BASE_URL
   const getToken = options.getToken ?? (() => getItem('token'))
   const fetchFn = options.fetchFn ?? ((input, init) => fetch(input, init))
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS
@@ -61,6 +62,7 @@ export function createBackendClient(options: BackendClientOptions = {}): Backend
     const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: 'application/json' }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
 
+    const baseUrl = options.baseUrl ?? (await loadBackendUrl())
     let response: Response
     try {
       response = await fetchFn(`${baseUrl}${path}`, {

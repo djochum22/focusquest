@@ -21,6 +21,23 @@ async function failureOf(promise: Promise<unknown>): Promise<BackendError> {
 }
 
 describe('backend client', () => {
+  it('calls the FocusQuest address set on the options page, read for each request', async () => {
+    const stored: Record<string, unknown> = { webAppUrl: 'http://mymac.local:9000' }
+    vi.stubGlobal('chrome', { storage: { local: { get: async (key: string) => ({ [key]: stored[key] }) } } })
+    const fetchFn = vi.fn().mockImplementation(async () => jsonResponse({ enforcementActive: false }))
+    const defaultClient = createBackendClient({ getToken: async () => 'secret-token', fetchFn })
+
+    await defaultClient.getBlockingState()
+    stored.webAppUrl = undefined
+    await defaultClient.getBlockingState()
+    vi.unstubAllGlobals()
+
+    expect(fetchFn.mock.calls.map(([url]) => url)).toEqual([
+      'http://mymac.local:9000/api/extension/blocking-state',
+      'http://127.0.0.1:8080/api/extension/blocking-state',
+    ])
+  })
+
   it('sends the bearer token on every request', async () => {
     const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ enforcementActive: false }))
     await client(fetchFn).getBlockingState()

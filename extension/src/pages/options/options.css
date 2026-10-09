@@ -1,0 +1,104 @@
+:root {
+  /* Mallard palette, matching the web app and the popup. */
+  --bg: #fffcf7;
+  --text: #3e2723;
+  --muted: #6b5242;
+  --line: #d9cbbb;
+  --accent: #006b3f;
+  --accent-text: #ffffff;
+  --ok: #2e6b2b;
+  --bad: #a3321e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a201d;
+    --text: #f1f2ee;
+    --muted: #b6bbb5;
+    --line: #3b4540;
+    --accent: #4cc38a;
+    --accent-text: #0b1410;
+    --ok: #a5d67a;
+    --bad: #f5a48e;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+}
+
+.muted {
+  margin: 2px 0 8px;
+  color: var(--muted);
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.button {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.result {
+  min-height: 1.4em;
+  margin: 10px 0 0;
+}
+
+.result[data-tone='ok'] {
+  color: var(--ok);
+}
+
+.result[data-tone='bad'] {
+  color: var(--bad);
+}
+
+.result a {
+  color: inherit;
+}

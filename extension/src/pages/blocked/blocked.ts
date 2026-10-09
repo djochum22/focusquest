@@ -9,8 +9,8 @@ import { createBackendClient } from '../../background/backendClient'
 import { loadSnapshot, loadSyncHealth } from '../../background/blockingStateStore'
 import type { CurrentSessionResponse } from '../../types/api'
 import type { SyncHealth } from '../../types/blocking'
+import { loadWebAppUrl } from '../../utils/address'
 import { blockedUrlFromHash } from '../../utils/blockedPage'
-import { FRONTEND_URL } from '../../utils/config'
 
 const REFRESH_INTERVAL_MS = 15_000
 
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
   // which Chrome treats as a same-page change; without a reload the old site would stay on show.
   window.addEventListener('hashchange', () => location.reload())
 
-  byId('open-app').setAttribute('href', FRONTEND_URL)
+  byId('open-app').setAttribute('href', await loadWebAppUrl())
   byId('back').addEventListener('click', () => {
     if (history.length > 1) history.back()
     else window.close()

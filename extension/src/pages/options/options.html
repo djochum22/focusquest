@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>FocusQuest options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <form id="form" novalidate>
+      <label for="address">FocusQuest address</label>
+      <p id="hint" class="muted">
+        Where FocusQuest runs. Leave it empty for this computer.
+      </p>
+      <input id="address" type="text" inputmode="url" spellcheck="false" autocomplete="off" />
+      <div class="actions">
+        <button type="submit" class="button">Save</button>
+        <button type="button" id="reset" class="link">Use this computer</button>
+      </div>
+      <p id="result" class="result" role="status"></p>
+    </form>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

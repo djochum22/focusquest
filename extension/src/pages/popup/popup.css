@@ -69,3 +69,11 @@ body {
   text-align: center;
   text-decoration: none;
 }
+
+.link {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}

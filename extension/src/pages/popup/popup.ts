@@ -2,12 +2,13 @@
 // the health the service worker already recorded, so opening it costs no network call.
 
 import { loadSyncHealth } from '../../background/blockingStateStore'
-import { FRONTEND_SETTINGS_URL } from '../../utils/config'
+import { loadWebAppUrl } from '../../utils/address'
 import { describeStatus } from './statusText'
 
 const status = document.getElementById('status')
 const detail = document.getElementById('detail')
 const openApp = document.getElementById('open-app')
+const openOptions = document.getElementById('open-options')
 
 async function main(): Promise<void> {
   const health = await loadSyncHealth()
@@ -18,9 +19,15 @@ async function main(): Promise<void> {
   }
   if (detail) detail.textContent = text.detail
   if (openApp instanceof HTMLAnchorElement) {
-    openApp.href = FRONTEND_SETTINGS_URL
+    openApp.href = `${await loadWebAppUrl()}/settings`
     openApp.textContent = text.tone === 'ok' ? 'Open FocusQuest' : 'Open FocusQuest to connect'
   }
 }
+
+openOptions?.addEventListener('click', (event) => {
+  event.preventDefault()
+  void chrome.runtime.openOptionsPage()
+  window.close()
+})
 
 void main()

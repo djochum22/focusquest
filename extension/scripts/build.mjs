@@ -25,6 +25,7 @@ const options = {
     'background/serviceWorker': path.join(root, 'src/background/serviceWorker.ts'),
     'pages/blocked/blocked': path.join(root, 'src/pages/blocked/blocked.ts'),
     'pages/popup/popup': path.join(root, 'src/pages/popup/popup.ts'),
+    'pages/options/options': path.join(root, 'src/pages/options/options.ts'),
   },
   outdir: dist,
   bundle: true,
@@ -78,6 +79,7 @@ async function copyStatic() {
   for (const [page, files] of [
     ['blocked', ['blocked.html', 'blocked.css']],
     ['popup', ['popup.html', 'popup.css']],
+    ['options', ['options.html', 'options.css']],
   ]) {
     await mkdir(path.join(dist, 'pages', page), { recursive: true })
     for (const file of files) {

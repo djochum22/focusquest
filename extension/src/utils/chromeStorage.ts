@@ -1,8 +1,8 @@
 // Typed access to chrome.storage.local. Local storage (not session) is used deliberately: it
 // survives a browser restart, which is what lets blocking be restored without the network.
 //
-// Only extension code reads these keys. The one content script, the web app bridge, never touches them, and
-// page scripts cannot reach its isolated world.
+// Only extension code reads these keys. The one content script, the web app bridge, reads only the
+// address, and page scripts cannot reach its isolated world.
 
 import type { BlockingSnapshot, SyncHealth } from '../types/blocking'
 
@@ -12,6 +12,8 @@ interface StorageSchema {
   /** The last enforcement state synchronized from the backend. */
   blockingSnapshot: BlockingSnapshot
   syncHealth: SyncHealth
+  /** The FocusQuest address set on the options page, as an origin (see utils/address.ts). */
+  webAppUrl: string
 }
 
 export type StorageKey = keyof StorageSchema

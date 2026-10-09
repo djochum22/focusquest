@@ -19,6 +19,11 @@
     "default_popup": "pages/popup/popup.html"
   },
 
+  "options_ui": {
+    "page": "pages/options/options.html",
+    "open_in_tab": false
+  },
+
   "content_scripts": [
     {
       "matches": ["http://localhost:8080/*", "http://127.0.0.1:8080/*", "http://localhost:5173/*"],

@@ -130,13 +130,31 @@ How it works, and why it is safe to leave connected:
   Reconnecting replaces it, and disconnecting or deleting all data revokes it.
 - The web app reaches the extension through a small content script, the bridge
   (`src/content/webAppBridge.ts`), which runs only on the web app's origins: `http://localhost:8080`,
-  `http://127.0.0.1:8080` and the dev server's `http://localhost:5173`. The page posts its request with
+  `http://127.0.0.1:8080`, the dev server's `http://localhost:5173`, and the address set on the options
+  page, if any (see below). The page posts its request with
   `window.postMessage`, the bridge passes it to the service worker and posts the answer back. This works
   in every browser, unlike Chrome's `externally_connectable`, which it replaces. The service worker checks
   the page's origin again and accepts only tokens starting `fqx_`.
 - The bridge marks the page (`data-focusquest-extension` on `<html>`), so the web app knows at once
   whether an extension is listening. When the extension is installed or reloaded, it adds the bridge to
   web app tabs that are already open, so they need no reload.
+
+### FocusQuest on another port or computer
+
+The extension expects FocusQuest at http://localhost:8080. If yours runs elsewhere (another
+`FOCUSQUEST_PORT`, or another computer), click the toolbar icon, then **Change the FocusQuest address**
+(or open the extension's options from the browser's extensions page). Type the address, for example
+`localhost:9000` or `http://mymac.local:8080`, and save. Leave it empty to go back to this computer.
+
+- One address covers everything, because the backend serves both its API and the web app: the
+  extension calls the API there, runs the bridge there, and links there from the popup and the
+  blocked page.
+- Saving a new address signs the extension out, so its token is never sent to another host. Open
+  FocusQuest at the new address and it connects the extension again by itself.
+- Blocking stays as it was last synchronized until the new backend says otherwise, so changing the
+  address does not end blocking during a session.
+- The service worker registers the bridge for the new address at run time
+  (`src/background/bridgeRegistration.ts`). Reload a FocusQuest tab that was already open there.
 
 The toolbar badge shows the state at a glance: nothing when all is well, a red **!** when the
 extension is not connected (sites are not blocked until it is), and a grey **?** when it cannot reach
@@ -232,12 +250,15 @@ worker**). Tokens are never logged.
 | `declarativeNetRequest` | Block by redirecting page navigations to the blocked page |
 | `host_permissions: <all_urls>` | Chrome only allows a redirect rule on sites the extension has access to, and this also lets the worker call the local backend |
 | `webNavigation` | The navigation guard (single-page navigations, URL spellings) |
-| `storage` | Extension token, synchronized state, sync health |
+| `storage` | Extension token, synchronized state, sync health, the FocusQuest address |
 | `alarms` | The 30-second sync, which survives the worker being shut down |
-| `scripting` | Adds the bridge to web app tabs already open when the extension is installed or reloaded |
+| `scripting` | Adds the bridge to web app tabs already open when the extension is installed or reloaded, and runs it on the address set on the options page |
 
-`content_scripts` runs the bridge on the web app's origins only (`WEB_APP_ORIGINS` in
-`src/utils/config.ts`, which must match), which is how the web app hands over the token. The manifest's
+`content_scripts` runs the bridge on the web app's default origins only (`WEB_APP_ORIGINS` in
+`src/utils/config.ts`, which must match), which is how the web app hands over the token; another
+address is added at run time. Firefox's match patterns cannot name a port, so there the bridge runs on
+every port of those hosts and checks the page's origin itself before it marks the page. The manifest's
+`options_ui` is the options page with the FocusQuest address. The manifest's
 `action` adds the toolbar button, badge and popup.
 
 `web_accessible_resources` exposes only the blocked page, to http(s) pages, because a redirect from a

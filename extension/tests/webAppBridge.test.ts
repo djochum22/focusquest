@@ -7,6 +7,7 @@ const ORIGIN = 'http://localhost:8080'
 function setup(
   sendToWorker: (message: BridgedMessage) => Promise<unknown> = async () => ({ ok: true }),
   allowedOrigins: readonly string[] = [ORIGIN],
+  configuredOrigin?: string,
 ) {
   const listeners = new Set<(event: MessageEvent) => void>()
   const page = {
@@ -17,13 +18,13 @@ function setup(
   }
   const root = { setAttribute: vi.fn() }
   const worker = vi.fn(sendToWorker)
-  startBridge({ window: page as never, root, allowedOrigins, sendToWorker: worker })
+  const started = startBridge({ window: page as never, root, allowedOrigins, loadConfiguredOrigin: async () => configuredOrigin, sendToWorker: worker })
 
   const dispatch = (data: unknown, overrides: { source?: unknown; origin?: string } = {}) => {
     const event = { data, source: 'source' in overrides ? overrides.source : page, origin: overrides.origin ?? ORIGIN }
     for (const listener of [...listeners]) listener(event as MessageEvent)
   }
-  return { page, root, worker, listeners, dispatch }
+  return { page, root, worker, listeners, dispatch, started }
 }
 
 const request = (id: string, message: unknown = { type: 'focusquest.status' }) => ({ source: 'focusquest-web-app', id, message })
@@ -35,11 +36,21 @@ describe('web app bridge', () => {
     expect(root.setAttribute).toHaveBeenCalledWith(PRESENCE_ATTRIBUTE, 'ready')
   })
 
-  it('does nothing on a page outside the web app, not even marking it', () => {
-    const { root, page } = setup(undefined, ['http://localhost:5173'])
+  it('does nothing on a page outside the web app, not even marking it', async () => {
+    const { root, page, started } = setup(undefined, ['http://localhost:5173'], 'http://mymac.local:8080')
+    await started
 
     expect(root.setAttribute).not.toHaveBeenCalled()
     expect(page.addEventListener).not.toHaveBeenCalled()
+  })
+
+  it('starts on the address set on the options page', async () => {
+    const { root, worker, dispatch, started } = setup(undefined, ['http://localhost:5173'], ORIGIN)
+    await started
+
+    expect(root.setAttribute).toHaveBeenCalledWith(PRESENCE_ATTRIBUTE, 'ready')
+    dispatch(request('1'))
+    expect(worker).toHaveBeenCalled()
   })
 
   it('passes a request to the worker and posts its answer back to the page only', async () => {
