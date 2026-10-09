@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8080'
+// Built, the web app is served by the backend itself, so it calls its own origin. The dev server
+// (npm run dev, on :5173) calls the backend on its own port instead.
+const DEFAULT_BASE_URL = import.meta.env.DEV ? 'http://127.0.0.1:8080' : ''
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BASE_URL,

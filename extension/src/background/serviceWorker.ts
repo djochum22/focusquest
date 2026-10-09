@@ -1,7 +1,7 @@
 // Service worker entry point. Event listeners are registered synchronously at the top level, as
 // Manifest V3 requires, so that Chrome can wake the worker for them.
 
-import { FRONTEND_URL, SYNC_PERIOD_MINUTES } from '../utils/config'
+import { SYNC_PERIOD_MINUTES, WEB_APP_ORIGINS } from '../utils/config'
 import { getItem, onItemChanged, removeItem, setItem } from '../utils/chromeStorage'
 import { logger } from '../utils/logger'
 import { createBackendClient } from './backendClient'
@@ -47,7 +47,7 @@ onItemChanged('token', () => void synchronizer.sync('token-changed'))
 // The web app connects the extension by sending it a token (see externalMessages.ts).
 chrome.runtime.onMessageExternal.addListener((message: unknown, sender, sendResponse) => {
   void handleExternalMessage(message, sender.origin, {
-    allowedOrigin: new URL(FRONTEND_URL).origin,
+    allowedOrigins: WEB_APP_ORIGINS,
     getToken: () => getItem('token'),
     setToken: (token) => setItem('token', token),
     removeToken: () => removeItem('token'),

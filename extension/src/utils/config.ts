@@ -7,9 +7,19 @@ declare const __FOCUSQUEST_FRONTEND_URL__: string | undefined
 export const BACKEND_BASE_URL =
   typeof __FOCUSQUEST_BACKEND_URL__ === 'string' ? __FOCUSQUEST_BACKEND_URL__ : 'http://127.0.0.1:8080'
 
-/** The Vue app, linked from the blocked page so the user can manage the session. */
+/** The Vue app, served by the backend; linked from the blocked page so the user can manage the session. */
 export const FRONTEND_URL =
-  typeof __FOCUSQUEST_FRONTEND_URL__ === 'string' ? __FOCUSQUEST_FRONTEND_URL__ : 'http://localhost:5173'
+  typeof __FOCUSQUEST_FRONTEND_URL__ === 'string' ? __FOCUSQUEST_FRONTEND_URL__ : 'http://localhost:8080'
+
+/**
+ * The origins the web app may message the extension from: the backend's, under either name, and the dev
+ * server's (npm run dev). Must match externally_connectable in the manifest. A build given another web
+ * app URL trusts only that one.
+ */
+export const WEB_APP_ORIGINS: readonly string[] =
+  typeof __FOCUSQUEST_FRONTEND_URL__ === 'string'
+    ? [__FOCUSQUEST_FRONTEND_URL__]
+    : ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173']
 
 /** Where the web app's Settings page lives, where the user connects the extension. */
 export const FRONTEND_SETTINGS_URL = `${FRONTEND_URL}/settings`

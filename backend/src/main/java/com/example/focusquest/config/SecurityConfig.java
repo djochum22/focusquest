@@ -65,6 +65,9 @@ public class SecurityConfig {
                     // Only the paired camera companion program (ROLE_COMPANION) may report what the
                     // camera saw; not even the signed-in web app can, and it reaches nothing else.
                     auth.requestMatchers("/api/companion/**").hasRole("COMPANION");
+                    auth.requestMatchers("/api/**").hasRole("USER");
+                    // The web app's own files and routes (WebAppConfig); everything else still needs a token.
+                    auth.requestMatchers(WebAppConfig::isWebAppRequest).permitAll();
                     auth.anyRequest().hasRole("USER");
                 })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

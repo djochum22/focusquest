@@ -3,7 +3,8 @@ spring:
     name: focusquest-backend
 
   datasource:
-    url: jdbc:h2:file:./data/focusquest;AUTO_SERVER=TRUE
+    # FOCUSQUEST_DATA_DIR moves the database (the Docker image keeps it in a volume at /app/data).
+    url: jdbc:h2:file:${FOCUSQUEST_DATA_DIR:./data}/focusquest;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
@@ -31,8 +32,10 @@ spring:
         web-allow-others: false
 
 server:
-  port: 8080
-  address: 127.0.0.1
+  # This computer only, by default. The Docker image binds 0.0.0.0 inside the container, and
+  # docker-compose.yml still publishes it on this computer only.
+  port: ${FOCUSQUEST_PORT:8080}
+  address: ${FOCUSQUEST_BIND:127.0.0.1}
 
 focusquest:
   jwt:
@@ -85,6 +88,8 @@ focusquest:
     # flicker, not the user coming back.
     merge-gap: 5s
   cors:
+    # The built web app is served by the backend itself (WebAppConfig) and needs no CORS. This entry is
+    # for the dev server, npm run dev.
     allowed-origins:
       - http://localhost:5173
       # The extension's id, pinned by the `key` in extension/manifest.json. It talks to the backend through

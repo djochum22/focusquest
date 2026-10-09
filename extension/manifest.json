@@ -20,7 +20,7 @@
   },
 
   "externally_connectable": {
-    "matches": ["http://localhost:5173/*"]
+    "matches": ["http://localhost:8080/*", "http://127.0.0.1:8080/*", "http://localhost:5173/*"]
   },
 
   "web_accessible_resources": [

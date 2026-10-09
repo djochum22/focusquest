@@ -1,14 +1,15 @@
 # FocusQuest frontend
 
 Vue 3 + TypeScript + Vite, with Vue Router, Pinia and Axios. It talks to the Spring Boot backend
-in `../backend` (default `http://127.0.0.1:8080`).
+in `../backend`. Built, it is served by the backend itself and calls its own origin; under `npm run dev`
+it calls `http://127.0.0.1:8080`.
 
 ## Commands
 
 ```bash
 npm install        # install dependencies
 npm run dev        # dev server at http://localhost:5173
-npm run build      # type-check (vue-tsc) and build to dist/
+npm run build      # type-check (vue-tsc) and build to dist/ (the backend's bootRun and bootJar run this)
 npm run preview    # serve the production build locally
 npm test           # run the Vitest suite once (npm run test:watch to watch)
 ```

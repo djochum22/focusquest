@@ -16,6 +16,8 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 **Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built (`0e37818`). Next, the user labels (see "What the user labels"), then step 2, the `accuracy` command. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
+**Platform work in progress** (8 October 2026): the container, every browser and a desktop app, in `docs/platform_roadmap.md`. Read that note first; this labelling runs alongside it.
+
 **To do later, by the user: label** (nothing else in C1d can go on until this is done). About 20 to 30 minutes, in one sitting or several:
 
 1. Calibrate first: Settings, under Camera verification, "Calibrate".

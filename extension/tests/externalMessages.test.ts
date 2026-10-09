@@ -7,7 +7,7 @@ const ORIGIN = 'http://localhost:5173'
 function setup(initial: { token?: string; status?: SyncStatus; syncResult?: SyncStatus } = {}) {
   const state = { token: initial.token, status: initial.status ?? ('signed-out' as SyncStatus) }
   const deps: ExternalMessageDependencies = {
-    allowedOrigin: ORIGIN,
+    allowedOrigins: [ORIGIN],
     getToken: async () => state.token,
     setToken: vi.fn(async (token: string) => {
       state.token = token

@@ -82,7 +82,7 @@ the backend's CORS allow-list (`focusquest.cors.allowed-origins` in `application
 
 You do nothing beyond having the web app open once.
 
-1. Start the backend (`cd backend && ./gradlew bootRun`) and the web app (`cd frontend && npm run dev`,
+1. Start the app (`cd backend && ./gradlew bootRun`), open http://localhost:8080 (or the dev server,
    http://localhost:5173), and sign in to the web app. (First run? Create the account there.)
 2. That's it. When the web app loads and finds the extension installed but not connected, it asks the
    backend for an extension token and hands it to the extension. The toolbar badge clears and the
@@ -99,7 +99,8 @@ How it works, and why it is safe to leave connected:
   three `/api/extension` endpoints: it cannot start sessions, read history or delete data.
   Reconnecting replaces it, and disconnecting or deleting all data revokes it.
 - The web app reaches the extension through `externally_connectable` (see `manifest.json`), which is
-  limited to `http://localhost:5173`. The extension checks the sender's origin again and accepts only
+  limited to the web app's origins: `http://localhost:8080`, `http://127.0.0.1:8080` and the dev server's
+  `http://localhost:5173`. The extension checks the sender's origin again and accepts only
   tokens starting `fqx_`.
 - The manifest carries a public `key`, which makes the extension's id
   `heccfmagjlcnoaodleaclgbbdlpibphf` on every machine, so the web app can find it. To use a different
@@ -120,7 +121,7 @@ Check the connection from the service worker console (`chrome://extensions` → 
 
 ## Test the blocking behavior
 
-Use the web app (`npm run dev` in `frontend/`, http://localhost:5173) to create and start the session (step 2).
+Use the web app (http://localhost:8080) to create and start the session (step 2).
 
 1. **Add rules.** Use the web app's **Blocking** page, or the backend API as below. Log in
    with curl to get a token (the same one the web app uses), put it in a shell variable, then add
@@ -202,7 +203,7 @@ worker**). Tokens are never logged.
 | `storage` | Extension token, synchronized state, sync health |
 | `alarms` | The 30-second sync, which survives the worker being shut down |
 
-`externally_connectable` lets only the web app's origin (`http://localhost:5173`) message the extension, which is
+`externally_connectable` lets only the web app's origins (`WEB_APP_ORIGINS` in `src/utils/config.ts`) message the extension, which is
 how it hands over the token. The manifest's `action` adds the toolbar button, badge and popup.
 
 `web_accessible_resources` exposes only the blocked page, to http(s) pages, because a redirect from a

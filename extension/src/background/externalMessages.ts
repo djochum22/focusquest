@@ -1,5 +1,5 @@
 // Lets the FocusQuest web app connect the extension without the user copying anything. The web app
-// (the only origin Chrome lets message us; see externally_connectable in the manifest) sends the
+// (the only origins Chrome lets message us; see externally_connectable in the manifest) sends the
 // extension token it got from the backend, and we store it. It is checked again here, so widening the
 // manifest by mistake would not let another site sign the extension in.
 //
@@ -21,8 +21,8 @@ export type ExternalResponse =
   | { ok: false; error: string }
 
 export interface ExternalMessageDependencies {
-  /** The one origin allowed to send these messages. */
-  allowedOrigin: string
+  /** The only origins allowed to send these messages. */
+  allowedOrigins: readonly string[]
   getToken: () => Promise<string | undefined>
   setToken: (token: string) => Promise<void>
   removeToken: () => Promise<void>
@@ -49,7 +49,7 @@ export async function handleExternalMessage(
   senderOrigin: string | undefined,
   deps: ExternalMessageDependencies,
 ): Promise<ExternalResponse> {
-  if (senderOrigin !== deps.allowedOrigin) return REJECTED
+  if (senderOrigin === undefined || !deps.allowedOrigins.includes(senderOrigin)) return REJECTED
   if (!isRequest(message)) return { ok: false, error: 'Unknown request' }
 
   switch (message.type) {

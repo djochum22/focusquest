@@ -20,9 +20,7 @@ you stay on task. Design documents are in [`docs/`](docs/).
 
 ## Run the full application locally
 
-Use three terminals, from the repository root.
-
-**1. Backend** (http://127.0.0.1:8080)
+**1. The app** (http://localhost:8080)
 
 ```bash
 export FOCUSQUEST_JWT_SECRET="$(openssl rand -base64 48)"   # optional, see below
@@ -30,7 +28,17 @@ cd backend
 ./gradlew bootRun
 ```
 
-The data lives in `backend/data/` (an H2 file database), so it survives restarts.
+This builds the web app and serves it from the backend, so the whole app is on one address. The
+first run also installs the web app's npm packages. The data lives in `backend/data/` (an H2 file
+database), so it survives restarts. `./gradlew bootJar` builds the same thing as one jar
+(`build/libs/`), which runs with `java -jar` from any folder.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `FOCUSQUEST_JWT_SECRET` | random each run | Signs sign-in tokens (see below) |
+| `FOCUSQUEST_PORT` | `8080` | The port |
+| `FOCUSQUEST_BIND` | `127.0.0.1` | The address it listens on; this computer only by default |
+| `FOCUSQUEST_DATA_DIR` | `./data` | Where the database is kept |
 
 `FOCUSQUEST_JWT_SECRET` signs sign-in tokens. If you do not set it, the backend generates a random
 secret each run and everyone is signed out whenever it restarts. Set it (at least 32 bytes) to stay
@@ -40,7 +48,9 @@ Optional: `FOCUSQUEST_H2_CONSOLE=true` enables the H2 database console at
 http://127.0.0.1:8080/h2-console (JDBC URL `jdbc:h2:file:./data/focusquest`, user `sa`, empty
 password). It is off by default because it exposes the whole database.
 
-**2. Web app** (http://localhost:5173)
+On first launch the app shows account setup; afterwards it shows login.
+
+**2. Web app dev server** (optional, http://localhost:5173, only while working on the web app)
 
 ```bash
 cd frontend
@@ -48,9 +58,9 @@ npm install
 npm run dev
 ```
 
-The port is fixed: the backend only allows CORS from `http://localhost:5173`. On first launch the
-app shows account setup; afterwards it shows login. To point at another backend, copy
-`frontend/.env.example` to `frontend/.env.local` and edit `VITE_API_BASE_URL`.
+It reloads on every change and calls the backend on :8080. The port is fixed: the backend only
+allows CORS from `http://localhost:5173`. To point at another backend, copy `frontend/.env.example`
+to `frontend/.env.local` and edit `VITE_API_BASE_URL`.
 
 **3. Chrome extension** (optional)
 
@@ -113,6 +123,7 @@ database, so they must not run in parallel.
 
 ## Troubleshooting
 
-- **Port 8080 or 5173 already in use**: stop the other process. Both ports are fixed.
+- **Port 8080 already in use**: stop the other process, or set `FOCUSQUEST_PORT` (the extension
+  expects 8080). The dev server's 5173 is fixed.
 - **Signed out after restarting the backend**: set `FOCUSQUEST_JWT_SECRET` (see above).
 - **Reset all data**: use Settings in the web app, or stop the backend and delete `backend/data/`.

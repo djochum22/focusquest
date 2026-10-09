@@ -56,3 +56,51 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// The web app, built by npm and served by the backend from classpath:/static/ (see WebAppConfig), so
+// `./gradlew bootRun` or the boot jar is the whole application on one origin. Tests do not include it.
+// -PskipFrontendBuild uses frontend/dist as it is (the Docker image builds it in its own stage).
+val frontendDir = layout.projectDirectory.dir("../frontend")
+val npm = if (System.getProperty("os.name").lowercase().contains("windows")) "npm.cmd" else "npm"
+val skipFrontendBuild = providers.gradleProperty("skipFrontendBuild").isPresent
+
+val installFrontend by tasks.registering(Exec::class) {
+    description = "Installs the web app's npm dependencies."
+    onlyIf { !skipFrontendBuild }
+    workingDir = frontendDir.asFile
+    commandLine(npm, "ci", "--silent")
+    inputs.file(frontendDir.file("package-lock.json"))
+    outputs.dir(frontendDir.dir("node_modules"))
+}
+
+val buildFrontend by tasks.registering(Exec::class) {
+    description = "Builds the web app into frontend/dist."
+    dependsOn(installFrontend)
+    onlyIf { !skipFrontendBuild }
+    workingDir = frontendDir.asFile
+    commandLine(npm, "run", "build", "--silent")
+    inputs.dir(frontendDir.dir("src"))
+    inputs.dir(frontendDir.dir("public"))
+    inputs.files(
+        frontendDir.file("index.html"), frontendDir.file("package-lock.json"), frontendDir.file("vite.config.ts"),
+        frontendDir.file("tsconfig.json"), frontendDir.file("tsconfig.app.json"), frontendDir.file("tsconfig.node.json"),
+    )
+    outputs.dir(frontendDir.dir("dist"))
+}
+
+// Laid out as static/ under a classpath root, for bootRun.
+val webApp by tasks.registering(Sync::class) {
+    dependsOn(buildFrontend)
+    from(frontendDir.dir("dist"))
+    into(layout.buildDirectory.dir("web-app/static"))
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    dependsOn(webApp)
+    from(layout.buildDirectory.dir("web-app")) { into("BOOT-INF/classes") }
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    dependsOn(webApp)
+    classpath(layout.buildDirectory.dir("web-app"))
+}
