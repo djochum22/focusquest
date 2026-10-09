@@ -1,0 +1,12 @@
+# The image needs only the web app's and the backend's sources.
+*
+!frontend/
+!backend/
+
+**/node_modules
+**/.DS_Store
+frontend/dist
+backend/build
+backend/bin
+backend/data
+backend/.gradle

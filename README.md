@@ -79,6 +79,41 @@ With a webcam it checks that you are at your desk, looking at your work and not 
 it can also replay a scripted timeline, to try the warnings out. Turn camera verification on in Settings, pair, and run it; see
 [`vision/README.md`](vision/README.md).
 
+## Run with Docker
+
+The same app in a container, with nothing else to install: no JDK, Node or Gradle. It runs on
+http://localhost:8080 and is reachable from this computer only. Any Docker runtime works; on a Mac,
+[OrbStack](https://orbstack.dev) (`brew install orbstack`) is light and quick.
+
+```bash
+cp .env.example .env    # then set FOCUSQUEST_JWT_SECRET in it: openssl rand -base64 48
+docker compose up -d --build
+```
+
+| Command | What it does |
+| --- | --- |
+| `docker compose logs -f` | Follow the backend's log |
+| `docker compose down` | Stop it; the data stays |
+| `docker compose up -d --build` | Rebuild after pulling changes, and start it |
+
+The database is kept in the Docker volume `focusquest_focusquest-data`, not in `backend/data/`, so the
+container and `./gradlew bootRun` each have their own data. Run only one of them at a time: both
+want port 8080. The extension and the camera companion connect to it exactly as they do to
+`bootRun`. The companion runs outside the container, since Docker on macOS cannot reach the camera.
+
+**Back up** with Export in Settings, or copy the whole volume (stop the app first, so the database
+is not written to while it is copied):
+
+```bash
+docker compose stop
+docker run --rm -v focusquest_focusquest-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/focusquest-data.tar.gz -C /data .
+docker compose start
+```
+
+To restore, stop the app and unpack it into the volume the same way: `tar xzf
+/backup/focusquest-data.tar.gz -C /data`.
+
 ## Run the tests
 
 Everything at once (backend, frontend and extension, with type-checks, and the camera companion):
@@ -126,4 +161,5 @@ database, so they must not run in parallel.
 - **Port 8080 already in use**: stop the other process, or set `FOCUSQUEST_PORT` (the extension
   expects 8080). The dev server's 5173 is fixed.
 - **Signed out after restarting the backend**: set `FOCUSQUEST_JWT_SECRET` (see above).
-- **Reset all data**: use Settings in the web app, or stop the backend and delete `backend/data/`.
+- **Reset all data**: use Settings in the web app, or stop the backend and delete `backend/data/`
+  (with Docker: `docker compose down -v` deletes the volume).

@@ -10,9 +10,13 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 ## Start here
 
-**Where things stand (9 October 2026).** Step 1 is committed. The user tested it by hand (the web app on :8080, a reload on Settings, the extension connected and blocking, the blocked page linking to :8080), and every suite passed, end-to-end included.
+**Where things stand (9 October 2026).** Steps 1 and 2 are committed. The user checked both by hand: step 1 under `bootRun`, step 2 with `docker compose up` on :8080 (account setup, the extension connected and blocking, data and sign-in surviving `docker compose restart`). OrbStack is installed (if `docker info` fails, `orb start`), and the user's `.env` holds a generated secret.
 
-**Next: step 2, the container.** The user is installing OrbStack (`brew install orbstack`) to test it on. Until `docker info` works, the files can be written but not tried.
+**Under way: step 3, every browser.** Start with the bridge (see "Later steps", step 3).
+
+`.vscode/settings.json` stays out of the commits: VS Code's Java extension changed it on its own.
+
+The extension's backend address in an options page moved to step 3 (decided 9 October 2026). `externally_connectable` is fixed in the manifest, so an extension pointed elsewhere could not be connected from the web app until step 3's content-script bridge replaces it, and with each computer running its own copy on 127.0.0.1:8080 nothing needs it yet.
 
 `.vscode/settings.json` was left out of the commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
 
@@ -32,8 +36,8 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | Step | What | State |
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
-| 2 | Container: Dockerfile and docker-compose | **Next** |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | Open |
+| 2 | Container: Dockerfile and docker-compose | Done |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Next** |
 | 4 | Tauri desktop app, with Mac app blocking | Open |
 
 ## Done: step 1, one app, one origin
@@ -65,7 +69,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - `FRONTEND_URL`, the blocked page's link, now defaults to `http://localhost:8080`.
 - **Docs:** `README.md` (one command, a table of the variables, troubleshooting), `frontend/README.md`, `frontend/.env.example`, `extension/README.md`.
 
-## Next: step 2, container (planned days 2–4)
+## Done: step 2, container
 
 - **`Dockerfile`**, multi-stage:
   1. A Node stage runs `npm ci && npm run build` in `frontend/`.
@@ -76,7 +80,6 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - the port as `127.0.0.1:8080:8080`, so it is only reachable from this computer and the companion's localhost-only sandbox keeps working
   - `FOCUSQUEST_JWT_SECRET` from `.env`, with a `.env.example` committed and `.env` ignored
 - Add a `.dockerignore` covering `node_modules`, `build`, `dist`, `data`, `.gradle` and `vision/.venv`.
-- **The extension's backend address**, changeable from an options page instead of only at build time (`extension/src/utils/config.ts`, `BACKEND_BASE_URL`), so one built extension works against any machine.
 - **README:** a "Run with Docker" section, and how to back up the volume. Export in Settings also works as a backup.
 - **The companion stays outside the container.** Docker on macOS cannot reach the camera (`camera_roadmap.md`, "Decisions").
 - **Verify:**
@@ -93,6 +96,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - `onMessageExternal` in `extension/src/background/serviceWorker.ts`
 
   This also drops the dependency on the pinned extension id.
+- **The backend address in an options page** (moved from step 2), instead of only at build time (`extension/src/utils/config.ts`, `BACKEND_BASE_URL`), so one built extension works against any port or machine. The bridge's content script then has to be registered for that origin at run time (`chrome.scripting.registerContentScripts`).
 - **API namespace.** Use `browser ?? chrome`, or `webextension-polyfill`.
 - **Manifests.** The build gives one manifest per browser. The Firefox one needs:
   - `background.scripts`

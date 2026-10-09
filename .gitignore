@@ -1,0 +1,2 @@
+# docker compose's settings, with the JWT secret (.env.example is the template).
+.env

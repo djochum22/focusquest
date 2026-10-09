@@ -1,0 +1,20 @@
+# FocusQuest at http://localhost:8080: docker compose up -d (see README.md, "Run with Docker").
+name: focusquest   # so the volume is focusquest_focusquest-data, whatever the folder is called
+
+services:
+  focusquest:
+    build: .
+    image: focusquest
+    restart: unless-stopped
+    ports:
+      # This computer only. The camera companion and the extension reach it here, as they would bootRun.
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Keeps sign-ins across restarts. Set it in .env (copy .env.example).
+      FOCUSQUEST_JWT_SECRET: ${FOCUSQUEST_JWT_SECRET:?Set FOCUSQUEST_JWT_SECRET in .env; see .env.example}
+    volumes:
+      # The database. It outlives the container; back it up as README.md describes.
+      - focusquest-data:/app/data
+
+volumes:
+  focusquest-data:
