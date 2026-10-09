@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -348,6 +349,25 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
                 "http://127.0.0.1:5173",
                 "chrome-extension://someotherextensionid",
                 "null");
+    }
+
+    @ParameterizedTest(name = "extension origin {0} may call the extension endpoints")
+    @ValueSource(strings = {"moz-extension://0b7f6a52-1c2d-4c3e-9f00-123456789abc", "safari-web-extension://ABCDEF12-3456"})
+    void firefoxAndSafariExtensionsMayCallOnlyTheExtensionEndpoints(String origin) throws Exception {
+        // Their ids are random per install, so they are admitted by scheme, on the extension endpoints only.
+        mockMvc.perform(options("/api/extension/blocking-state")
+                        .header("Origin", origin)
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", origin))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+        mockMvc.perform(get("/api/extension/blocking-state").header("Origin", origin))
+                .andExpect(status().isUnauthorized()); // past CORS; the token is still required
+
+        mockMvc.perform(get("/api/auth/setup-status").header("Origin", origin))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
     @Test

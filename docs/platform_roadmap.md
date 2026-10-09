@@ -10,26 +10,25 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 ## Start here
 
-**Where things stand (9 October 2026).** Steps 1 and 2 are committed. The user checked both by hand: step 1 under `bootRun`, step 2 with `docker compose up` on :8080 (account setup, the extension connected and blocking, data and sign-in surviving `docker compose restart`). OrbStack is installed (if `docker info` fails, `orb start`), and the user's `.env` holds a generated secret.
+**Where things stand (9 October 2026, end of day).**
+- Steps 1 (one origin) and 2 (container) are committed, and so is step 3's first part, the bridge (`45aa0e0`).
+- Step 3's second part, **Firefox, is committed**. The user checked it in Firefox 157, after the port fix ("Step 3 so far", part 2). The rename of "Chrome extension" to "Browser extension" in the web app is its own commit after it.
+- All suites pass, end-to-end included. The container on :8080 is current.
 
-**Under way: step 3, every browser.** Part 1, the bridge, is committed; the user checked it by hand in Chrome (connected on reload, blocking, "not installed" at once with the extension off). What it is:
-- `extension/src/content/webAppBridge.ts` (the relay, tested in `tests/webAppBridge.test.ts`) and `webAppBridgeScript.ts` (the content script entry, built as a plain script by `scripts/build.mjs`).
-- The manifest: `content_scripts` on the three web app origins at `document_start`, in place of `externally_connectable`, and the `scripting` permission.
-- The service worker takes the bridge's messages through `runtime.onMessage`, checks the page's origin as before (`handleExternalMessage`), and on install adds the bridge to web app tabs already open.
-- `frontend/src/utils/extensionBridge.ts` posts to the page and waits for the matching reply. With no `data-focusquest-extension` mark it reports "not installed" at once. `VITE_EXTENSION_ID` is gone. The manifest `key` stays: it keeps the id stable, and the backend's CORS list still names it.
-- Docs: `extension/README.md`, `docs/technical_architecture.md`.
-- All suites pass, end-to-end included.
-- Remember: the web app on :8080 is the build from when that copy started. After a web app change, `docker compose up -d --build`, or restart `bootRun`. (The first hand check failed only because the container still served the old web app.)
+**First thing next time: go on with step 3.**
+1. **The options page for the backend address** (see "Later steps", step 3). Bear in mind that Firefox's match patterns cannot name a port, so a content script registered at run time for another address has the same limit; the bridge's own origin check covers it.
+2. **Safari**, which goes into the step 4 Mac app.
+3. **Edge and Brave** by hand (load `dist/` unpacked).
+4. **A decision for the user, later:** a temporary Firefox add-on is gone after each restart. Using Firefox every day needs either Mozilla's signing (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public) or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
+5. **Optional:** the backend comments and the docs still say "Chrome extension".
 
-Next in step 3: the API namespace (`browser ?? chrome`), the Firefox manifest and build, then the options page for the backend address, then Safari.
+**Checking Firefox again** (about 10 minutes): `cd extension && npm run build:firefox`; in Firefox open `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on…**, choose `extension/dist-firefox/manifest.json` (or **Reload** if loaded); open http://localhost:8080, sign in, and check Settings shows **Connected**, that a blocked site is blocked, and that the toolbar popup opens. On trouble, see the add-on's console (**Inspect** in `about:debugging`) and the tab's console.
 
-`.vscode/settings.json` stays out of the commits: VS Code's Java extension changed it on its own.
+**Remember:** the web app on :8080 is whatever was built when that copy started. After a web app or backend change, `docker compose up -d --build`, or restart `bootRun`. Only `npm run dev` (:5173) picks changes up live.
 
-The extension's backend address in an options page moved to step 3 (decided 9 October 2026). `externally_connectable` is fixed in the manifest, so an extension pointed elsewhere could not be connected from the web app until step 3's content-script bridge replaces it, and with each computer running its own copy on 127.0.0.1:8080 nothing needs it yet.
+`.vscode/settings.json` stays out of every commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
 
-`.vscode/settings.json` was left out of the commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
-
-**Also waiting on the user: camera labelling** (C1d; see `docs/camera_roadmap.md`, "To do later, by the user: label"). It takes 20 to 30 minutes, and no camera code can go on until it is done. Plan: do it in the first days, alongside this work. C1d step 2 (the `accuracy` command) comes after the desktop app, or whenever the labels are in.
+**Also waiting on the user: camera labelling** (C1d; see `docs/camera_roadmap.md`, "To do later, by the user: label"). It takes 20 to 30 minutes, and no camera code can go on until it is done. C1d step 2 (the `accuracy` command) comes after the desktop app, or whenever the labels are in.
 
 ## The two-week goal (from 8 October 2026)
 
@@ -46,7 +45,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Next** |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge and Firefox done; options page and Safari open |
 | 4 | Tauri desktop app, with Mac app blocking | Open |
 
 ## Done: step 1, one app, one origin
@@ -97,9 +96,29 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - The extension, pointed at it, blocks sites.
   - The companion still pairs.
 
+## Step 3 so far: every browser
+
+**Part 1, the bridge (committed, `45aa0e0`).** The user checked it in Chrome: connected on reload, blocking, and "not installed" at once with the extension off.
+- `extension/src/content/webAppBridge.ts` (the relay, tested in `tests/webAppBridge.test.ts`) and `webAppBridgeScript.ts` (the content script entry, built as a plain script by `scripts/build.mjs`).
+- The manifest: `content_scripts` on the three web app origins at `document_start`, in place of `externally_connectable`, and the `scripting` permission.
+- The service worker takes the bridge's messages through `runtime.onMessage`, checks the page's origin as before (`handleExternalMessage`), and on install adds the bridge to web app tabs already open.
+- `frontend/src/utils/extensionBridge.ts` posts to the page and waits for the matching reply. With no `data-focusquest-extension` mark it reports "not installed" at once. `VITE_EXTENSION_ID` is gone. The manifest `key` stays: it keeps the id stable, and the backend's CORS list still names it.
+- Docs: `extension/README.md`, `docs/technical_architecture.md`.
+- All suites pass, end-to-end included.
+
+**Part 2, Firefox (committed; the user checked it in Firefox 157 on 9 October 2026).**
+- No API namespace work was needed: in Manifest V3, Firefox's `chrome.*` returns promises too, and its alarm minimum is Chrome's 30 seconds.
+- `npm run build:firefox` writes `dist-firefox/`; `toFirefox` in `scripts/build.mjs` makes the manifest: `background.scripts` (module) for the service worker, no `key` or `minimum_chrome_version`, `browser_specific_settings.gecko` with id `focusquest@local`, minimum 140, `data_collection_permissions: none`.
+- **Found in the user's first try (9 October 2026): not connected.** Firefox's match patterns cannot name a port; one that does installs without complaint and never matches, so the bridge never ran. `toFirefox` now drops the ports (`http://localhost/*`, `http://127.0.0.1/*`), and `startBridge` takes `allowedOrigins` (`WEB_APP_ORIGINS`) and does nothing elsewhere, so another local site cannot learn the extension is there. Checked in a headless Firefox 157 over WebDriver BiDi: the bridge answers on :8080 and stays silent on another port.
+- `web-ext` is a dev dependency: `npm run lint:firefox` (0 errors; one warning about Firefox for Android, not a target) and `npm run package:firefox`.
+- The backend refused `moz-extension://` and `safari-web-extension://` origins (403). `CorsConfig` now admits them by pattern on `/api/extension/**` only; tested in `SecurityConfigurationIntegrationTest`.
+- Docs: both READMEs (loading in Firefox, signing, private windows).
+
+**Decided 9 October 2026:** the extension's backend address in an options page moved here from step 2. Before the bridge, `externally_connectable` fixed the web app's origins in the manifest, so an extension pointed elsewhere could not be connected; and with each computer running its own copy on 127.0.0.1:8080, nothing needs it yet.
+
 ## Later steps (planned)
 
-**Step 3: every browser (days 5–8).**
+**Step 3: every browser (days 5–8).** The bridge, the API namespace and the Firefox manifest are done (see "Step 3 so far"); the options page, testing and Safari are open.
 - **The bridge.** Firefox and Safari have no `externally_connectable`. Replace it with a content script injected on the web app's origin, talking to the page through `window.postMessage`. Code to change:
   - `frontend/src/utils/extensionBridge.ts`
   - `onMessageExternal` in `extension/src/background/serviceWorker.ts`

@@ -4,7 +4,10 @@ import { isBridgedMessage, PRESENCE_ATTRIBUTE, startBridge, type BridgedMessage 
 const ORIGIN = 'http://localhost:8080'
 
 /** A stand-in for the page: listeners, and everything posted back to it. */
-function setup(sendToWorker: (message: BridgedMessage) => Promise<unknown> = async () => ({ ok: true })) {
+function setup(
+  sendToWorker: (message: BridgedMessage) => Promise<unknown> = async () => ({ ok: true }),
+  allowedOrigins: readonly string[] = [ORIGIN],
+) {
   const listeners = new Set<(event: MessageEvent) => void>()
   const page = {
     location: { origin: ORIGIN },
@@ -14,7 +17,7 @@ function setup(sendToWorker: (message: BridgedMessage) => Promise<unknown> = asy
   }
   const root = { setAttribute: vi.fn() }
   const worker = vi.fn(sendToWorker)
-  startBridge({ window: page as never, root, sendToWorker: worker })
+  startBridge({ window: page as never, root, allowedOrigins, sendToWorker: worker })
 
   const dispatch = (data: unknown, overrides: { source?: unknown; origin?: string } = {}) => {
     const event = { data, source: 'source' in overrides ? overrides.source : page, origin: overrides.origin ?? ORIGIN }
@@ -30,6 +33,13 @@ describe('web app bridge', () => {
     const { root } = setup()
 
     expect(root.setAttribute).toHaveBeenCalledWith(PRESENCE_ATTRIBUTE, 'ready')
+  })
+
+  it('does nothing on a page outside the web app, not even marking it', () => {
+    const { root, page } = setup(undefined, ['http://localhost:5173'])
+
+    expect(root.setAttribute).not.toHaveBeenCalled()
+    expect(page.addEventListener).not.toHaveBeenCalled()
   })
 
   it('passes a request to the worker and posts its answer back to the page only', async () => {

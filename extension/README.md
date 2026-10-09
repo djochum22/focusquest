@@ -1,7 +1,8 @@
-# FocusQuest Chrome extension
+# FocusQuest browser extension
 
 Blocks distracting websites while a FocusQuest focus session is being enforced. It is a Manifest V3
-extension written in TypeScript. The backend decides *whether* to block; the extension only enforces
+extension written in TypeScript, built for Chrome and the other Chromium browsers (Edge, Brave, Arc,
+Opera) and for Firefox. The backend decides *whether* to block; the extension only enforces
 what the backend tells it (see section 9 of `docs/technical_architecture.md`).
 
 ## How it works
@@ -59,10 +60,15 @@ never causes this on its own.
 ```bash
 cd extension
 npm install
-npm run build        # type-checks, then bundles into extension/dist
-npm test             # unit tests (Vitest)
-npm run watch        # rebuild on change
+npm run build          # type-checks, then bundles into extension/dist (Chromium browsers)
+npm run build:firefox  # the same into extension/dist-firefox
+npm test               # unit tests (Vitest)
+npm run watch          # rebuild on change
 ```
+
+The Firefox build differs only in its manifest (`toFirefox` in `scripts/build.mjs`): the background
+script runs as a background page, since Firefox has no extension service workers, and the id and
+minimum version (140) are set under `browser_specific_settings`.
 
 ## Load the extension in Chrome
 
@@ -75,8 +81,32 @@ npm run watch        # rebuild on change
 4. **FocusQuest** appears in the list. After changing code, run `npm run build` and press the reload
    icon on its card.
 
+Edge, Brave, Arc and Opera load the same `dist` folder the same way, from their own extensions page
+(`edge://extensions`, `brave://extensions`, and so on).
+
 The extension talks to the backend using its host permissions, so its id does not need to be added to
-the backend's CORS allow-list (`focusquest.cors.allowed-origins` in `application.yml`).
+the backend's CORS allow-list (`focusquest.cors.allowed-origins` in `application.yml`). Firefox and
+Safari give each install a random id; the backend admits any of theirs on `/api/extension/**` only
+(`CorsConfig`).
+
+## Load the extension in Firefox
+
+1. `cd extension && npm install && npm run build:firefox`
+2. Open `about:debugging#/runtime/this-firefox` and click **Load Temporary Add-on…**.
+3. Choose **`extension/dist-firefox/manifest.json`**.
+4. After changing code, run `npm run build:firefox` and press **Reload** on its card.
+
+A temporary add-on is removed when Firefox quits; load it again after a restart. Firefox installs
+for good only add-ons Mozilla has signed (`npm run package:firefox` makes the zip to submit), or any
+add-on in Firefox Developer Edition or Nightly with `xpinstall.signatures.required` set to `false` in
+`about:config`.
+
+`npm run lint:firefox` checks the build with Mozilla's linter. It warns once about Firefox for
+Android, which FocusQuest does not target.
+
+**Private windows:** Firefox runs no extension in a private window unless allowed. To block there
+too, open the add-on in `about:addons` and set **Run in Private Windows** to **Allow** (Chrome's
+equivalent is **Allow in Incognito** on the extension's details page).
 
 ## Sign the extension in
 

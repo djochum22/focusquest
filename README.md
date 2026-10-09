@@ -1,6 +1,6 @@
 # FocusQuest
 
-A local-first focus app: a Spring Boot backend, a Vue web app and a Chrome extension that blocks
+A local-first focus app: a Spring Boot backend, a Vue web app and a browser extension that blocks
 distracting sites during a focus session, with an optional camera companion program that checks
 you stay on task. Design documents are in [`docs/`](docs/).
 
@@ -8,14 +8,14 @@ you stay on task. Design documents are in [`docs/`](docs/).
 | --- | --- | --- |
 | Backend API | [`backend/`](backend/) | Java 21, Spring Boot 4, H2, Flyway, JWT |
 | Web app | [`frontend/`](frontend/README.md) | Vue 3, TypeScript, Vite, Pinia |
-| Chrome extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript |
+| Browser extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript; Chromium browsers and Firefox |
 | Camera companion | [`vision/`](vision/README.md) | Python 3.11+; OpenCV and MediaPipe for the camera |
 
 ## Prerequisites
 
 - JDK 21 (Gradle is bundled as `./gradlew`)
 - Node.js 20 or newer, with npm
-- Chrome 120 or newer, to use the extension
+- For the extension: Chrome 120 or newer (or another Chromium browser), or Firefox 140 or newer
 - Python 3.11 or newer, for the camera companion and its tests
 
 ## Run the full application locally
@@ -62,16 +62,18 @@ It reloads on every change and calls the backend on :8080. The port is fixed: th
 allows CORS from `http://localhost:5173`. To point at another backend, copy `frontend/.env.example`
 to `frontend/.env.local` and edit `VITE_API_BASE_URL`.
 
-**3. Chrome extension** (optional)
+**3. Browser extension** (optional)
 
 ```bash
 cd extension
 npm install
-npm run build
+npm run build            # Chrome, Edge, Brave, Arc, Opera: extension/dist
+npm run build:firefox    # Firefox: extension/dist-firefox
 ```
 
-Then load `extension/dist` in `chrome://extensions` (Developer mode, **Load unpacked**) and sign it
-in. The full steps, including how to add sites to block, are in [`extension/README.md`](extension/README.md).
+In a Chromium browser, load `extension/dist` from its extensions page (Developer mode, **Load
+unpacked**). In Firefox, load `extension/dist-firefox/manifest.json` from `about:debugging` (**This
+Firefox**, **Load Temporary Add-on**). The web app connects it on its own. The full steps, including how to add sites to block, are in [`extension/README.md`](extension/README.md).
 
 **4. Camera companion** (optional)
 

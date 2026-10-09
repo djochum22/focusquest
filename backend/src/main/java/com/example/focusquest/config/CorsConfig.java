@@ -24,6 +24,13 @@ public class CorsConfig {
         this.allowedOrigins = allowedOrigins;
     }
 
+    /**
+     * Firefox and Safari give each install of the extension a random id, so its origin cannot be listed in
+     * advance as Chrome's pinned one is. These patterns admit any of them, and only on the extension's own
+     * endpoints, which also need its bearer token: CORS guards nothing more there, as no cookie is involved.
+     */
+    static final List<String> EXTENSION_ORIGIN_PATTERNS = List.of("moz-extension://*", "safari-web-extension://*");
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -35,7 +42,12 @@ public class CorsConfig {
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(Duration.ofHours(1));
 
+        CorsConfiguration extensionConfiguration = new CorsConfiguration(configuration);
+        extensionConfiguration.setAllowedOriginPatterns(EXTENSION_ORIGIN_PATTERNS);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // The first pattern that matches wins, so the narrower one goes first.
+        source.registerCorsConfiguration("/api/extension/**", extensionConfiguration);
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }

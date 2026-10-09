@@ -46,12 +46,17 @@ function isPageRequest(value: unknown): value is PageRequest {
 export interface BridgeEnvironment {
   window: Pick<Window, 'addEventListener' | 'removeEventListener' | 'postMessage'> & { location: { origin: string } }
   root: Pick<HTMLElement, 'setAttribute'>
+  /** The web app's origins (WEB_APP_ORIGINS). On any other page the bridge does nothing. */
+  allowedOrigins: readonly string[]
   /** Hands a message to the service worker. Throws once the extension has been reloaded or removed. */
   sendToWorker: (message: BridgedMessage) => Promise<unknown>
 }
 
 export function startBridge(env: BridgeEnvironment): void {
   const { window: page } = env
+  // Firefox's match patterns cannot name a port, so there the script runs on every localhost page.
+  // Another local site must not even learn that the extension is installed.
+  if (!env.allowedOrigins.includes(page.location.origin)) return
   env.root.setAttribute(PRESENCE_ATTRIBUTE, 'ready')
 
   const onMessage = (event: MessageEvent): void => {
