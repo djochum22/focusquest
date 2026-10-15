@@ -28,7 +28,7 @@ The container on :8080 is current (rebuilt 15 October 2026), with migrations V18
 
 **Waiting on the user:**
 
-1. **Try Safari**: add the Apple ID in Xcode (**Settings**, **Accounts**), run `npm run build:safari` in `extension/`, open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
+1. **Try Safari, later** (the user will do it when they want Safari; steps in `docs/handoff.md`, "Try Safari"): add the Apple ID in Xcode (**Settings**, **Accounts**), run `npm run build:safari` in `extension/`, open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
 2. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
