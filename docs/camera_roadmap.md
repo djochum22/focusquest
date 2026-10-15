@@ -202,7 +202,7 @@ Looking away and phone are unchanged by both. The 2 false away seconds are singl
 
 Not changed yet: the calibration is ten days old and the false seconds come from the head pitched just below its screen zone, so calibrating again comes first, then measuring again. The user asked for 5° in C1e, so going back to a wider margin is theirs to decide.
 
-Next: pair the companion again and calibrate, then label part A (and E) again and decide the margin; the phone (finding 3) needs a different way of looking, to be agreed with the user.
+Next: pair the companion again and calibrate, then label part A (and E) again and decide the margin; the phone (finding 3) is left as it is for now (the user's decision, 15 October 2026): phone in hand is weak, found in 8 % of labelled seconds. Offered and not taken yet: looking for hands every second and for a phone in an enlarged crop around each (recommended), or EfficientDet-Lite2. Either needs part D labelled again.
 
 - Change the thresholds where the measurements say so, one at a time, and write down why.
 - Add smoothing (a majority over a second or two, in the companion) only if single missed frames break episodes: the backend already merges gaps of up to 5 seconds.
