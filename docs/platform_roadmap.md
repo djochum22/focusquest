@@ -35,7 +35,7 @@ The container on :8080 is current (rebuilt 15 October 2026), with migrations V18
    3. Open http://localhost:8080 and check Settings shows **Browser extension: Connected** again. The extension is signed out on each change and reconnects by itself.
 
    Not yet checked: a real sync through another address while connected. The unit tests cover where the calls go, and the browser checks ran without an account.
-3. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
+**Decided 15 October 2026: no Firefox for every day.** The user does not use Firefox regularly, so the add-on stays a temporary one, loaded by hand for checks. If that changes: Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
 
 **Next for Claude (only after the user says go):**
 

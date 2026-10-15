@@ -187,6 +187,20 @@ describe('CameraVerificationCard', () => {
         expect(button(wrapper, 'Calibrate').attributes('disabled')).toBeDefined()
         expect(wrapper.text()).toContain('Start the companion program to calibrate.')
       })
+
+      it('offers Calibrate as soon as the program connects, without leaving the page', async () => {
+        vi.useFakeTimers()
+        const wrapper = await mountCard(paired(false, '2026-03-10T09:05:00Z'))
+        expect(button(wrapper, 'Calibrate').attributes('disabled')).toBeDefined()
+
+        vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(paired(true, '2026-03-10T09:05:00Z'))
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(button(wrapper, 'Calibrate').attributes('disabled')).toBeUndefined()
+
+        const calls = vi.mocked(cameraApi.fetchCameraSettings).mock.calls.length
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(vi.mocked(cameraApi.fetchCameraSettings).mock.calls.length).toBe(calls)   // stopped asking
+      })
     })
 
     it('unpairs the program', async () => {

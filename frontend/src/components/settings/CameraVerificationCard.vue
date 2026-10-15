@@ -76,24 +76,31 @@ const companion = computed(() => camera.settings?.companion ?? null)
 const calibration = computed(() => companion.value?.calibration ?? null)
 const calibrating = computed(() => calibration.value?.state === 'REQUESTED' || calibration.value?.state === 'CALIBRATING')
 
-/** How often to ask how a calibration is going: the program reports every 2 seconds. */
-const CALIBRATION_POLL_MS = 2000
-let calibrationPoll: ReturnType<typeof setInterval> | null = null
+/** How often to ask again while waiting on the program: it reports every 2 seconds. */
+const FOLLOW_POLL_MS = 2000
+let followPoll: ReturnType<typeof setInterval> | null = null
 
-function stopCalibrationPoll() {
-  if (calibrationPoll !== null) clearInterval(calibrationPoll)
-  calibrationPoll = null
+function stopFollowing() {
+  if (followPoll !== null) clearInterval(followPoll)
+  followPoll = null
 }
 
-// While a calibration is under way, follow it; the backend gives up on it after 2 minutes.
-watch(calibrating, (underWay) => {
-  if (underWay && calibrationPoll === null) {
-    calibrationPoll = setInterval(() => void camera.fetch().catch(() => {}), CALIBRATION_POLL_MS)
-  } else if (!underWay) {
-    stopCalibrationPoll()
+/**
+ * Follow the program while waiting on it: a calibration under way (the backend gives up on it after
+ * 2 minutes), or camera verification on but the program not connected, since it is paired and
+ * started in a terminal, outside this page, and Calibrate is only offered once it is connected.
+ */
+const waitingOnProgram = computed(
+  () => calibrating.value || (camera.settings?.enabled === true && companion.value?.connected !== true),
+)
+watch(waitingOnProgram, (waiting) => {
+  if (waiting && followPoll === null) {
+    followPoll = setInterval(() => void camera.fetch().catch(() => {}), FOLLOW_POLL_MS)
+  } else if (!waiting) {
+    stopFollowing()
   }
 }, { immediate: true })
-onUnmounted(stopCalibrationPoll)
+onUnmounted(stopFollowing)
 
 const onCalibrate = () => run(camera.calibrateCompanion)
 
