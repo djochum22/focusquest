@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { makeRule } from '../../test-utils/rules'
 import AllowlistRuleForm from './AllowlistRuleForm.vue'
+import AppForm from './AppForm.vue'
 import BlockRuleForm from './BlockRuleForm.vue'
 import RuleItem from './RuleItem.vue'
 import RuleList from './RuleList.vue'
@@ -188,5 +189,28 @@ describe('RuleList', () => {
     })
 
     expect(wrapper.findAll('button').every((b) => b.attributes('disabled') !== undefined)).toBe(true)
+  })
+})
+
+describe('AppForm', () => {
+  const installed = [{ name: 'Calculator', bundleId: 'com.apple.calculator' }]
+
+  it('suggests this Mac’s apps inside the desktop app and sends the picked one’s bundle id', async () => {
+    const wrapper = mount(AppForm, { props: { existing: [], submitting: false, compact: true, installed } })
+    const input = wrapper.get('input[type="text"]')
+
+    expect(wrapper.get(`datalist#${input.attributes('list')}`).findAll('option').map((option) => option.attributes('value')))
+      .toEqual(['Calculator'])
+    await input.setValue('calculator')
+    await wrapper.get('form').trigger('submit')
+
+    expect(wrapper.emitted('submit')).toEqual([[{ name: 'calculator', bundleId: 'com.apple.calculator', active: true }]])
+  })
+
+  it('offers no suggestions in a browser', () => {
+    const wrapper = mount(AppForm, { props: { existing: [], submitting: false, compact: true } })
+
+    expect(wrapper.get('input[type="text"]').attributes('list')).toBeUndefined()
+    expect(wrapper.find('datalist').exists()).toBe(false)
   })
 })

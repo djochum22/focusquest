@@ -4,6 +4,7 @@ import AppButton from '../common/AppButton.vue'
 import FormField from '../common/FormField.vue'
 import InfoTip from '../common/InfoTip.vue'
 import type { BlockedApp, BlockedAppRequest } from '../../types/blocking'
+import type { InstalledApp } from '../../utils/desktopBridge'
 import { appRequest, validateAppForm, type AppForm } from '../../utils/blockedApps'
 import { hasErrors, type FieldErrors } from '../../utils/validation'
 
@@ -20,18 +21,21 @@ const props = defineProps<{
   locked?: boolean
   /** Just the name and the button, on one line; the app starts switched on. */
   compact?: boolean
+  /** Inside the desktop app: this Mac's apps, suggested as the name is typed. */
+  installed?: readonly InstalledApp[]
 }>()
 const emit = defineEmits<{ submit: [request: BlockedAppRequest] }>()
 
 const form = reactive<AppForm>({ name: props.app?.name ?? '', active: props.app?.active ?? true })
 const errors = ref<FieldErrors<AppForm>>({})
 const nameId = useId()
+const suggestionsId = useId()
 
 function onSubmit() {
   if (props.locked) return
   errors.value = validateAppForm(form, props.existing, props.app?.id ?? null)
   if (hasErrors(errors.value)) return
-  emit('submit', appRequest(form, props.app ?? null))
+  emit('submit', appRequest(form, props.app ?? null, props.installed))
 }
 </script>
 
@@ -46,7 +50,8 @@ function onSubmit() {
         type="text"
         autocomplete="off"
         spellcheck="false"
-        placeholder="App name"
+        :placeholder="installed?.length ? 'App name: start typing to pick one' : 'App name'"
+        :list="installed?.length ? suggestionsId : undefined"
         :aria-invalid="Boolean(errors.name)"
       />
       <AppButton type="submit" :loading="submitting" :disabled="locked">
@@ -54,6 +59,9 @@ function onSubmit() {
       </AppButton>
     </div>
     <p v-if="errors.name" class="app-form__error">{{ errors.name }}</p>
+    <datalist v-if="installed?.length" :id="suggestionsId">
+      <option v-for="installedApp in installed" :key="installedApp.bundleId" :value="installedApp.name" />
+    </datalist>
   </form>
 
   <form v-else class="app-form" novalidate aria-label="Edit blocked app" @submit.prevent="onSubmit">
@@ -66,11 +74,15 @@ function onSubmit() {
           autocomplete="off"
           spellcheck="false"
           placeholder="App name, such as Slack"
+          :list="installed?.length ? suggestionsId : undefined"
           :aria-invalid="invalid"
         />
       </template>
       <template #info><InfoTip>The name as it appears in the Dock or the Applications folder.</InfoTip></template>
     </FormField>
+    <datalist v-if="installed?.length" :id="suggestionsId">
+      <option v-for="installedApp in installed" :key="installedApp.bundleId" :value="installedApp.name" />
+    </datalist>
 
     <div class="app-form__active">
       <label class="app-form__active-label">

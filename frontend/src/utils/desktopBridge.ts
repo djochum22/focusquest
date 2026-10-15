@@ -38,3 +38,20 @@ export function sendTokenToDesktop(token: string): Promise<ExtensionState | null
 export function disconnectDesktop(): Promise<ExtensionState | null> {
   return request('desktop_disconnect')
 }
+
+/** An app installed on this Mac, as the desktop app lists it. */
+export interface InstalledApp {
+  name: string
+  bundleId: string
+}
+
+/** The apps installed on this Mac, by name; empty outside the desktop app or if it cannot list them. */
+export async function getInstalledApps(): Promise<InstalledApp[]> {
+  if (!isInDesktopApp()) return []
+  try {
+    const apps = await invoke<InstalledApp[]>('installed_apps')
+    return Array.isArray(apps) ? apps.filter((app) => typeof app?.name === 'string' && typeof app.bundleId === 'string') : []
+  } catch {
+    return []
+  }
+}

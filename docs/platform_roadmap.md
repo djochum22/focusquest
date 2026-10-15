@@ -71,7 +71,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
 | 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
-| 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell and enforcement. Open: a picker for bundle ids, signing |
+| 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, and picking apps by bundle id. Open: signing |
 
 ## Done: step 1, one app, one origin
 
@@ -172,7 +172,9 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Desktop app:** `blocking.rs` keeps the token (0600), reads the blocking state every 3 seconds with `ureq`, keeps the last answer when FocusQuest cannot be reached and drops it when the token is refused; `apps.rs` lists running apps (not background-only ones) through `NSWorkspace` and calls `terminate` on the main thread; every second, matching apps are quit, with one notification per launch (`tauri-plugin-notification`). Never quit: itself, the Finder, the Dock, the login window, SystemUIServer. Three commands for the web app, allowed only from `http://127.0.0.1:8080/*` (`capabilities/web-app.json`, `build.rs`'s app manifest).
 - **Web app:** `utils/desktopBridge.ts` (`@tauri-apps/api`), `api/desktopApi.ts`, `stores/desktopStore.ts` (as the extension's store, sharing `classify` and the opt-out, now per client), connected from `AppShell` on every signed-in page; a **Desktop app** row in Settings, shown only inside the app.
 - **Checked:** `cargo test` (9, plus one reading this Mac's running apps), the backend's tests, the web app's (583); against the bundled backend on a spare port, a desktop token read the blocked apps and was refused on the heartbeat. Tried live by the user (Docker rebuilt): Calculator was quit while blocking was on. Found on the way: an app opened while Docker was down keeps its own copy on port 8080 after Docker comes back, and OrbStack's forwarding of 8080 then stayed broken until `orb restart docker`. Quit the app before starting Docker.
-- Matching is by name until the web app can fill bundle ids (a picker in the desktop app is still to come).
+- Matching was by name alone until part 4 below.
+
+**Part 4, picking apps (15 October 2026).** Inside the desktop app, the Apps tab's name field suggests this Mac's apps (a `<datalist>`, the user's preference for no extra panels), from a fourth command, `installed_apps`: the `.app` bundles in /Applications, /System/Applications and ~/Applications, one folder down too, read with `NSBundle`, plus the running ones, each bundle id once. `appRequest` sends the bundle id of an installed app with the typed name; an edit keeps the app's own while the name stays, so an app saved by name alone gets its id when edited in the desktop app. In a browser nothing changes. Tests: `utils/blockedApps.test.ts`, `AppForm` in `BlockingComponents.test.ts`, `apps.rs` (`cargo test -- --ignored` lists this Mac's apps).
 - `prepare-backend.sh` now makes the JRE writable: jlink's read-only licence files broke the second build.
 
 ## Later steps (planned)

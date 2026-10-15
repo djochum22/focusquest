@@ -14,12 +14,15 @@ import InfoTip from '../components/common/InfoTip.vue'
 import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import Modal from '../components/common/Modal.vue'
 import { useBlockingStore } from '../stores/blockingStore'
+import { getInstalledApps, type InstalledApp } from '../utils/desktopBridge'
 import { useSessionStore } from '../stores/sessionStore'
 import type { BlockedApp, BlockedAppRequest, RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
 import { isOverridable } from '../utils/sessionState'
 
 const blocking = useBlockingStore()
 const session = useSessionStore()
+/** Inside the desktop app, this Mac's apps, suggested when adding one; empty in a browser. */
+const installedApps = ref<InstalledApp[]>([])
 
 const SECTIONS = [
   {
@@ -189,7 +192,10 @@ function startEdit(kind: RuleKind, rule: RuleTarget) {
   editing.value = { kind, rule }
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  void getInstalledApps().then((apps) => (installedApps.value = apps))
+})
 </script>
 
 <template>
@@ -270,7 +276,8 @@ onMounted(load)
             <p class="muted rules__note">Mac apps kept closed while sites are blocked</p>
             <InfoTip>
               Blocked on the same terms as your blocked sites. Enter the app’s name as it appears in the Dock or the
-              Applications folder. Apps are only blocked while the FocusQuest app for Mac is running.
+              Applications folder; in the FocusQuest app for Mac, pick it from your apps as you type, so it is
+              matched exactly. Apps are only blocked while the FocusQuest app for Mac is running.
             </InfoTip>
           </div>
 
@@ -280,6 +287,7 @@ onMounted(load)
               :key="appFormKey"
               :existing="blocking.apps"
               :submitting="blocking.saving"
+              :installed="installedApps"
               compact
               @submit="onAddApp"
             />
@@ -327,6 +335,7 @@ onMounted(load)
           :existing="blocking.apps"
           :app="editingApp"
           :submitting="blocking.saving"
+          :installed="installedApps"
           :locked="enforced"
           @submit="onSaveApp"
         />

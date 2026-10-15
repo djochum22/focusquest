@@ -4,6 +4,7 @@
  */
 
 import type { BlockedApp, BlockedAppRequest } from '../types/blocking'
+import type { InstalledApp } from './desktopBridge'
 import type { FieldErrors } from './validation'
 
 export const APP_NAME_MAX = 100
@@ -32,12 +33,19 @@ export function validateAppForm(
 }
 
 /**
- * The request for a form. The web app does not show bundle ids; the desktop app fills them in. An
- * edit keeps the app's bundle id while the name stays the same, and drops it on a rename, since
- * the id would otherwise go on matching the old app.
+ * The request for a form. The web app does not show bundle ids. An edit keeps the app's bundle id
+ * while the name stays the same, and drops it on a rename, since the id would otherwise go on matching
+ * the old app. Otherwise, inside the desktop app, a name that is one of the `installed` apps' takes its
+ * bundle id, so the app is matched exactly.
  */
-export function appRequest(form: AppForm, editing: BlockedApp | null = null): BlockedAppRequest {
+export function appRequest(
+  form: AppForm,
+  editing: BlockedApp | null = null,
+  installed: readonly InstalledApp[] = [],
+): BlockedAppRequest {
   const name = form.name.trim()
-  const keepsBundleId = editing?.bundleId && editing.name.toLowerCase() === name.toLowerCase()
-  return { name, bundleId: keepsBundleId ? editing.bundleId : null, active: form.active }
+  const sameName = (other: string) => other.toLowerCase() === name.toLowerCase()
+  const kept = editing?.bundleId && sameName(editing.name) ? editing.bundleId : null
+  const picked = installed.find((app) => sameName(app.name))?.bundleId ?? null
+  return { name, bundleId: kept ?? picked, active: form.active }
 }

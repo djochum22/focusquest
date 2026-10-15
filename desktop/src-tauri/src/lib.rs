@@ -31,7 +31,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .manage(Started(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![desktop_status, desktop_connect, desktop_disconnect])
+        .invoke_handler(tauri::generate_handler![desktop_status, desktop_connect, desktop_disconnect, installed_apps])
         .setup(|app| {
             let token_path = app.path().app_data_dir()?.join("desktop-token");
             let blocker = Arc::new(Blocker::load(token_path));
@@ -132,7 +132,8 @@ fn menu_bar_icon(app: &AppHandle) -> tauri::Result<()> {
 }
 
 // What the web app calls inside the window (utils/desktopBridge.ts); allowed only from FocusQuest's own
-// address (capabilities/web-app.json). The answers have the same shape as the browser extension's.
+// address (capabilities/web-app.json). The connection answers have the same shape as the browser
+// extension's.
 
 #[tauri::command]
 fn desktop_status(blocker: State<'_, Arc<Blocker>>) -> DesktopState {
@@ -148,6 +149,13 @@ async fn desktop_connect(token: String, blocker: State<'_, Arc<Blocker>>) -> Res
 #[tauri::command]
 fn desktop_disconnect(blocker: State<'_, Arc<Blocker>>) -> DesktopState {
     blocker.disconnect()
+}
+
+/// The installed apps, for the web app to suggest when adding a blocked app.
+#[tauri::command]
+async fn installed_apps(app: AppHandle) -> Result<Vec<apps::Installed>, String> {
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || apps::installed(&home)).await.map_err(|e| e.to_string())
 }
 
 /// Every second, quits the running apps FocusQuest blocks, saying why once per launch of each.

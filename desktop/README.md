@@ -26,6 +26,10 @@ FocusQuest as a Mac app: a window on FocusQuest and an icon in the menu bar. Bui
   its own (`fqd_`), which can only read what to block; Settings shows **Desktop app: Connected**,
   with Disconnect. The token is kept in `~/Library/Application Support/com.focusquest.desktop/desktop-token`.
   If FocusQuest cannot be reached, it keeps blocking what it last knew.
+- **Suggests your apps** on the Blocking page's **Apps** tab, as you type a name: the apps in
+  /Applications, /System/Applications and ~/Applications (one folder down too), and those running.
+  A picked app is saved with its bundle id, so it is matched exactly; one typed by name alone is
+  matched by name, and gets its bundle id when edited in the app.
 
 Website blocking is still the browser extension's: the app's window is a separate browser (macOS's
 WebKit) with no extension and its own sign-in.
@@ -55,8 +59,8 @@ if FocusQuest is not already running).
 | --- | --- |
 | `src-tauri/src/lib.rs` | The window, the menu bar icon, closing and quitting |
 | `src-tauri/src/blocking.rs` | The desktop token, reading the blocking state every 3 seconds, and which running apps to quit |
-| `src-tauri/src/apps.rs` | The running apps, and quitting one, through `NSWorkspace` |
-| `src-tauri/capabilities/web-app.json` | The three commands the web app may call, from FocusQuest's own address only |
+| `src-tauri/src/apps.rs` | The running apps, and quitting one, through `NSWorkspace`; the installed apps, through `NSBundle` |
+| `src-tauri/capabilities/web-app.json` | The four commands the web app may call, from FocusQuest's own address only |
 | `src-tauri/src/backend.rs` | Finds FocusQuest on 127.0.0.1:8080 (`/api/auth/setup-status`), or starts and stops the bundled copy; the sign-in secret kept in its data folder |
 | `ui/index.html` | The page shown until FocusQuest answers, or why it could not start |
 | `scripts/prepare-backend.sh` | Bundles the boot jar and a cut-down JRE |
