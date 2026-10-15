@@ -192,7 +192,17 @@ Tried on the same files (before the step 3 changes below): `--margin 10 --presen
 
 Looking away and phone are unchanged by both. The 2 false away seconds are single seconds of a face scored 0.3 to 0.43: a single look is never an episode. Away still did not warn about the one 101-second away stretch: a face was seen at full score for one second in it (likely the half-in-the-picture part, labelled away too), splitting it into 22 and 62 seconds with a 6-second gap, one more than the backend merges. Not tuned from one sample.
 
-Next: looking away while writing on paper (finding 4: ask the user where the paper lay), then the phone (finding 3). A longer labelling of parts A and B would make the false alarm rates worth something.
+**Parts A and B labelled again** (15 October 2026, 112 seconds CODING and 79 WRITING, all on task), still against the calibration of 5 October (the companion was still unpaired). With all eight files: 333 seconds on task, no false warning of any kind. Looking away while writing on paper (finding 4) did not recur: 1 false second of 79. While coding, 14 of 112 seconds were looking away, the head 12 to 13.5° down against a screen zone that ends at 6.7° (plus the 5° margin): looking at the lower screen or the keyboard.
+
+| Looking away, all eight files | Found | Right when reported | False while on task |
+| --- | --- | --- | --- |
+| Margin 5° (today) | 9 of 25 | 9 of 71 (13 %) | 27 of 333 s (4.9 a minute) |
+| Margin 7° | 9 of 25 | 9 of 38 (24 %) | 9 of 333 s |
+| Margin 10° (before C1e) | 9 of 25 | 9 of 25 (36 %) | 5 of 333 s |
+
+Not changed yet: the calibration is ten days old and the false seconds come from the head pitched just below its screen zone, so calibrating again comes first, then measuring again. The user asked for 5° in C1e, so going back to a wider margin is theirs to decide.
+
+Next: pair the companion again and calibrate, then label part A (and E) again and decide the margin; the phone (finding 3) needs a different way of looking, to be agreed with the user.
 
 - Change the thresholds where the measurements say so, one at a time, and write down why.
 - Add smoothing (a majority over a second or two, in the companion) only if single missed frames break episodes: the backend already merges gaps of up to 5 seconds.

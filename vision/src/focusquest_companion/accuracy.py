@@ -383,8 +383,8 @@ def format_report(report: Report) -> list[str]:
              f"Thresholds: {report.thresholds.describe()}."]
     if report.differing:
         lines.append(f"Note: {report.differing} of {total} seconds come out differently from what was reported "
-                     "while labelling, with today's thresholds. The calibration has probably changed since; "
-                     "looking away is judged against the current one.")
+                     "while labelling, with today's thresholds: the companion's rules or the calibration have changed "
+                     "since. Looking away is judged against the current calibration.")
 
     lines += ["", f"Each second (leaving out the {int(LAG.total_seconds())} seconds after each label change, "
                   f"{report.left_out} in all)",
