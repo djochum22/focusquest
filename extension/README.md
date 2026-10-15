@@ -108,6 +108,31 @@ Android, which FocusQuest does not target.
 too, open the add-on in `about:addons` and set **Run in Private Windows** to **Allow** (Chrome's
 equivalent is **Allow in Incognito** on the extension's details page).
 
+## Load the extension in Safari
+
+Safari takes extensions only inside a Mac app, so `npm run build:safari` builds **FocusQuest for
+Safari**, a small app that carries it. Needs Xcode (not only the Command Line Tools), selected with
+`sudo xcode-select -s /Applications/Xcode.app`.
+
+1. `cd extension && npm install && npm run build:safari`
+2. Open `extension/safari-build/FocusQuest for Safari.app` once.
+3. In Safari, **Settings**, **Extensions**, turn **FocusQuest** on, and allow it on all websites
+   (it needs that to block sites).
+4. After changing code, run `npm run build:safari` again and open the app again.
+
+**Signing.** With an Apple ID added in Xcode (**Settings**, **Accounts**; free, nothing is published),
+the script signs with its personal certificate and Safari keeps the extension on across restarts.
+Without one the app is signed for this Mac only, and Safari lists the extension only while
+**Develop**, **Allow Unsigned Extensions** is on (the Develop menu appears with **Settings**,
+**Advanced**, **Show features for web developers**); Safari turns that off each time it starts.
+`FOCUSQUEST_TEAM=<team id>` picks a team when Xcode knows more than one.
+
+`scripts/build-safari.sh` runs Xcode's `safari-web-extension-converter` on `dist-safari/` each time,
+into `safari-build/` (not committed), then `xcodebuild`. The Safari build is the Chromium one with what
+Safari does not take removed (`toSafari` in `scripts/build.mjs`): the worker is not declared a module
+(the bundle has no imports), and, as in Firefox, the bridge runs on any port of the web app's hosts and
+checks the origin itself.
+
 ## Sign the extension in
 
 You do nothing beyond having the web app open once.

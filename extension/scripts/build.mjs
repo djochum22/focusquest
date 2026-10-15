@@ -1,8 +1,10 @@
 // Bundles the extension into dist/, which is the folder to load unpacked in Chrome and the other
-// Chromium browsers, or with --firefox into dist-firefox/, for Firefox.
+// Chromium browsers, with --firefox into dist-firefox/, for Firefox, or with --safari into
+// dist-safari/, which scripts/build-safari.sh wraps in a small Mac app for Safari.
 //   node scripts/build.mjs             one-off build
 //   node scripts/build.mjs --watch     rebuild on change
 //   node scripts/build.mjs --firefox   the Firefox build (combines with --watch)
+//   node scripts/build.mjs --safari    the Safari build
 //
 // The end-to-end suite builds a copy pointed at its own ports with these environment variables:
 //   FOCUSQUEST_BACKEND_URL    backend base URL (default http://127.0.0.1:8080)
@@ -15,7 +17,9 @@ import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const firefox = process.argv.includes('--firefox')
-const dist = path.resolve(process.env.FOCUSQUEST_OUT_DIR ?? path.join(root, firefox ? 'dist-firefox' : 'dist'))
+const safari = process.argv.includes('--safari')
+const dist = path.resolve(process.env.FOCUSQUEST_OUT_DIR
+  ?? path.join(root, firefox ? 'dist-firefox' : safari ? 'dist-safari' : 'dist'))
 const watch = process.argv.includes('--watch')
 const backendUrl = process.env.FOCUSQUEST_BACKEND_URL
 const frontendUrl = process.env.FOCUSQUEST_FRONTEND_URL
@@ -30,7 +34,7 @@ const options = {
   outdir: dist,
   bundle: true,
   format: 'esm',
-  target: firefox ? 'firefox140' : 'chrome120',
+  target: firefox ? 'firefox140' : safari ? 'safari17' : 'chrome120',
   sourcemap: true,
   logLevel: 'info',
   define: {
@@ -70,12 +74,29 @@ function toFirefox(manifest) {
   }
 }
 
+/**
+ * Safari runs the service worker, but not as a module (it needs none: the bundle has no imports), and
+ * takes its id from the app the extension ships in. As in Firefox, the bridge runs on every port of
+ * the web app's hosts and checks the origin itself.
+ */
+function toSafari(manifest) {
+  for (const script of manifest.content_scripts) {
+    script.matches = [...new Set(script.matches.map((pattern) => pattern.replace(/^([a-z*]+:\/\/[^/:]+):\d+/, '$1')))]
+  }
+  delete manifest.background.type
+  delete manifest.key
+  delete manifest.minimum_chrome_version
+  delete manifest.options_ui.open_in_tab
+}
+
 async function copyStatic() {
   const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'))
   if (frontendUrl) manifest.content_scripts[0].matches = [`${new URL(frontendUrl).origin}/*`]
   if (firefox) toFirefox(manifest)
+  if (safari) toSafari(manifest)
   await mkdir(dist, { recursive: true })
   await writeFile(path.join(dist, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
+  await cp(path.join(root, 'icons'), path.join(dist, 'icons'), { recursive: true })
   for (const [page, files] of [
     ['blocked', ['blocked.html', 'blocked.css']],
     ['popup', ['popup.html', 'popup.css']],

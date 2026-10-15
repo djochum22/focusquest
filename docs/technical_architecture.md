@@ -1671,7 +1671,7 @@ The MVP is intentionally local and single-user. Future migration should preserve
 | ---                  | ---                                                                                     |
 | Desktop app blocking | Done on macOS: the Tauri v2 app in `desktop/`. Windows needs a Win32 process watcher |
 | ---                  | ---                                                                                     |
-| More browsers        | Done for Chromium and Firefox (one source, a manifest per browser); Safari needs Xcode's converter and ships inside the desktop app |
+| More browsers        | Done: Chromium, Firefox and Safari from one source, with a manifest per browser; Safari's ships in its own small app, "FocusQuest for Safari" |
 | ---                  | ---                                                                                     |
 | Computer vision      | Add a separate local Python service; exchange only aggregate events                     |
 | ---                  | ---                                                                                     |

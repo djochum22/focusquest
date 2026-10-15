@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
     "build:firefox": "tsc --noEmit && node scripts/build.mjs --firefox",
+    "build:safari": "tsc --noEmit && node scripts/build.mjs --safari && scripts/build-safari.sh",
     "watch": "node scripts/build.mjs --watch",
     "lint:firefox": "web-ext lint --source-dir dist-firefox",
     "package:firefox": "web-ext build --source-dir dist-firefox --artifacts-dir web-ext-artifacts --overwrite-dest",

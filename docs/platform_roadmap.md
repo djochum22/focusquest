@@ -24,11 +24,11 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 The container on :8080 is current (rebuilt 15 October 2026), with migrations V18 and V19 applied to the real volume. The desktop app is built at `desktop/src-tauri/target/release/bundle/macos/FocusQuest.app` and connected to it.
 
-**Tools on this Mac (15 October 2026):** Rust 1.99 with rustup (`~/.cargo/bin`; a new shell picks it up). **Xcode is not installed**: only the Command Line Tools, so `xcrun safari-web-extension-converter` is missing.
+**Tools on this Mac (15 October 2026):** Rust 1.99 with rustup (`~/.cargo/bin`; a new shell picks it up). Xcode 27 is installed and selected (`xcode-select -p` gives `/Applications/Xcode.app/Contents/Developer`). No Apple ID in Xcode yet, so no signing certificate.
 
 **Waiting on the user:**
 
-1. **Install Xcode** (for Safari).
+1. **Try Safari**: add the Apple ID in Xcode (**Settings**, **Accounts**), run `npm run build:safari` in `extension/`, open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
 2. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
@@ -39,7 +39,7 @@ The container on :8080 is current (rebuilt 15 October 2026), with migrations V18
 
 **Next for Claude (only after the user says go):**
 
-1. **Safari** once Xcode is installed. Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the desktop app's bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
+1. **Safari**: fix whatever the user's first try in Safari turns up (built 15 October 2026; see "Step 3, Safari").
 2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
 3. Optional: the backend comments and the docs still say "Chrome extension" in places.
 4. Later: signing and notarising the desktop app, so it opens on another Mac without a warning.
@@ -70,7 +70,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari waits for Xcode |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari built 15 October 2026, waiting on the user's try in Safari |
 | 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, and picking apps by bundle id. Open: signing |
 
 ## Done: step 1, one app, one origin
@@ -147,6 +147,12 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - Tests: `tests/address.test.ts`, one more in `backendClient.test.ts` and `webAppBridge.test.ts`. Checked by hand in headless Firefox (WebDriver BiDi, with `--remote-allow-system-access` to reach the options page) and in Playwright's Chromium, against a proxy on :8090: the bridge answers there after saving, still on :8080, and not on an unrelated page; "Use this computer" removes the registration.
 
 **Decided 9 October 2026:** the extension's backend address in an options page moved here from step 2. Before the bridge, `externally_connectable` fixed the web app's origins in the manifest, so an extension pointed elsewhere could not be connected; and with each computer running its own copy on 127.0.0.1:8080, nothing needs it yet.
+
+**Safari (15 October 2026; not yet tried in Safari).** Built with Xcode 27.
+- **Decided by the user:** its own small app, "FocusQuest for Safari", launched only to use Safari (the user rarely does), rather than inside the desktop app as first planned; signed with a free Apple ID in Xcode, so Safari keeps it on (the script falls back to signing for this Mac only, which needs Develop, "Allow Unsigned Extensions" at each Safari start). Firefox for every day is not needed either.
+- `node scripts/build.mjs --safari` builds `dist-safari/` (`toSafari`: no `background.type`, no `key` or `minimum_chrome_version`, no `open_in_tab`, port-less bridge patterns as in Firefox; esbuild target `safari17`). `scripts/build-safari.sh` runs `safari-web-extension-converter` into `safari-build/` each time, sets the app's id to `com.focusquest.safari` (the converter names it after the app, and an embedded extension's id must start with its app's), finds a team from Xcode's preferences or `FOCUSQUEST_TEAM`, and builds with `xcodebuild`. `npm run build:safari` does both.
+- The manifest now has icons (`extension/icons/`, made from the web app's favicon), which the converter wanted and every browser shows.
+- **Checked:** the build, conversion and signing (ad hoc, for now); the extension's 241 tests. **Not yet checked:** anything in Safari itself, notably whether its `declarativeNetRequest` redirects to the blocked page and whether the bridge connects.
 
 ## Step 4 so far: the desktop app
 

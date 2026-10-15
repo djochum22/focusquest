@@ -8,7 +8,7 @@ optional camera companion program that checks you stay on task. Design documents
 | --- | --- | --- |
 | Backend API | [`backend/`](backend/) | Java 21, Spring Boot 4, H2, Flyway, JWT |
 | Web app | [`frontend/`](frontend/README.md) | Vue 3, TypeScript, Vite, Pinia |
-| Browser extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript; Chromium browsers and Firefox |
+| Browser extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript; Chromium browsers, Firefox and Safari |
 | Camera companion | [`vision/`](vision/README.md) | Python 3.11+; OpenCV and MediaPipe for the camera |
 | Desktop app (macOS) | [`desktop/`](desktop/README.md) | Tauri v2, Rust; bundles the backend with a cut-down JRE |
 
@@ -16,7 +16,8 @@ optional camera companion program that checks you stay on task. Design documents
 
 - JDK 21 (Gradle is bundled as `./gradlew`)
 - Node.js 20 or newer, with npm
-- For the extension: Chrome 120 or newer (or another Chromium browser), or Firefox 140 or newer
+- For the extension: Chrome 120 or newer (or another Chromium browser), Firefox 140 or newer, or
+  Safari 17 or newer (building for Safari needs Xcode)
 - Python 3.11 or newer, for the camera companion and its tests
 - For the desktop app: Rust (https://rustup.rs) and macOS 12 or newer
 
