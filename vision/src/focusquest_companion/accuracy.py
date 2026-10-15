@@ -24,7 +24,7 @@ from typing import Iterable, Sequence
 from . import calibration, phones
 from .api import Observation, Profile
 from .calibration import Calibration, HeadPose
-from .camera import LOST_AFTER_TURN, PRESENT_FROM
+from .camera import LOST_AFTER_TURN, LOST_TURNED_FOR, PRESENT_FROM, away_confidence
 from .detector import AWAY, LOOKING_AWAY, PHONE, Detection
 from .labelling import (COLUMNS, LABELS, MERGE_GAP_SECONDS, MIN_CONFIDENCE, ON_TASK, WARNING_AFTER_SECONDS,
                         profile_for)
@@ -47,6 +47,8 @@ class Thresholds:
     phone_from: float = phones.PHONE_FROM
     certain_from: float = phones.CERTAIN_FROM
     min_confidence: float = MIN_CONFIDENCE
+    #: Seconds a face lost after a turn away stays looking away.
+    lost_for: float = LOST_TURNED_FOR.total_seconds()
 
     def problem(self) -> str | None:
         """Why these cannot be tried on a recorded file, or None if they can."""
@@ -64,11 +66,14 @@ class Thresholds:
             return "--min-confidence is between 0 and 1."
         if self.margin < 0:
             return "--margin cannot be negative."
+        if self.lost_for < 0:
+            return "--lost-for cannot be negative."
         return None
 
     def describe(self) -> str:
         return (f"present from {self.present_from:g}, looking away from {self.margin:g} degrees beyond the zone, "
                 f"phone from {self.phone_from:g} (certain from {self.certain_from:g}), "
+                f"a lost face looking away for up to {self.lost_for:g} seconds after a turn, "
                 f"minimum confidence {self.min_confidence:g}")
 
 
@@ -115,7 +120,8 @@ def replay(rows: Sequence[Row], profile: Profile, angles: Calibration, threshold
     :meth:`.camera.CameraDetector.detect`, from the recorded readings instead of a frame."""
     checks_looking = LOOKING_AWAY in profile.signals
     turned: tuple[datetime, float] | None = None
-    lost_turned: float | None = None
+    lost_turned: tuple[datetime, float] | None = None
+    lost_for = timedelta(seconds=thresholds.lost_for)
     replayed = []
     for row in rows:
         signals: dict[str, float] = {}
@@ -129,12 +135,14 @@ def replay(rows: Sequence[Row], profile: Profile, angles: Calibration, threshold
                 signals[LOOKING_AWAY] = looking_away
         else:
             if checks_looking and turned is not None and row.time - turned[0] <= LOST_AFTER_TURN:
-                lost_turned = turned[1]
+                lost_turned = (row.time, turned[1])
             turned = None
+            if lost_turned is not None and row.time - lost_turned[0] > lost_for:
+                lost_turned = None
             if checks_looking and lost_turned is not None:
-                signals[LOOKING_AWAY] = lost_turned
+                signals[LOOKING_AWAY] = lost_turned[1]
             else:
-                signals[AWAY] = round(1 - row.face_score, 3)
+                signals[AWAY] = away_confidence(row.face_score, thresholds.present_from)
         if PHONE in profile.signals and row.held_phone_score is not None \
                 and row.held_phone_score >= thresholds.phone_from:
             signals[PHONE] = phones.confidence(Found(row.held_phone_score, (0, 0, 0, 0)),
@@ -144,12 +152,9 @@ def replay(rows: Sequence[Row], profile: Profile, angles: Calibration, threshold
 
 
 def differences(rows: Sequence[Row], replayed: Sequence[dict[str, float]]) -> int:
-    """How many seconds were looked at differently from what was reported while labelling."""
-    def same(a: dict[str, float], b: dict[str, float]) -> bool:
-        # The readings were rounded when written, so a confidence may come out a little different.
-        return a.keys() == b.keys() and all(abs(a[signal] - b[signal]) <= 0.011 for signal in a)
-
-    return sum(not same(row.reported, signals) for row, signals in zip(rows, replayed))
+    """How many seconds a different signal was found in than was reported while labelling. Only which
+    signals, not how surely: a confidence rule changed since recording is no reason to doubt the file."""
+    return sum(row.reported.keys() != signals.keys() for row, signals in zip(rows, replayed))
 
 
 @dataclass(frozen=True)

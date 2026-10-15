@@ -30,11 +30,28 @@ if TYPE_CHECKING:
 
 #: A face found at least this surely means someone is there; below it they count as away.
 PRESENT_FROM = 0.5
+#: The confidence of away for a face found just below ``PRESENT_FROM``: the backend's minimum (0.7
+#: today), so it counts. With no face at all it is 1.
+LEAST_AWAY_CONFIDENCE = 0.7
 #: No new frame for this long means the camera stopped working.
 FRAME_TIMEOUT_SECONDS = 2.0
 #: A face lost this soon after the head was seen turned away is still looking away, not away: a head
 #: turned far enough loses the face.
 LOST_AFTER_TURN = timedelta(seconds=2)
+#: For how long a face lost after a turn away stays looking away; after that it is away. Measured in
+#: C1d: a look away loses the face for 1 to 2 seconds, getting up from the desk for as long as one is gone.
+LOST_TURNED_FOR = timedelta(seconds=5)
+
+
+def away_confidence(face_score: float, present_from: float = PRESENT_FROM) -> float:
+    """How surely nobody is there, for a best face below ``present_from`` (:data:`PRESENT_FROM` unless
+    measuring): from 1 with no face down to :data:`LEAST_AWAY_CONFIDENCE` just below it.
+
+    Rescaled, not 1 minus the score: an empty room nearly always holds something the face detector
+    scores 0.1 to 0.5, and a stretch is only as sure as its least sure second, so 1 minus the score
+    left every away stretch below the backend's minimum (measured in C1d).
+    """
+    return round(1 - (1 - LEAST_AWAY_CONFIDENCE) * min(face_score / present_from, 1.0), 3)
 
 Frame = Any  # a numpy array, height x width x 3, BGR as OpenCV gives it
 
@@ -485,7 +502,8 @@ class CameraDetector:
     - Where the profile checks it, a head turned away from the work area is ``LOOKING_AWAY``
       (:meth:`Calibration.looking_away`). The head's angles are worked out only then.
     - A face lost just after the head was seen turned away stays ``LOOKING_AWAY`` until a face is
-      found again: a head turned far enough loses the face, and that is not leaving.
+      found again, for up to :data:`LOST_TURNED_FOR`: a head turned far enough loses the face, and
+      that is not leaving. Longer, it is: the head turns as the user gets up.
     - Where the profile checks it, a phone overlapping a hand is ``PHONE`` (:mod:`.phones`). Hands are
       looked for only once a phone is found.
     """
@@ -510,8 +528,8 @@ class CameraDetector:
         self._log = log
         #: When the head was last seen turned away, and how surely; None once seen otherwise.
         self._turned: tuple[datetime, float] | None = None
-        #: How surely, while the face is lost after a turn away.
-        self._lost_turned: float | None = None
+        #: Since when the face is lost after a turn away, and how surely it is looking away.
+        self._lost_turned: tuple[datetime, float] | None = None
         #: What the models gave at the last look, for measuring accuracy (``label``). None before the first.
         self.last_readings: Readings | None = None
 
@@ -583,11 +601,13 @@ class CameraDetector:
             self._turned = (now, looking_away) if looking_away is not None else None
             return ({LOOKING_AWAY: looking_away} if looking_away is not None else {}), pose
         if work_area is not None and self._turned is not None and now - self._turned[0] <= LOST_AFTER_TURN:
-            self._lost_turned = self._turned[1]
+            self._lost_turned = (now, self._turned[1])
         self._turned = None
+        if self._lost_turned is not None and now - self._lost_turned[0] > LOST_TURNED_FOR:
+            self._lost_turned = None
         if work_area is not None and self._lost_turned is not None:
-            return {LOOKING_AWAY: self._lost_turned}, None
-        return {AWAY: round(1 - score, 3)}, None
+            return {LOOKING_AWAY: self._lost_turned[1]}, None
+        return {AWAY: away_confidence(score)}, None
 
     def _log_turn(self, pose: HeadPose, work_area: str) -> None:
         """Where the head pointed as it turned away, against the work area: without a preview, the log is how to tell why."""

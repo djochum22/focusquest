@@ -193,8 +193,10 @@ below a phone score of 0.25.
 - **Stretches.** A stretch ends at the first moment its signal is not seen; the backend treats a
   short gap as flicker. Its confidence is the lowest seen during it. Only the signals the category
   checks are reported.
-- **Presence.** No face found at 0.5 or above is `AWAY`, with confidence 1 minus the best face's
-  score, so a doubtful face is a doubtful absence. The webcam is read continuously on a background
+- **Presence.** No face found at 0.5 or above is `AWAY`, with a confidence from 1 (no face) down to
+  0.7 (a face just below 0.5), so a doubtful face is a less sure absence that still counts. An empty
+  room nearly always holds something scored 0.1 to 0.5, so 1 minus the score, as before, left whole
+  stretches below the backend's minimum. The webcam is read continuously on a background
   thread, keeping only the latest frame, so what is looked at is from now.
 - **Looking away**, only where the category checks it. MediaPipe's face landmarker gives the head's
   yaw (left and right) and pitch (up and down) from its facial transformation matrix. More than 5
@@ -203,7 +205,9 @@ below a phone score of 0.25.
   backend's minimum of 0.7 just past that margin, so it counts at once, and grows to 1 over the next
   15 degrees; a less sure face lowers it in proportion. When a look away starts, the head's angles and the work area's are written to the
   output, so the log shows why. A face lost within 2 seconds of being seen turned away stays `LOOKING_AWAY` until it
-  is found again, since a head turned far enough loses the face; otherwise a lost face is `AWAY`.
+  is found again, since a head turned far enough loses the face, but for at most 5 seconds: a look
+  away loses the face for a second or two, getting up from the desk for as long as one is gone.
+  Otherwise a lost face is `AWAY`.
 - **A phone in hand.** MediaPipe's object detector (EfficientDet-Lite0, trained on COCO) looks for
   its "cell phone" class; once it finds one at 0.25 or above, the hand landmarker looks for hands.
   A phone whose box overlaps a hand's is `PHONE`; a phone lying on the desk is not. Both models look

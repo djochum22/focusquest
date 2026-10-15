@@ -87,11 +87,12 @@ class CameraDetectorTest(unittest.TestCase):
         detector.open(T0)
         self.assertEqual(detector.detect(T0), Detection())
 
-    def test_no_face_is_away_and_a_doubtful_one_is_away_less_surely(self):
-        detector = self.detector([None, face(0.2), face(0.5)])
+    def test_no_face_is_away_and_a_doubtful_one_is_away_less_surely_but_still_counts(self):
+        detector = self.detector([None, face(0.2), face(0.49), face(0.5)])
         detector.open(T0)
         self.assertEqual(detector.detect(T0), Detection({AWAY: 1.0}))
-        self.assertEqual(detector.detect(T0), Detection({AWAY: 0.8}))
+        self.assertEqual(detector.detect(T0), Detection({AWAY: 0.88}))
+        self.assertEqual(detector.detect(T0), Detection({AWAY: 0.706}))
         self.assertEqual(detector.detect(T0), Detection())
 
     def test_a_camera_that_sends_nothing_is_unavailable(self):
@@ -186,7 +187,15 @@ class LookingAwayTest(unittest.TestCase):
         detector = self.detector([face(0.9), None, None, face(0.9)], [TURNED, SCREEN])
         self.assertEqual(detector.detect(self.at(0), WRITING), Detection({LOOKING_AWAY: 1.0}))
         self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 1.0}))
-        self.assertEqual(detector.detect(self.at(60), WRITING), Detection({LOOKING_AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(6), WRITING), Detection({LOOKING_AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(7), WRITING), Detection())
+
+    def test_a_face_lost_after_a_turn_for_longer_is_away_until_found_again(self):
+        detector = self.detector([face(0.9), None, None, None, face(0.9)], [TURNED, SCREEN])
+        detector.detect(self.at(0), WRITING)
+        self.assertEqual(detector.detect(self.at(1), WRITING), Detection({LOOKING_AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(7), WRITING), Detection({AWAY: 1.0}))
+        self.assertEqual(detector.detect(self.at(60), WRITING), Detection({AWAY: 1.0}))
         self.assertEqual(detector.detect(self.at(61), WRITING), Detection())
 
     def test_a_face_lost_while_facing_the_screen_is_away(self):

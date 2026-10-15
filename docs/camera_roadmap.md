@@ -74,8 +74,8 @@ Another session also changed website blocking in `3d6a796`: sites are now blocke
 - **The laptop's built-in camera** by default, not the iPhone (Continuity Camera). `--camera` picks it by name; see "The real detector" below.
 - **Off task never pauses the session.** Time stops counting after the grace period and counts again when the user is back; the session keeps running. Automatic pausing was offered and not taken up.
 - **Camera profiles are defaults only**; users cannot edit them yet (requirements §22, #17).
-- **BlazeFace stays for presence; the Face Landmarker is added for head pose only.** The landmarker gives no per-face score, and the graded away confidence (1 minus the face score) is wanted for C1d's accuracy measurements.
-- **A face lost just after a turn away is looking away**, not away, until a face is found again (within 2 seconds of the last turned-away look).
+- **BlazeFace stays for presence; the Face Landmarker is added for head pose only.** The landmarker gives no per-face score, and the graded away confidence is wanted for C1d's accuracy measurements. (Since C1d step 3 the face's score is recorded on its own, and away's confidence runs from 1 down to 0.7 rather than 1 minus the score.)
+- **A face lost just after a turn away is looking away**, not away, until a face is found again (within 2 seconds of the last turned-away look), for at most 5 seconds (C1d step 3, 15 October 2026; it was unlimited).
 - **Phone confidence is rescaled in the companion**, not by lowering the backend's minimum: the detector scores held phones at only 0.3 to 0.8, so a phone overlapping a hand is reported from 0.7 (at a score of 0.25) to 1 (at 0.6). The overlap with a hand is what makes it believable.
 - **EfficientDet-Lite0, float16** for phones, over Lite2: on sample photos it caught 3 of 5 held phones against Lite2's 2, at about 12 ms a frame against 31.
 - **Sensitivity (C1e) before accuracy (C1d)**: a first adjustment from what the user saw live, then measure.
@@ -161,7 +161,7 @@ A second source is real use: the data export (Settings) contains `cameraObservat
 
 ### Measured accuracy
 
-**15 October 2026, first labelling.** Lighting not recorded. Thresholds as of C1e (present from 0.5, margin 5°, phone from 0.25 and certain from 0.6, minimum confidence 0.7), against the calibration made just before. Six files, 452 seconds: 158 on task (133 CODING, 25 WRITING), 195 away, 63 phone, 36 looking away. Less than planned: parts A and B are 21 and 25 seconds rather than 2 to 3 minutes, so the false alarm rates are rough.
+**15 October 2026, first labelling.** Lighting not recorded. Thresholds as of C1e (present from 0.5, margin 5°, phone from 0.25 and certain from 0.6, minimum confidence 0.7), against the calibration of 5 October: the companion's pairing had stopped working on 9 October (likely when the database moved into the container), so calibrating from Settings before labelling cannot have worked. Looking away may be judged against an out-of-date calibration. Six files, 452 seconds: 158 on task (133 CODING, 25 WRITING), 195 away, 63 phone, 36 looking away. Less than planned: parts A and B are 21 and 25 seconds rather than 2 to 3 minutes, so the false alarm rates are rough.
 
 | Signal | Found when so | Right when reported | False while on task |
 | --- | --- | --- | --- |
@@ -178,9 +178,21 @@ What it shows, in the order to take it on in step 3:
 3. **The phone is mostly not seen at all.** In 51 of the 63 seconds labelled phone the object detector scored no phone above 0.2, and in 4 where it scored 0.5 to 0.76 no hand was found. No threshold the files can try changes that; it needs a better look (larger crops, another model) or a different signal.
 4. **Paper on the desk:** in part B the head turned 20 to 38° to either side, outside the desk zone (yaw -15 to 14°, pitch 1 to 18°), so 8 of 25 WRITING seconds were looking away. The calibrated desk zone is also shallow for a desk. Ask the user where the paper lay; calibrating the desk where it actually lies, or a wider desk zone, may be enough.
 
-Tried on the same files: `--margin 10 --present-from 0.6` finds looking away in 16 of 25 seconds and halves the false seconds on task (6 of 142), and finds away in 98 of 184.
+Tried on the same files (before the step 3 changes below): `--margin 10 --present-from 0.6` finds looking away in 16 of 25 seconds and halves the false seconds on task (6 of 142), and finds away in 98 of 184.
 
 ### Step 3: tune, and smooth only if needed
+
+**Under way** (15 October 2026). One change at a time, each measured on the same six files:
+
+| Change | Why | Away found | Away right | Away false on task |
+| --- | --- | --- | --- | --- |
+| Before | | 85 of 184 s (46 %) | 85 of 86 (99 %) | 0 of 142 s |
+| 1. Away's confidence from 1 down to 0.7 just below a face score of 0.5 (`camera.away_confidence`), not 1 minus the score | While away, the face detector nearly always scored something at 0.1 to 0.5 (only 16 of 195 away seconds had no face at all); on task, faces fell below 0.5 in only 4 of 158 seconds. 0.5 separates the two; 1 minus the score only made every away stretch too unsure to count | 99 of 184 (54 %) | 99 of 106 (93 %) | 2 of 142 s |
+| 2. A face lost after a turn stays looking away for at most 5 seconds, then is away (`camera.LOST_TURNED_FOR`; `accuracy --lost-for`) | Lost after a turn, the face was gone for 1 to 2 seconds in real looks away and 6 with the phone held up, but 55 when getting up. 3, 5 and 10 seconds gave 150, 148 and 144 away seconds found; 5 leaves room above the looks away seen | 148 of 184 (80 %) | 148 of 156 (95 %) | 2 of 142 s |
+
+Looking away and phone are unchanged by both. The 2 false away seconds are single seconds of a face scored 0.3 to 0.43: a single look is never an episode. Away still did not warn about the one 101-second away stretch: a face was seen at full score for one second in it (likely the half-in-the-picture part, labelled away too), splitting it into 22 and 62 seconds with a 6-second gap, one more than the backend merges. Not tuned from one sample.
+
+Next: looking away while writing on paper (finding 4: ask the user where the paper lay), then the phone (finding 3). A longer labelling of parts A and B would make the false alarm rates worth something.
 
 - Change the thresholds where the measurements say so, one at a time, and write down why.
 - Add smoothing (a majority over a second or two, in the companion) only if single missed frames break episodes: the backend already merges gaps of up to 5 seconds.
@@ -206,7 +218,7 @@ Tried on the same files: `--margin 10 --present-from 0.6` finds looking away in 
 
 **Built so far:**
 - The webcam (`Webcam`) is read on a background thread that keeps only the latest frame, in memory. It logs the frame size when it opens (the user's MacBook Air camera: 1920 by 1080).
-- `MediaPipeFaces` runs MediaPipe's BlazeFace (short range). No face at 0.5 or above is `AWAY`, with confidence 1 minus the best face's score.
+- `MediaPipeFaces` runs MediaPipe's BlazeFace (short range). No face at 0.5 or above is `AWAY`, with a confidence from 1 (no face) down to 0.7 (a face just below 0.5); before C1d step 3 it was 1 minus the best face's score.
 - Models are downloaded once to `~/.cache/focusquest/models` and checked against a pinned SHA-256 (`models.py`).
 - A camera that cannot open, or stops sending frames, raises `DetectorUnavailable`. The companion says so once and retries at each report.
 - `--preview` shows the frame, the face box and the result in a window (`Preview.annotate`: text that grows with the picture, on a dark band, the first line in yellow).

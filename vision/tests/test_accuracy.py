@@ -77,14 +77,20 @@ class ReplayTest(unittest.TestCase):
             rows = read(path)
         replayed = replay(rows, CODING, ANGLES, Thresholds())
         self.assertEqual(accuracy.differences(rows, replayed), 0)
+        for recorded, signals in zip(rows, replayed):
+            self.assertEqual(signals.keys(), recorded.reported.keys())
+            for signal, confidence in signals.items():   # rounded when written
+                self.assertAlmostEqual(confidence, recorded.reported[signal], delta=0.011)
         self.assertEqual([set(signals) for signals in replayed],
                          [set(), {LOOKING_AWAY}, {LOOKING_AWAY}, {LOOKING_AWAY}, {LOOKING_AWAY}, {PHONE}, {AWAY},
                           {AWAY}])
 
-    def test_a_face_lost_just_after_a_turn_stays_looking_away_until_found_again(self):
-        rows = seconds((1, "ON_TASK", LOOKING), (3, "ON_TASK", GONE), (1, "ON_TASK", ON), (1, "ON_TASK", GONE))
+    def test_a_face_lost_just_after_a_turn_stays_looking_away_for_a_while(self):
+        rows = seconds((1, "ON_TASK", LOOKING), (7, "ON_TASK", GONE), (1, "ON_TASK", ON), (1, "ON_TASK", GONE))
         self.assertEqual([set(signals) for signals in replay(rows, CODING, ANGLES, Thresholds())],
-                         [{LOOKING_AWAY}, {LOOKING_AWAY}, {LOOKING_AWAY}, {LOOKING_AWAY}, set(), {AWAY}])
+                         [{LOOKING_AWAY}] * 7 + [{AWAY}, set(), {AWAY}])
+        self.assertEqual([set(signals) for signals in replay(rows, CODING, ANGLES, Thresholds(lost_for=2))][:5],
+                         [{LOOKING_AWAY}] * 4 + [{AWAY}])
 
     def test_a_wider_margin_lets_a_turn_pass(self):
         rows = [row(0, pose=HeadPose(18, 5))]   # 8 degrees beyond the screen
@@ -94,7 +100,7 @@ class ReplayTest(unittest.TestCase):
     def test_a_raised_presence_threshold_makes_a_faint_face_away(self):
         rows = [row(0, face_score=0.55)]
         self.assertEqual(replay(rows, CODING, ANGLES, Thresholds())[0], {})
-        self.assertEqual(replay(rows, CODING, ANGLES, Thresholds(present_from=0.6))[0], {AWAY: 0.45})
+        self.assertEqual(replay(rows, CODING, ANGLES, Thresholds(present_from=0.6))[0], {AWAY: 0.725})
 
     def test_the_phone_thresholds_are_tried_on_the_phone_in_a_hand(self):
         rows = [row(0, held=0.3)]
@@ -166,14 +172,20 @@ class ReportTest(unittest.TestCase):
         warnings = report(rows).warnings[PHONE]
         self.assertEqual((warnings.shorter, warnings.long_enough), (1, 0))
 
-    def test_one_faint_second_leaves_a_whole_away_stretch_too_unsure_to_count(self):
+    def test_a_faint_face_while_away_still_counts(self):
         rows = seconds((5, "ON_TASK", ON), (50, "AWAY", GONE), (1, "AWAY", FAINT), (50, "AWAY", GONE),
                        (5, "ON_TASK", ON))
         result = report(rows)
-        self.assertEqual(result.per_second[AWAY].found, 98)   # the first 2 left out, and the faint one
+        self.assertEqual(result.per_second[AWAY].found, 99)   # the first 2 left out
         warnings = result.warnings[AWAY]
-        self.assertEqual((warnings.long_enough, warnings.warned, warnings.too_unsure), (1, 0, 101))
-        self.assertIn("Away: 101 of the 101 seconds sent", "\n".join(accuracy.format_report(result)))
+        self.assertEqual((warnings.long_enough, warnings.warned, warnings.delays, warnings.too_unsure),
+                         (1, 1, [90.0], 0))
+
+    def test_a_stretch_less_sure_than_the_minimum_is_ignored_and_said_so(self):
+        rows = seconds((5, "ON_TASK", ON), (20, "PHONE", {"held": 0.4}), (5, "ON_TASK", ON))
+        result = report(rows, Thresholds(min_confidence=0.9))
+        self.assertEqual((result.warnings[PHONE].warned, result.warnings[PHONE].too_unsure), (0, 20))
+        self.assertIn("Phone: 20 of the 20 seconds sent", "\n".join(accuracy.format_report(result)))
 
     def test_the_report_says_when_there_is_too_little_on_task(self):
         lines = accuracy.format_report(report(seconds((60, "ON_TASK", ON))))

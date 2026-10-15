@@ -93,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
                          help=f"from this score a phone in a hand is certain (today {defaults.certain_from:g})")
     measure.add_argument("--min-confidence", type=float, default=defaults.min_confidence, metavar="CONFIDENCE",
                          help=f"the backend's minimum: anything less sure is ignored (today {defaults.min_confidence:g})")
+    measure.add_argument("--lost-for", type=float, default=defaults.lost_for, metavar="SECONDS",
+                         help=f"how long a face lost after a turn away stays looking away (today {defaults.lost_for:g})")
 
     commands.add_parser("uninstall", help="stop watching in the background, and do not start at login")
     commands.add_parser("status", help="whether the program runs in the background, and where its log is")
@@ -366,7 +368,7 @@ def _label(path: Path, args: argparse.Namespace, argv: list[str]) -> int:
 
 def _accuracy(path: Path, args: argparse.Namespace) -> int:
     thresholds = accuracy.Thresholds(args.present_from, args.margin, args.phone_from, args.certain_from,
-                                     args.min_confidence)
+                                     args.min_confidence, args.lost_for)
     problem = thresholds.problem()
     if problem is not None:
         print(problem, file=sys.stderr)
