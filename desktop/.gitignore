@@ -1,0 +1,7 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+# Made by scripts/prepare-backend.sh: the JRE and the boot jar bundled into the app.
+src-tauri/resources/backend/*
+!src-tauri/resources/backend/.gitkeep
+.DS_Store

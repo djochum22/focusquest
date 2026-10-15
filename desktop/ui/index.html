@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusQuest</title>
+  <!-- Shown until FocusQuest answers. The app moves it between states through its address:
+       ?state=starting, or ?state=failed&message=… -->
+  <style>
+    :root {
+      --background: #f8f9fa;
+      --text: #1f2421;
+      --muted: #5c6660;
+      --brand: #006b3f;
+      --problem: #a4262c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #161a18;
+        --text: #e8ebe9;
+        --muted: #a3ada7;
+        --brand: #4fbf8a;
+        --problem: #f1868b;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      background: var(--background);
+      color: var(--text);
+      font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    main { max-width: 30rem; text-align: center; }
+    svg { width: 56px; height: 56px; }
+    h1 { margin: 16px 0 4px; font-size: 1.25rem; font-weight: 600; }
+    p { margin: 0; color: var(--muted); }
+    .failed h1 { color: var(--problem); }
+    .failed p { -webkit-user-select: text; user-select: text; }
+    .dots::after {
+      content: "";
+      animation: dots 1.5s steps(4) infinite;
+    }
+    @keyframes dots {
+      0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dots::after { animation: none; content: "..."; }
+    }
+  </style>
+</head>
+<body>
+  <main id="page">
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="#006b3f"/>
+      <g fill="#f8f9fa">
+        <rect x="9" y="16" width="7" height="32"/>
+        <rect x="9" y="16" width="18" height="7"/>
+        <rect x="9" y="29" width="15" height="6.5"/>
+      </g>
+      <circle cx="43" cy="31" r="10" fill="none" stroke="#f8f9fa" stroke-width="6.5"/>
+      <path d="M46 36 L54 46" stroke="#f4b400" stroke-width="6.5" stroke-linecap="round"/>
+    </svg>
+    <h1 id="heading"><span class="dots">Looking for FocusQuest</span></h1>
+    <p id="detail">One moment.</p>
+  </main>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const heading = document.getElementById("heading");
+    const detail = document.getElementById("detail");
+    if (query.get("state") === "starting") {
+      heading.innerHTML = '<span class="dots">Starting FocusQuest</span>';
+      detail.textContent = "The first start takes up to a minute.";
+    } else if (query.get("state") === "failed") {
+      document.getElementById("page").className = "failed";
+      heading.textContent = "FocusQuest could not start";
+      detail.textContent = query.get("message") || "";
+    }
+  </script>
+</body>
+</html>

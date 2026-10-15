@@ -1,0 +1,16 @@
+[package]
+name = "focusquest-desktop"
+version = "0.1.0"
+description = "FocusQuest as a Mac app"
+edition = "2021"
+publish = false
+
+[lib]
+name = "focusquest_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }

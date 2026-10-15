@@ -36,7 +36,7 @@ All suites pass, end-to-end included. The container on :8080 is current. Nothing
 
 1. **Safari** (the last of step 3). Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
 2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
-3. **Step 4, the Tauri desktop app** (see "Later steps"). It slips first if time runs short.
+3. **Step 4, the Tauri desktop app** (see "Step 4 so far" and "Later steps"): the shell is built; blocked apps and enforcement next. It slips first if time runs short.
 4. Optional: the backend comments and the docs still say "Chrome extension".
 
 **Checking Firefox again** (about 10 minutes): `cd extension && npm run build:firefox`; in Firefox open `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on…**, choose `extension/dist-firefox/manifest.json` (or **Reload** if loaded); open http://localhost:8080, sign in, and check Settings shows **Connected**, that a blocked site is blocked, and that the toolbar popup opens. On trouble, see the add-on's console (**Inspect** in `about:debugging`) and the tab's console.
@@ -64,7 +64,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
 | 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
-| 4 | Tauri desktop app, with Mac app blocking | Open |
+| 4 | Tauri desktop app, with Mac app blocking | **Under way:** the shell in `desktop/`; blocked apps (built, under review) and enforcement open |
 
 ## Done: step 1, one app, one origin
 
@@ -140,6 +140,16 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - Tests: `tests/address.test.ts`, one more in `backendClient.test.ts` and `webAppBridge.test.ts`. Checked by hand in headless Firefox (WebDriver BiDi, with `--remote-allow-system-access` to reach the options page) and in Playwright's Chromium, against a proxy on :8090: the bridge answers there after saving, still on :8080, and not on an unrelated page; "Use this computer" removes the registration.
 
 **Decided 9 October 2026:** the extension's backend address in an options page moved here from step 2. Before the bridge, `externally_connectable` fixed the web app's origins in the manifest, so an extension pointed elsewhere could not be connected; and with each computer running its own copy on 127.0.0.1:8080, nothing needs it yet.
+
+## Step 4 so far: the desktop app
+
+**Part 2, the shell (15 October 2026).** `desktop/`, Tauri 2.12; `desktop/README.md` has how to build it and its files.
+- **Decided by the user:** when FocusQuest already answers on 127.0.0.1:8080 (the Docker container), the app opens it and leaves it running on quit; only when nothing answers does it start its own copy. The two copies have separate data (the Docker volume, and `~/Library/Application Support/FocusQuest`) and cannot run at once. Offered and not taken: always its own copy (moving the data across once), or Docker only.
+- **Finding FocusQuest:** a plain HTTP request to `/api/auth/setup-status`, which answers without sign-in; anything else on the port is reported as another program holding it.
+- **Its own copy:** `scripts/prepare-backend.sh` builds the boot jar and a `jlink`ed JRE (a fixed module list, since `jdeps` cannot see into a boot jar's nested jars) into `src-tauri/resources/backend/`, bundled as a resource rather than a Tauri sidecar (a JRE is a folder, not one binary). Started with `FOCUSQUEST_DATA_DIR`, a JWT secret made once and kept in `jwt-secret` (0600) beside the data, bound to 127.0.0.1:8080, logging to `~/Library/Logs/FocusQuest/backend.log`; stopped with SIGTERM, then killed after 15 seconds.
+- **Window and menu bar:** a local page (`ui/index.html`) says "Looking for", "Starting" or why it failed, through its query string, then the window navigates to http://127.0.0.1:8080/. The web app gets no Tauri IPC. Closing hides the window; the menu bar icon (a template image made from the favicon) has Open and Quit, and the Dock icon reopens it.
+- **Checked:** the cut-down JRE runs the backend (fresh database migrated, web app served, clean shutdown on SIGTERM, 6 seconds); the built app (120 MB) found the Docker copy, started nothing and quit cleanly. **Not yet checked:** what the window shows, and starting its own copy with Docker stopped. `cargo test`: the probe's answer, the secret, the paths; `scripts/test-all.sh` runs it.
+- The window is macOS's WebKit: its own sign-in, and no browser extension, so no website blocking in it. Not signed or notarised.
 
 ## Later steps (planned)
 

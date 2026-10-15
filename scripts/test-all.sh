@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs every test suite: backend (JUnit), frontend and extension (Vitest), plus type-checks, and the
-# camera companion (unittest).
+# camera companion (unittest), and the desktop app (cargo test) where Rust is installed.
 # Usage: ./scripts/test-all.sh   (from anywhere)
 #        FOCUSQUEST_E2E=1 ./scripts/test-all.sh   also runs the Playwright end-to-end suite
 set -euo pipefail
@@ -17,6 +17,14 @@ echo "==> Extension (type-check, Vitest)"
 
 echo "==> Camera companion (unittest)"
 (cd "$root/vision" && PYTHONPATH=src:tests python3 -m unittest discover -s tests)
+
+cargo="$(command -v cargo || echo "$HOME/.cargo/bin/cargo")"
+if [[ -x "$cargo" ]]; then
+  echo "==> Desktop app (cargo test)"
+  (cd "$root/desktop/src-tauri" && "$cargo" test --quiet)
+else
+  echo "==> Desktop app: skipped, Rust is not installed (https://rustup.rs)"
+fi
 
 if [[ "${FOCUSQUEST_E2E:-}" == "1" ]]; then
   echo "==> End-to-end (Playwright)"

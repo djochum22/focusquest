@@ -1,0 +1,14 @@
+{
+  "name": "focusquest-desktop",
+  "private": true,
+  "description": "FocusQuest as a Mac app: a window and a menu bar icon, starting FocusQuest when it is not already running.",
+  "scripts": {
+    "backend": "scripts/prepare-backend.sh",
+    "dev": "tauri dev",
+    "build": "scripts/prepare-backend.sh && tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
