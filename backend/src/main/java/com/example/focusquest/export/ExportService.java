@@ -1,6 +1,8 @@
 package com.example.focusquest.export;
 
 import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedAppRepository;
+import com.example.focusquest.blocking.BlockedAppResponse;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.blocking.RuleTargetResponse;
 import com.example.focusquest.progression.ExperienceTransactionRepository;
@@ -31,13 +33,13 @@ public class ExportService {
 
     /**
      * 2.0 made the export a complete backup that can be restored; older exports cannot be. 2.1 added
-     * streak freezes, 2.2 camera settings, and 2.3 camera observations and off-task time; an older
-     * backup restores without them.
+     * streak freezes, 2.2 camera settings, 2.3 camera observations and off-task time, and 2.4 blocked
+     * apps; an older backup restores without them.
      */
-    static final String SCHEMA_VERSION = "2.3";
+    static final String SCHEMA_VERSION = "2.4";
 
     /** The formats {@link RestoreService} accepts. */
-    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", "2.1", "2.2", SCHEMA_VERSION);
+    static final Set<String> RESTORABLE_VERSIONS = Set.of("2.0", "2.1", "2.2", "2.3", SCHEMA_VERSION);
 
     private final FocusSessionRepository focusSessionRepository;
     private final SessionPauseRepository sessionPauseRepository;
@@ -49,6 +51,7 @@ public class ExportService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final BlockedAppRepository blockedAppRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
     private final CameraObservationRepository cameraObservationRepository;
     private final OffTaskIntervalRepository offTaskIntervalRepository;
@@ -65,6 +68,7 @@ public class ExportService {
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
+                          BlockedAppRepository blockedAppRepository,
                           CameraSettingsRepository cameraSettingsRepository,
                           CameraObservationRepository cameraObservationRepository,
                           OffTaskIntervalRepository offTaskIntervalRepository,
@@ -80,6 +84,7 @@ public class ExportService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.blockedAppRepository = blockedAppRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
         this.cameraObservationRepository = cameraObservationRepository;
         this.offTaskIntervalRepository = offTaskIntervalRepository;
@@ -113,6 +118,8 @@ public class ExportService {
                         .map(RuleTargetResponse::from).toList(),
                 allowlistTargetRepository.findByUserOrderByIdAsc(user).stream()
                         .map(RuleTargetResponse::from).toList(),
+                blockedAppRepository.findByUserOrderByIdAsc(user).stream()
+                        .map(BlockedAppResponse::from).toList(),
                 cameraSettingsRepository.findByUser(user).map(CameraSettingsBackup::from).orElse(null),
                 cameraObservationRepository.findBySessionUserOrderByIdAsc(user).stream()
                         .map(CameraObservationBackup::from).toList(),

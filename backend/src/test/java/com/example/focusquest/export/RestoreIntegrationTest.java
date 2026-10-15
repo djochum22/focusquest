@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.focusquest.blocking.BlockingService;
+import com.example.focusquest.blocking.BlockedAppResponse;
 import com.example.focusquest.blocking.RuleTargetResponse;
 import com.example.focusquest.progression.ExperienceService;
 import com.example.focusquest.progression.ExperienceTransactionResponse;
@@ -126,6 +127,8 @@ class RestoreIntegrationTest {
         streakService.createDefaultConfiguration(owner);
         blockingService.createBlockedTarget(owner, "youtube.com", "YouTube", true);
         blockingService.createAllowlistTarget(owner, "youtube.com/watch", null, true);
+        blockingService.createBlockedApp(owner, "Slack", "com.tinyspeck.slackmacgap", true);
+        blockingService.createBlockedApp(owner, "Discord", null, false);
         gemTransactionRepository.save(new GemTransaction(owner, 20, GemTransactionType.LEVEL_UP, "LEVEL", 99L, now));
         streakFreezeService.purchase(owner);
         streakFreezeService.purchase(owner);
@@ -229,7 +232,7 @@ class RestoreIntegrationTest {
                 current.focusSessions(), current.sessionPauses(), current.streakConfigurations(),
                 current.streakPeriods(), current.streakContributions(), null, current.experienceTransactions(),
                 current.gemTransactions().stream().filter(t -> !t.referenceType().equals("STREAK_FREEZE")).toList(),
-                current.blockedTargets(), current.allowlistTargets(), null, null, null, null);
+                current.blockedTargets(), current.allowlistTargets(), null, null, null, null, null);
 
         restoreService.restore(reload(other), old);
 
@@ -326,7 +329,7 @@ class RestoreIntegrationTest {
         populate(user);
         LocalDataExportDto backup = exportService.exportLocalData(user);
         LocalDataExportDto old = new LocalDataExportDto(backup.exportedAt(), "1.2", backup.user(),
-                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null,
+                backup.focusSessions(), null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null, null,
                 null, null, null);
 
         assertRefusedWithoutChanges(old, "format 1.2");
@@ -345,6 +348,18 @@ class RestoreIntegrationTest {
     }
 
     @Test
+    void aBackupWithTheSameBlockedAppTwiceInAnotherCaseIsRefused() {
+        assertRefused(backup -> backup.blockedApps().add(new BlockedAppResponse(999L,
+                backup.blockedApps().get(0).name().toUpperCase(), null, true)), "twice");
+    }
+
+    @Test
+    void aBackupWithAnInvalidBundleIdIsRefused() {
+        assertRefused(backup -> backup.blockedApps().set(0, new BlockedAppResponse(1L, "Slack", "slack", true)),
+                "bundle id");
+    }
+
+    @Test
     void aBackupWithAnUnknownTimeZoneIsRefused() {
         populate(user);
         LocalDataExportDto backup = exportService.exportLocalData(user);
@@ -355,7 +370,8 @@ class RestoreIntegrationTest {
                 backup.focusSessions(), backup.sessionPauses(), backup.streakConfigurations(),
                 backup.streakPeriods(), backup.streakContributions(), backup.streakFreezes(),
                 backup.experienceTransactions(),
-                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets(), backup.cameraSettings(),
+                backup.gemTransactions(), backup.blockedTargets(), backup.allowlistTargets(), backup.blockedApps(),
+                backup.cameraSettings(),
                 backup.cameraObservations(), backup.offTaskIntervals(), backup.offTaskDisputes());
 
         assertRefusedWithoutChanges(bad, null);
@@ -384,7 +400,8 @@ class RestoreIntegrationTest {
                 new ArrayList<>(export.streakContributions()), new ArrayList<>(export.streakFreezes()),
                 new ArrayList<>(export.experienceTransactions()),
                 new ArrayList<>(export.gemTransactions()), new ArrayList<>(export.blockedTargets()),
-                new ArrayList<>(export.allowlistTargets()), export.cameraSettings(),
+                new ArrayList<>(export.allowlistTargets()), new ArrayList<>(export.blockedApps()),
+                export.cameraSettings(),
                 new ArrayList<>(export.cameraObservations()), new ArrayList<>(export.offTaskIntervals()),
                 new ArrayList<>(export.offTaskDisputes()));
         damage.accept(backup);

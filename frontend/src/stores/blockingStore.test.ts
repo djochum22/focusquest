@@ -7,6 +7,7 @@ import { apiFailure } from '../test-utils/apiFailures'
 import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { makeRule } from '../test-utils/rules'
 import type { LoginResponse } from '../types/auth'
+import type { BlockedApp } from '../types/blocking'
 import { useAuthStore } from './authStore'
 import { useBlockingStore } from './blockingStore'
 
@@ -23,6 +24,7 @@ const signedIn: LoginResponse = {
 
 const youtube = makeRule({ id: 1, targetValue: 'youtube.com' })
 const docs = makeRule({ id: 2, targetValue: 'example.com/docs' })
+const slack: BlockedApp = { id: 7, name: 'Slack', bundleId: null, active: true }
 
 beforeEach(() => {
   sessionStorage.clear()
@@ -31,15 +33,17 @@ beforeEach(() => {
 })
 
 describe('blockingStore', () => {
-  it('loads both lists', async () => {
+  it('loads all three lists', async () => {
     vi.mocked(blockingApi.getBlockedTargets).mockResolvedValue([youtube])
     vi.mocked(blockingApi.getAllowlistTargets).mockResolvedValue([docs])
+    vi.mocked(blockingApi.getBlockedApps).mockResolvedValue([slack])
     const store = useBlockingStore()
 
     await store.refresh()
 
     expect(store.blocked).toEqual([youtube])
     expect(store.allowlist).toEqual([docs])
+    expect(store.apps).toEqual([slack])
     expect(store.loaded).toBe(true)
   })
 
@@ -132,6 +136,31 @@ describe('blockingStore', () => {
     expect(second).toBe(false)
     expect(await first).toBe(true)
     expect(blockingApi.addBlockedTarget).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds, replaces and removes an app, telling the extension each time', async () => {
+    vi.mocked(blockingApi.addBlockedApp).mockResolvedValue(slack)
+    vi.mocked(blockingApi.updateBlockedApp).mockResolvedValue({ ...slack, active: false })
+    vi.mocked(blockingApi.deleteBlockedApp).mockResolvedValue()
+    const store = useBlockingStore()
+
+    await store.addApp({ name: 'Slack' })
+    expect(store.apps).toEqual([slack])
+    await store.updateApp(7, { name: 'Slack', active: false })
+    expect(store.apps[0]!.active).toBe(false)
+    await store.deleteApp(7)
+    expect(store.apps).toEqual([])
+    expect(notifyExtensionOfChange).toHaveBeenCalledTimes(3)
+  })
+
+  it('re-reads the apps when an app change fails', async () => {
+    vi.mocked(blockingApi.deleteBlockedApp).mockRejectedValue(apiFailure(409, { code: 'CONFLICT', message: 'locked' }))
+    vi.mocked(blockingApi.getBlockedApps).mockResolvedValue([slack])
+    const store = useBlockingStore()
+
+    await expect(store.deleteApp(7)).rejects.toBeDefined()
+
+    expect(store.apps).toEqual([slack])
   })
 
   it('forgets the rules when the user signs out', async () => {

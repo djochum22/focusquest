@@ -24,3 +24,23 @@ export interface RuleTargetRequest {
   /** Optional; true on create, and unchanged on update, when omitted. */
   active?: boolean
 }
+
+/**
+ * Mirrors the backend `BlockedAppResponse`: a Mac app the desktop app keeps closed on the same terms
+ * as a blocked site. It is matched by `bundleId` when there is one, otherwise by `name` ignoring case.
+ */
+export interface BlockedApp {
+  id: number
+  name: string
+  bundleId: string | null
+  active: boolean
+}
+
+/** Mirrors the backend `BlockedAppRequest`, used to create and to replace an app. */
+export interface BlockedAppRequest {
+  name: string
+  /** Optional; omitted or blank, the app is matched by name. */
+  bundleId?: string | null
+  /** Optional; true on create, and unchanged on update, when omitted. */
+  active?: boolean
+}

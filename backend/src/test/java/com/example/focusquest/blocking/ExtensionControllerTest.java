@@ -85,6 +85,7 @@ class ExtensionControllerTest {
                 List.of(new BlockedTarget(user, RuleNormalizer.normalize("youtube.com/shorts"), "Shorts", true),
                         new BlockedTarget(user, RuleNormalizer.normalize("reddit.com"), "Reddit", true)),
                 List.of(new AllowlistTarget(user, RuleNormalizer.normalize("reddit.com/r/programming"), "Programming", true)),
+                List.of(new BlockedApp(user, "Slack", "com.tinyspeck.slackmacgap", true), new BlockedApp(user, "Discord", null, true)),
                 "abc123", NOW);
     }
 
@@ -107,20 +108,25 @@ class ExtensionControllerTest {
                 .andExpect(jsonPath("$.blockRules[1].targetType").value("DOMAIN"))
                 .andExpect(jsonPath("$.blockRules[1].host").value("reddit.com"))
                 .andExpect(jsonPath("$.blockRules[1].path").doesNotExist())
-                .andExpect(jsonPath("$.allowRules[0].targetValue").value("reddit.com/r/programming"));
+                .andExpect(jsonPath("$.allowRules[0].targetValue").value("reddit.com/r/programming"))
+                .andExpect(jsonPath("$.blockedApps.length()").value(2))
+                .andExpect(jsonPath("$.blockedApps[0].name").value("Slack"))
+                .andExpect(jsonPath("$.blockedApps[0].bundleId").value("com.tinyspeck.slackmacgap"))
+                .andExpect(jsonPath("$.blockedApps[1].bundleId").doesNotExist());
     }
 
     @Test
     void blockingStateWhenNotEnforcingHasNoSessionOrRules() throws Exception {
         when(blockingService.getBlockingSnapshot(user))
-                .thenReturn(new BlockingSnapshot(false, null, List.of(), List.of(), "v0", NOW));
+                .thenReturn(new BlockingSnapshot(false, null, List.of(), List.of(), List.of(), "v0", NOW));
 
         mockMvc.perform(get("/api/extension/blocking-state"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enforcementActive").value(false))
                 .andExpect(jsonPath("$.sessionId").doesNotExist())
                 .andExpect(jsonPath("$.blockRules.length()").value(0))
-                .andExpect(jsonPath("$.allowRules.length()").value(0));
+                .andExpect(jsonPath("$.allowRules.length()").value(0))
+                .andExpect(jsonPath("$.blockedApps.length()").value(0));
     }
 
     @Test

@@ -93,3 +93,23 @@ describe('blockingApi: allowlist targets', () => {
     expect(adapter.mock.calls[0]![0]).toMatchObject({ method: 'delete', url: '/api/allowlist-targets/3' })
   })
 })
+
+describe('blockingApi: blocked apps', () => {
+  it('lists, creates, replaces and deletes apps under /api/blocked-apps', async () => {
+    const adapter = stubAdapter(200, [])
+    const app = { name: 'Slack', bundleId: null, active: true }
+
+    await blockingApi.getBlockedApps()
+    await blockingApi.addBlockedApp(app)
+    await blockingApi.updateBlockedApp(7, app)
+    await blockingApi.deleteBlockedApp(7)
+
+    expect(adapter.mock.calls.map(([config]) => [config.method, config.url])).toEqual([
+      ['get', '/api/blocked-apps'],
+      ['post', '/api/blocked-apps'],
+      ['put', '/api/blocked-apps/7'],
+      ['delete', '/api/blocked-apps/7'],
+    ])
+    expect(JSON.parse(adapter.mock.calls[1]![0].data)).toEqual(app)
+  })
+})

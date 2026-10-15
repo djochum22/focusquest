@@ -7,7 +7,7 @@ import * as sessionApi from '../api/sessionApi'
 import { apiFailure, networkFailure } from '../test-utils/apiFailures'
 import { makeRule } from '../test-utils/rules'
 import { makeSession } from '../test-utils/sessions'
-import type { RuleTarget } from '../types/blocking'
+import type { BlockedApp, RuleTarget } from '../types/blocking'
 import BlockingRulesView from './BlockingRulesView.vue'
 
 vi.mock('../api/blockingApi')
@@ -49,9 +49,12 @@ async function addRule(wrapper: Wrapper, heading: string, value: string) {
 const youtube = makeRule({ id: 1, targetValue: 'youtube.com' })
 const docs = makeRule({ id: 2, targetValue: 'example.com/docs' })
 
-function backendHas(blocked: RuleTarget[], allowlist: RuleTarget[]) {
+const slack: BlockedApp = { id: 7, name: 'Slack', bundleId: 'com.tinyspeck.slackmacgap', active: true }
+
+function backendHas(blocked: RuleTarget[], allowlist: RuleTarget[], apps: BlockedApp[] = []) {
   vi.mocked(blockingApi.getBlockedTargets).mockResolvedValue(blocked)
   vi.mocked(blockingApi.getAllowlistTargets).mockResolvedValue(allowlist)
+  vi.mocked(blockingApi.getBlockedApps).mockResolvedValue(apps)
 }
 
 beforeEach(() => {
@@ -81,7 +84,7 @@ describe('BlockingRulesView', () => {
     const wrapper = await mountView()
     const switchTo = (kind: 'block' | 'allow') => wrapper.get(`input[name="rules-list"][value="${kind}"]`)
 
-    expect(wrapper.get('fieldset').text()).toMatch(/Blocked\s*1\s*Allowed\s*1/)
+    expect(wrapper.get('fieldset').text()).toMatch(/Blocked\s*1\s*Allowed\s*1\s*Apps\s*0/)
     expect(section(wrapper, 'Blocked sites').isVisible()).toBe(true)
     expect(section(wrapper, 'Allowed sites').isVisible()).toBe(false)
 
@@ -335,9 +338,83 @@ describe('BlockingRulesView', () => {
     })
   })
 
+  describe('blocked apps', () => {
+    const appsSection = (wrapper: Wrapper) => section(wrapper, 'Blocked apps')
+
+    it('lists the apps behind their own switch', async () => {
+      backendHas([], [], [slack])
+      const wrapper = await mountView()
+
+      expect(appsSection(wrapper).isVisible()).toBe(false)
+      await wrapper.get('input[name="rules-list"][value="apps"]').setValue()
+
+      expect(appsSection(wrapper).isVisible()).toBe(true)
+      expect(appsSection(wrapper).findAll('li')).toHaveLength(1)
+      expect(appsSection(wrapper).text()).toContain('Slack')
+      expect(appsSection(wrapper).text()).not.toContain('com.tinyspeck')
+      wrapper.unmount()
+    })
+
+    it('adds an app by name and refuses one already blocked in any case', async () => {
+      backendHas([], [], [slack])
+      vi.mocked(blockingApi.addBlockedApp).mockResolvedValue({ id: 8, name: 'Discord', bundleId: null, active: true })
+      const wrapper = await mountView()
+
+      await addRule(wrapper, 'Blocked apps', 'SLACK')
+      expect(appsSection(wrapper).text()).toContain('SLACK is already blocked.')
+      expect(blockingApi.addBlockedApp).not.toHaveBeenCalled()
+
+      await addRule(wrapper, 'Blocked apps', ' Discord ')
+      expect(blockingApi.addBlockedApp).toHaveBeenCalledWith({ name: 'Discord', bundleId: null, active: true })
+      expect(appsSection(wrapper).findAll('li')).toHaveLength(2)
+      expect(wrapper.get('[role="status"]').text()).toBe('Added Discord.')
+      wrapper.unmount()
+    })
+
+    it('keeps the bundle id on an edit that keeps the name, and drops it on a rename', async () => {
+      backendHas([], [], [slack])
+      vi.mocked(blockingApi.updateBlockedApp).mockImplementation(async (id, request) => ({
+        id, name: request.name, bundleId: request.bundleId ?? null, active: request.active ?? true,
+      }))
+      const wrapper = await mountView()
+
+      await wrapper.get('[aria-label="Edit Slack"]').trigger('click')
+      let form = wrapper.get('form[aria-label="Edit blocked app"]')
+      await form.get('input[type="checkbox"]').setValue(false)
+      await form.trigger('submit')
+      await flushPromises()
+      expect(blockingApi.updateBlockedApp).toHaveBeenLastCalledWith(7,
+        { name: 'Slack', bundleId: 'com.tinyspeck.slackmacgap', active: false })
+      expect(appsSection(wrapper).text()).toContain('Paused')
+
+      await wrapper.get('[aria-label="Edit Slack"]').trigger('click')
+      form = wrapper.get('form[aria-label="Edit blocked app"]')
+      await form.get('input[type="text"]').setValue('Slack Beta')
+      await form.trigger('submit')
+      await flushPromises()
+      expect(blockingApi.updateBlockedApp).toHaveBeenLastCalledWith(7, { name: 'Slack Beta', bundleId: null, active: false })
+      wrapper.unmount()
+    })
+
+    it('asks before deleting an app', async () => {
+      backendHas([], [], [slack])
+      vi.mocked(blockingApi.deleteBlockedApp).mockResolvedValue()
+      const wrapper = await mountView()
+
+      await wrapper.get('[aria-label="Delete Slack"]').trigger('click')
+      expect(blockingApi.deleteBlockedApp).not.toHaveBeenCalled()
+      await button(dialog(wrapper, 'Delete blocked app?'), 'Delete').trigger('click')
+      await flushPromises()
+
+      expect(blockingApi.deleteBlockedApp).toHaveBeenCalledWith(7)
+      expect(appsSection(wrapper).text()).toContain('No blocked apps yet')
+      wrapper.unmount()
+    })
+  })
+
   describe('while website blocking is enforced', () => {
     async function mountEnforced() {
-      backendHas([youtube], [docs])
+      backendHas([youtube], [docs], [slack])
       vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
       return mountView()
     }
@@ -354,6 +431,10 @@ describe('BlockingRulesView', () => {
       expect(wrapper.get('[aria-label="Edit example.com/docs"]').attributes('disabled')).toBeDefined()
       expect(wrapper.get('[aria-label="Delete example.com/docs"]').attributes('disabled')).toBeUndefined()
       expect(section(wrapper, 'Allowed sites').get('button[type="submit"]').attributes('disabled')).toBeDefined()
+      // Apps, like blocked sites: adding is fine, editing and removing are not.
+      expect(wrapper.get('[aria-label="Edit Slack"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('[aria-label="Delete Slack"]').attributes('disabled')).toBeDefined()
+      expect(section(wrapper, 'Blocked apps').get('button[type="submit"]').attributes('disabled')).toBeUndefined()
       wrapper.unmount()
     })
 

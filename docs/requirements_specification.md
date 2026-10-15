@@ -102,7 +102,7 @@ Potential future directions include:
 - Cloud video processing.
 - Facial recognition.
 - Keystroke surveillance.
-- Desktop application blocking.
+- Desktop application blocking. Being added after all: the backend keeps a list of blocked Mac apps, and a Tauri desktop app will enforce it (see `docs/platform_roadmap.md`).
 - Mobile applications.
 - Support for browsers other than Chrome.
 - Multiple local or cloud users.
@@ -163,7 +163,7 @@ The MVP does not require separate roles or multi-user permissions.
 
 ### Future desktop direction
 
-If desktop-application blocking is added later, Electron with Vue and TypeScript is the most accessible initial option given the project's existing technologies. Tauri is another option but introduces Rust.
+Desktop-application blocking is being added with Tauri v2, chosen over Electron and native Swift on 8 October 2026 because it keeps Windows, iOS and Android open (see `docs/platform_roadmap.md`).
 
 ## 6\. Local-first architecture
 
@@ -949,6 +949,16 @@ POST /api/allowlist-targets
 PUT /api/allowlist-targets/{id}
 
 DELETE /api/allowlist-targets/{id}
+
+### Blocked apps
+
+GET /api/blocked-apps
+
+POST /api/blocked-apps
+
+PUT /api/blocked-apps/{id}
+
+DELETE /api/blocked-apps/{id}
 
 ### Streaks
 

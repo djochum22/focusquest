@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import * as blockingApi from '../api/blockingApi'
-import type { RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
+import type { BlockedApp, BlockedAppRequest, RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
 import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { useAuthStore } from './authStore'
 
@@ -21,13 +21,14 @@ const api = {
 } as const
 
 /**
- * The user's block and allowlist rules as last reported by the backend. The backend validates,
- * normalises and de-duplicates them and refuses to loosen them while blocking is enforced; this
- * store only mirrors the result. Actions throw on failure so the calling view can show the message.
+ * The user's block and allowlist rules and blocked apps as last reported by the backend. The backend
+ * validates, normalises and de-duplicates them and refuses to loosen them while blocking is enforced;
+ * this store only mirrors the result. Actions throw on failure so the calling view can show the message.
  */
 export const useBlockingStore = defineStore('blocking', () => {
   const blocked = ref<RuleTarget[]>([])
   const allowlist = ref<RuleTarget[]>([])
+  const apps = ref<BlockedApp[]>([])
   const loaded = ref(false)
   /** True while a rule is being added, changed or removed; blocks double submissions. */
   const saving = ref(false)
@@ -36,12 +37,13 @@ export const useBlockingStore = defineStore('blocking', () => {
     return kind === 'block' ? blocked : allowlist
   }
 
-  async function fetchList(kind: RuleKind) {
-    listFor(kind).value = await api[kind].list()
+  async function fetchList(kind: RuleKind | 'apps') {
+    if (kind === 'apps') apps.value = await blockingApi.getBlockedApps()
+    else listFor(kind).value = await api[kind].list()
   }
 
   async function refresh() {
-    await Promise.all([fetchList('block'), fetchList('allow')])
+    await Promise.all([fetchList('block'), fetchList('allow'), fetchList('apps')])
     loaded.value = true
   }
 
@@ -49,7 +51,7 @@ export const useBlockingStore = defineStore('blocking', () => {
    * Runs one change and tells the extension, so a rule added mid-session applies at once. If it
    * fails the local list may be out of date, so look again before passing the error on.
    */
-  async function mutate(kind: RuleKind, change: () => Promise<void>): Promise<boolean> {
+  async function mutate(kind: RuleKind | 'apps', change: () => Promise<void>): Promise<boolean> {
     if (saving.value) return false
     saving.value = true
     try {
@@ -86,9 +88,30 @@ export const useBlockingStore = defineStore('blocking', () => {
     })
   }
 
+  function addApp(request: BlockedAppRequest): Promise<boolean> {
+    return mutate('apps', async () => {
+      apps.value = [...apps.value, await blockingApi.addBlockedApp(request)]
+    })
+  }
+
+  function updateApp(id: number, request: BlockedAppRequest): Promise<boolean> {
+    return mutate('apps', async () => {
+      const updated = await blockingApi.updateBlockedApp(id, request)
+      apps.value = apps.value.map((app) => (app.id === id ? updated : app))
+    })
+  }
+
+  function deleteApp(id: number): Promise<boolean> {
+    return mutate('apps', async () => {
+      await blockingApi.deleteBlockedApp(id)
+      apps.value = apps.value.filter((app) => app.id !== id)
+    })
+  }
+
   function reset() {
     blocked.value = []
     allowlist.value = []
+    apps.value = []
     loaded.value = false
     saving.value = false
   }
@@ -102,5 +125,7 @@ export const useBlockingStore = defineStore('blocking', () => {
     },
   )
 
-  return { blocked, allowlist, loaded, saving, refresh, addRule, updateRule, deleteRule, reset }
+  return {
+    blocked, allowlist, apps, loaded, saving, refresh, addRule, updateRule, deleteRule, addApp, updateApp, deleteApp, reset,
+  }
 })

@@ -10,7 +10,9 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 ## Start here
 
-**Where things stand (9 October 2026, end of day).** Step 3 is done except Safari:
+**Read `docs/handoff.md` first** (10 October 2026): it puts the camera labelling first and walks the user through it, then lists what follows.
+
+**Where things stand (10 October 2026).** Step 3 is done except Safari. Step 4 has begun with its backend part, **not yet committed** (waiting on the user's review):
 
 | Commit | What |
 | --- | --- |
@@ -18,26 +20,31 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 | `fd19bb7` | The Firefox build, checked by the user in Firefox 157 |
 | `7522901` | "Browser extension" in place of "Chrome extension" in the web app |
 | `95b33d7` | The options page: the FocusQuest address |
+| *(uncommitted)* | Step 4, part 1: blocked apps in the backend and on the Blocking page (see "Step 4 so far") |
 
-All suites pass, end-to-end included. The container on :8080 is current. Nothing is uncommitted but `.vscode/settings.json`.
+All suites pass, end-to-end included (10 October 2026). The container on :8080 is current, with migration V18 applied to the real volume.
+
+**Tools on this Mac (10 October 2026):** Rust 1.99 is installed with rustup (`~/.cargo/bin`; a new shell picks it up). **Xcode is not**: only the Command Line Tools, so `xcrun safari-web-extension-converter` is missing. The user is installing Xcode from the App Store; afterwards run `sudo xcode-select -s /Applications/Xcode.app` and open Xcode once to accept the licence.
 
 **Waiting on the user:**
 
-1. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
+1. **Review step 4, part 1** (blocked apps) and say whether to commit it. Look at Blocking, the **Apps** tab, at http://localhost:8080.
+2. **Install Xcode** (for Safari).
+3. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
    3. Open http://localhost:8080 and check Settings shows **Browser extension: Connected** again. The extension is signed out on each change and reconnects by itself.
 
    Not yet checked: a real sync through another address while connected. The unit tests cover where the calls go, and the browser checks ran without an account.
-2. **Camera labelling** (C1d, 20 to 30 minutes). **Still not done** on 9 October 2026: `~/Documents/FocusQuest/` has no label files. No camera code can go on until it is done. The steps are in `docs/camera_roadmap.md`, "To do later, by the user: label": calibrate first (Settings, **Calibrate**), then run `.venv/bin/focusquest-companion label --category CODING` from `vision/` for each part. Then tell Claude where the files are, to build step 2, the `accuracy` command.
-3. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
+4. **Camera labelling** (C1d, 20 to 30 minutes). **Still not done** on 10 October 2026: `~/Documents/FocusQuest/` does not exist. No camera code can go on until it is done. The steps are in `docs/camera_roadmap.md`, "To do later, by the user: label": calibrate first (Settings, **Calibrate**), then run `.venv/bin/focusquest-companion label --category CODING` from `vision/` for each part. Then tell Claude where the files are, to build step 2, the `accuracy` command.
+5. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
 
 **Next for Claude (only after the user says go):**
 
-1. **Safari** (the last of step 3). Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
-2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
-3. **Step 4, the Tauri desktop app** (see "Step 4 so far" and "Later steps"): the shell is built; blocked apps and enforcement next. It slips first if time runs short.
-4. Optional: the backend comments and the docs still say "Chrome extension".
+1. ~~**Step 4, part 2: the Tauri shell**~~: built 15 October 2026, see "Part 2" below; waiting on the user's review. Next, part 3, enforcement: poll `/api/extension/blocking-state` for `blockedApps` and hide or quit them through `NSWorkspace`. Open question for part 3: how the desktop app gets a token (perhaps the web app hands it one through the window, as the bridge does for the extension). The desktop app must never block itself.
+2. **Safari** once Xcode is installed. Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
+3. **Edge and Brave** by hand: load `extension/dist/` unpacked.
+4. Optional: the backend comments and the docs still say "Chrome extension" in places.
 
 **Checking Firefox again** (about 10 minutes): `cd extension && npm run build:firefox`; in Firefox open `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on…**, choose `extension/dist-firefox/manifest.json` (or **Reload** if loaded); open http://localhost:8080, sign in, and check Settings shows **Connected**, that a blocked site is blocked, and that the toolbar popup opens. On trouble, see the add-on's console (**Inspect** in `about:debugging`) and the tab's console.
 
@@ -64,7 +71,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
 | 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
-| 4 | Tauri desktop app, with Mac app blocking | **Under way:** the shell in `desktop/`; blocked apps (built, under review) and enforcement open |
+| 4 | Tauri desktop app, with Mac app blocking | **Under way:** blocked apps in the backend and web app, and the shell in `desktop/` (both uncommitted); enforcement open |
 
 ## Done: step 1, one app, one origin
 
@@ -143,7 +150,15 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 ## Step 4 so far: the desktop app
 
-**Part 2, the shell (15 October 2026).** `desktop/`, Tauri 2.12; `desktop/README.md` has how to build it and its files.
+**Part 1, blocked apps (10 October 2026).** Built in the backend and web app first, because it needs neither Rust nor Xcode.
+- **Backend:** migration `V18__create_blocked_apps.sql` (`name`, nullable `bundle_id`, `active`; unique per user and name). `BlockedApp`, `BlockedAppRepository`, `BlockedAppRequest`, `BlockedAppResponse` in `blocking/`; CRUD at `/api/blocked-apps` in `BlockingController`. An app is matched by bundle id when it has one, otherwise by name ignoring case; the same name in another case is a duplicate. Kept separate from `RuleTarget`, which is built around URL rules, and with no allowlist.
+- **Same rule as sites:** `BlockingService` locks apps like block rules (add allowed while a session enforces; edit and delete refused with 409). Active apps are in `BlockingSnapshot` and `blocking-state` as `blockedApps`, and in the `stateVersion` fingerprint. The extension ignores the new field.
+- **Backup:** export format **2.4** adds `blockedApps`; 2.0 to 2.3 still restore. Restore checks names, bundle ids and duplicates. Account and data deletion remove apps.
+- **Web app:** a third **Apps** tab on Blocking (`AppForm.vue`, `AppList.vue`, `utils/blockedApps.ts`, the store's `addApp`, `updateApp` and `deleteApp`). Only the name is shown, following the UI preferences; the desktop app's picker is meant to fill bundle ids. An edit keeps the bundle id while the name is unchanged and drops it on a rename. The plan said "a Settings row", but the Blocking page is where the user already manages what is blocked. Checked in light and dark mode at 900 and 390 pixels.
+- **Docs:** `technical_architecture.md` (endpoints, blocking state, backup format) and `requirements_specification.md` (no longer out of scope; Tauri chosen).
+- **Tests:** `BlockedAppsApiIntegrationTest` (new), `BlockingServiceTest`, `ExtensionControllerTest`, `RestoreIntegrationTest`, `ExportServiceTest`; the web app's view, store and API tests.
+
+**Part 2, the shell (15 October 2026; not yet committed).** `desktop/`, Tauri 2.12; `desktop/README.md` has how to build it and its files.
 - **Decided by the user:** when FocusQuest already answers on 127.0.0.1:8080 (the Docker container), the app opens it and leaves it running on quit; only when nothing answers does it start its own copy. The two copies have separate data (the Docker volume, and `~/Library/Application Support/FocusQuest`) and cannot run at once. Offered and not taken: always its own copy (moving the data across once), or Docker only.
 - **Finding FocusQuest:** a plain HTTP request to `/api/auth/setup-status`, which answers without sign-in; anything else on the port is reported as another program holding it.
 - **Its own copy:** `scripts/prepare-backend.sh` builds the boot jar and a `jlink`ed JRE (a fixed module list, since `jdeps` cannot see into a boot jar's nested jars) into `src-tauri/resources/backend/`, bundled as a resource rather than a Tauri sidecar (a JRE is a folder, not one binary). Started with `FOCUSQUEST_DATA_DIR`, a JWT secret made once and kept in `jwt-secret` (0600) beside the data, bound to 127.0.0.1:8080, logging to `~/Library/Logs/FocusQuest/backend.log`; stopped with SIGTERM, then killed after 15 seconds.

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedApp;
+import com.example.focusquest.blocking.BlockedAppRepository;
 import com.example.focusquest.blocking.BlockedTarget;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.blocking.RuleNormalizer;
@@ -67,6 +69,8 @@ class ExportServiceTest {
     @Mock
     private AllowlistTargetRepository allowlistTargetRepository;
     @Mock
+    private BlockedAppRepository blockedAppRepository;
+    @Mock
     private CameraSettingsRepository cameraSettingsRepository;
     @Mock
     private CameraObservationRepository cameraObservationRepository;
@@ -83,7 +87,7 @@ class ExportServiceTest {
         exportService = new ExportService(focusSessionRepository, sessionPauseRepository,
                 streakConfigurationRepository, streakPeriodRepository, streakContributionRepository,
                 streakFreezeRepository, experienceTransactionRepository, gemTransactionRepository, blockedTargetRepository,
-                allowlistTargetRepository, cameraSettingsRepository, cameraObservationRepository,
+                allowlistTargetRepository, blockedAppRepository, cameraSettingsRepository, cameraObservationRepository,
                 offTaskIntervalRepository, offTaskDisputeRepository, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
     }
@@ -113,6 +117,8 @@ class ExportServiceTest {
         when(blockedTargetRepository.findByUserOrderByIdAsc(user)).thenReturn(List.of(
                 new BlockedTarget(user, RuleNormalizer.normalize("youtube.com"), "YouTube", true)));
         when(allowlistTargetRepository.findByUserOrderByIdAsc(user)).thenReturn(List.of());
+        when(blockedAppRepository.findByUserOrderByIdAsc(user)).thenReturn(List.of(
+                new BlockedApp(user, "Slack", "com.tinyspeck.slackmacgap", true)));
 
         LocalDataExportDto result = exportService.exportLocalData(user);
 
@@ -128,6 +134,7 @@ class ExportServiceTest {
         assertThat(result.gemTransactions()).extracting("amount").containsExactly(5);
         assertThat(result.blockedTargets()).extracting("targetValue").containsExactly("youtube.com");
         assertThat(result.allowlistTargets()).isEmpty();
+        assertThat(result.blockedApps()).extracting("bundleId").containsExactly("com.tinyspeck.slackmacgap");
         assertThat(result.toString()).doesNotContain("hash");
     }
 }

@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.focusquest.auth.ExtensionCredentialRepository;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedAppRepository;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.progression.ExperienceTransactionRepository;
 import com.example.focusquest.progression.GemTransactionRepository;
@@ -83,6 +84,8 @@ public abstract class ApiIntegrationTest {
     @Autowired
     private AllowlistTargetRepository allowlistTargetRepository;
     @Autowired
+    private BlockedAppRepository blockedAppRepository;
+    @Autowired
     private CameraSettingsRepository cameraSettingsRepository;
     @Autowired
     private CompanionCredentialRepository companionCredentialRepository;
@@ -116,6 +119,7 @@ public abstract class ApiIntegrationTest {
         gemTransactionRepository.deleteAllInBatch();
         blockedTargetRepository.deleteAllInBatch();
         allowlistTargetRepository.deleteAllInBatch();
+        blockedAppRepository.deleteAllInBatch();
         cameraSettingsRepository.deleteAllInBatch();
         extensionCredentialRepository.deleteAllInBatch();
         companionCredentialRepository.deleteAllInBatch();

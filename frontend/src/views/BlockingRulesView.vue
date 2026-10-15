@@ -2,6 +2,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getErrorMessage } from '../api/apiError'
 import AllowlistRuleForm from '../components/blocking/AllowlistRuleForm.vue'
+import AppForm from '../components/blocking/AppForm.vue'
+import AppList from '../components/blocking/AppList.vue'
 import BlockRuleForm from '../components/blocking/BlockRuleForm.vue'
 import RuleList from '../components/blocking/RuleList.vue'
 import AppButton from '../components/common/AppButton.vue'
@@ -13,7 +15,7 @@ import LoadingIndicator from '../components/common/LoadingIndicator.vue'
 import Modal from '../components/common/Modal.vue'
 import { useBlockingStore } from '../stores/blockingStore'
 import { useSessionStore } from '../stores/sessionStore'
-import type { RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
+import type { BlockedApp, BlockedAppRequest, RuleKind, RuleTarget, RuleTargetRequest } from '../types/blocking'
 import { isOverridable } from '../utils/sessionState'
 
 const blocking = useBlockingStore()
@@ -46,8 +48,8 @@ const SECTIONS = [
 
 /**
  * While website blocking is enforced (a running or paused session, or an abandoned one still holding
- * blocking) the rules may only get stricter: blocked sites can be added but not edited or removed,
- * and allowed sites can be removed but not added or edited. This only greys the controls out; the
+ * blocking) the rules may only get stricter: blocked sites and apps can be added but not edited or
+ * removed, and allowed sites can be removed but not added or edited. This only greys the controls out; the
  * backend refuses the change too, which is what catches a case this misses.
  */
 const enforced = computed(
@@ -58,8 +60,8 @@ const allowed = computed(() => ({
   allow: { add: !enforced.value, edit: !enforced.value, delete: true },
 }))
 
-/** Which list is shown; the other stays mounted so its form keeps what was typed. */
-const shown = ref<RuleKind>('block')
+/** Which list is shown; the others stay mounted so their forms keep what was typed. */
+const shown = ref<RuleKind | 'apps'>('block')
 
 const ready = ref(false)
 const loadError = ref<string | null>(null)
@@ -72,6 +74,11 @@ const notice = ref<string | null>(null)
 const editing = ref<{ kind: RuleKind; rule: RuleTarget } | null>(null)
 const editError = ref<string | null>(null)
 const deleting = ref<{ kind: RuleKind; rule: RuleTarget } | null>(null)
+
+const appAddError = ref<string | null>(null)
+const appFormKey = ref(0)
+const editingApp = ref<BlockedApp | null>(null)
+const deletingApp = ref<BlockedApp | null>(null)
 
 function rulesFor(kind: RuleKind): RuleTarget[] {
   return kind === 'block' ? blocking.blocked : blocking.allowlist
@@ -131,6 +138,52 @@ async function onConfirmDelete() {
   deleting.value = null
 }
 
+async function onAddApp(request: BlockedAppRequest) {
+  appAddError.value = null
+  actionError.value = null
+  notice.value = null
+  try {
+    if (await blocking.addApp(request)) {
+      appFormKey.value++
+      notice.value = `Added ${request.name}.`
+    }
+  } catch (error) {
+    appAddError.value = getErrorMessage(error)
+  }
+}
+
+async function onSaveApp(request: BlockedAppRequest) {
+  if (!editingApp.value) return
+  editError.value = null
+  notice.value = null
+  try {
+    if (await blocking.updateApp(editingApp.value.id, request)) {
+      editingApp.value = null
+      notice.value = `Saved ${request.name}.`
+    }
+  } catch (error) {
+    editError.value = getErrorMessage(error)
+  }
+}
+
+async function onConfirmDeleteApp() {
+  if (!deletingApp.value) return
+  const app = deletingApp.value
+  actionError.value = null
+  notice.value = null
+  try {
+    if (await blocking.deleteApp(app.id)) notice.value = `Deleted ${app.name}.`
+  } catch (error) {
+    actionError.value = getErrorMessage(error)
+  }
+  deletingApp.value = null
+}
+
+function startEditApp(app: BlockedApp) {
+  editError.value = null
+  editingApp.value = app
+}
+
 function startEdit(kind: RuleKind, rule: RuleTarget) {
   editError.value = null
   editing.value = { kind, rule }
@@ -158,13 +211,17 @@ onMounted(load)
             <input v-model="shown" type="radio" name="rules-list" :value="section.kind" />
             {{ section.tab }} <span class="rules__count">{{ rulesFor(section.kind).length }}</span>
           </label>
+          <label>
+            <input v-model="shown" type="radio" name="rules-list" value="apps" />
+            Apps <span class="rules__count">{{ blocking.apps.length }}</span>
+          </label>
         </fieldset>
 
         <p v-if="enforced" class="rules__locked" role="status">
           Blocking is active: rules can only get stricter
           <InfoTip>
-            Until it ends you can add blocked sites and remove allowed sites, but not edit or remove blocked
-            sites, or add or edit allowed sites.
+            Until it ends you can add blocked sites and apps and remove allowed sites, but not edit or remove
+            blocked sites and apps, or add or edit allowed sites.
           </InfoTip>
         </p>
         <ErrorMessage :message="actionError" />
@@ -206,6 +263,37 @@ onMounted(load)
             @delete="(rule) => (deleting = { kind: section.kind, rule })"
           />
         </section>
+
+        <section v-show="shown === 'apps'" class="rules__section" aria-labelledby="apps-heading">
+          <div class="rules__head">
+            <h2 id="apps-heading" class="visually-hidden">Blocked apps</h2>
+            <p class="muted rules__note">Mac apps kept closed while sites are blocked</p>
+            <InfoTip>
+              Blocked on the same terms as your blocked sites. Enter the app’s name as it appears in the Dock or the
+              Applications folder. Apps are only blocked while the FocusQuest app for Mac is running.
+            </InfoTip>
+          </div>
+
+          <div class="rules__stack">
+            <ErrorMessage :message="appAddError" />
+            <AppForm
+              :key="appFormKey"
+              :existing="blocking.apps"
+              :submitting="blocking.saving"
+              compact
+              @submit="onAddApp"
+            />
+          </div>
+
+          <AppList
+            :apps="blocking.apps"
+            empty-text="No blocked apps yet. Add one above to have it kept closed during sessions."
+            :can-edit="!enforced"
+            :can-delete="!enforced"
+            @edit="startEditApp"
+            @delete="(app) => (deletingApp = app)"
+          />
+        </section>
       </template>
     </div>
 
@@ -230,6 +318,35 @@ onMounted(load)
         </div>
       </template>
     </Modal>
+
+    <Modal :open="editingApp !== null" title="Edit blocked app" @close="editingApp = null">
+      <template v-if="editingApp">
+        <ErrorMessage :message="editError" />
+        <AppForm
+          :key="editingApp.id"
+          :existing="blocking.apps"
+          :app="editingApp"
+          :submitting="blocking.saving"
+          :locked="enforced"
+          @submit="onSaveApp"
+        />
+        <div>
+          <AppButton variant="link" :disabled="blocking.saving" @click="editingApp = null">Cancel</AppButton>
+        </div>
+      </template>
+    </Modal>
+
+    <ConfirmDialog
+      :open="deletingApp !== null"
+      title="Delete blocked app?"
+      confirm-label="Delete"
+      danger
+      :loading="blocking.saving"
+      @confirm="onConfirmDeleteApp"
+      @cancel="deletingApp = null"
+    >
+      <p><strong>{{ deletingApp?.name }}</strong> will no longer be kept closed during sessions.</p>
+    </ConfirmDialog>
 
     <ConfirmDialog
       :open="deleting !== null"

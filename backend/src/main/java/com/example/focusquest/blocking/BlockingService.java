@@ -26,26 +26,30 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Owns block and allowlist rules, decides whether enforcement is active, and builds the state the
- * Chrome extension synchronizes. The extension performs the actual per-URL blocking using the
- * rules and the precedence documented on {@link RulePrecedence}.
+ * Owns block and allowlist rules and blocked apps, decides whether enforcement is active, and builds
+ * the state the browser extension and the desktop app synchronize. The extension performs the actual
+ * per-URL blocking using the rules and the precedence documented on {@link RulePrecedence}; the
+ * desktop app blocks the apps.
  */
 @Service
 public class BlockingService {
 
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final BlockedAppRepository blockedAppRepository;
     private final SessionService sessionService;
     private final StreakService streakService;
     private final ClockProvider clockProvider;
 
     public BlockingService(BlockedTargetRepository blockedTargetRepository,
                             AllowlistTargetRepository allowlistTargetRepository,
+                            BlockedAppRepository blockedAppRepository,
                             SessionService sessionService,
                             StreakService streakService,
                             ClockProvider clockProvider) {
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.blockedAppRepository = blockedAppRepository;
         this.sessionService = sessionService;
         this.streakService = streakService;
         this.clockProvider = clockProvider;
@@ -106,6 +110,40 @@ public class BlockingService {
         delete(allowlistTargetRepository, user, id);
     }
 
+    // --- blocked apps ---
+    //
+    // Locked like blocked sites: an app can be added while a session holds enforcement, but not
+    // edited or deleted.
+
+    @Transactional(readOnly = true)
+    public List<BlockedApp> listBlockedApps(User user) {
+        return blockedAppRepository.findByUserOrderByIdAsc(user);
+    }
+
+    @Transactional
+    public BlockedApp createBlockedApp(User user, String name, String bundleId, Boolean active) {
+        String trimmedName = name.trim();
+        requireUniqueApp(user, trimmedName, null);
+        return blockedAppRepository.save(new BlockedApp(user, trimmedName, blankToNull(bundleId),
+                active == null || active));
+    }
+
+    @Transactional
+    public BlockedApp updateBlockedApp(User user, Long id, String name, String bundleId, Boolean active) {
+        requireConfigurationNotLocked(user);
+        BlockedApp app = getOwnedAppOrThrow(user, id);
+        String trimmedName = name.trim();
+        requireUniqueApp(user, trimmedName, id);
+        app.update(trimmedName, blankToNull(bundleId), active == null ? app.isActive() : active);
+        return blockedAppRepository.save(app);
+    }
+
+    @Transactional
+    public void deleteBlockedApp(User user, Long id) {
+        requireConfigurationNotLocked(user);
+        blockedAppRepository.delete(getOwnedAppOrThrow(user, id));
+    }
+
     // --- enforcement and extension state ---
 
     /**
@@ -147,14 +185,16 @@ public class BlockingService {
     public BlockingSnapshot getBlockingSnapshot(User user) {
         Instant now = clockProvider.now();
         if (!isEnforcementActive(user)) {
-            return new BlockingSnapshot(false, null, List.of(), List.of(), fingerprint(false, null, List.of(), List.of()), now);
+            return new BlockingSnapshot(false, null, List.of(), List.of(), List.of(),
+                    fingerprint(false, null, List.of(), List.of(), List.of()), now);
         }
 
         List<BlockedTarget> blockRules = blockedTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user);
         List<AllowlistTarget> allowRules = allowlistTargetRepository.findByUserAndActiveTrueOrderByIdAsc(user);
+        List<BlockedApp> blockedApps = blockedAppRepository.findByUserAndActiveTrueOrderByIdAsc(user);
         FocusSession session = findEnforcingSession(user).orElse(null);
-        return new BlockingSnapshot(true, session, blockRules, allowRules,
-                fingerprint(true, session, blockRules, allowRules), now);
+        return new BlockingSnapshot(true, session, blockRules, allowRules, blockedApps,
+                fingerprint(true, session, blockRules, allowRules, blockedApps), now);
     }
 
     /**
@@ -277,6 +317,24 @@ public class BlockingService {
         }
     }
 
+    private BlockedApp getOwnedAppOrThrow(User user, Long id) {
+        return blockedAppRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException("App not found"));
+    }
+
+    private void requireUniqueApp(User user, String name, Long excludingId) {
+        boolean duplicate = excludingId == null
+                ? blockedAppRepository.existsByUserAndNameIgnoreCase(user, name)
+                : blockedAppRepository.existsByUserAndNameIgnoreCaseAndIdNot(user, name, excludingId);
+        if (duplicate) {
+            throw new DuplicateRuleException(name + " is already blocked");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private String resolveDisplayName(String displayName, UrlRule rule) {
         return displayName == null || displayName.isBlank() ? rule.value() : displayName.trim();
     }
@@ -291,7 +349,8 @@ public class BlockingService {
     }
 
     private String fingerprint(boolean enforcementActive, FocusSession session,
-                                List<BlockedTarget> blockRules, List<AllowlistTarget> allowRules) {
+                                List<BlockedTarget> blockRules, List<AllowlistTarget> allowRules,
+                                List<BlockedApp> blockedApps) {
         StringBuilder canonical = new StringBuilder("enforcing=").append(enforcementActive);
         if (session != null) {
             canonical.append(";session=").append(session.getId());
@@ -299,6 +358,8 @@ public class BlockingService {
         }
         blockRules.forEach(rule -> canonical.append(";block=").append(rule.getId()).append(':').append(rule.getTargetValue()));
         allowRules.forEach(rule -> canonical.append(";allow=").append(rule.getId()).append(':').append(rule.getTargetValue()));
+        blockedApps.forEach(app -> canonical.append(";app=").append(app.getId()).append(':').append(app.getName())
+                .append(':').append(app.getBundleId()));
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest, 0, 8);

@@ -66,7 +66,7 @@ class BlockingEndpointSecurityTest {
 
     @Test
     void ruleEndpointsRejectUnauthenticatedRequests() throws Exception {
-        for (String base : new String[] {"/api/blocked-targets", "/api/allowlist-targets"}) {
+        for (String base : new String[] {"/api/blocked-targets", "/api/allowlist-targets", "/api/blocked-apps"}) {
             mockMvc.perform(get(base)).andExpect(status().isUnauthorized());
             mockMvc.perform(post(base).contentType(MediaType.APPLICATION_JSON).content("{\"targetValue\":\"a.com\"}"))
                     .andExpect(status().isUnauthorized());

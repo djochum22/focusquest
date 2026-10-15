@@ -46,6 +46,9 @@ class BlockingServiceTest {
     private AllowlistTargetRepository allowlistTargetRepository;
 
     @Mock
+    private BlockedAppRepository blockedAppRepository;
+
+    @Mock
     private SessionService sessionService;
 
     @Mock
@@ -56,12 +59,13 @@ class BlockingServiceTest {
 
     @BeforeEach
     void setUp() {
-        blockingService = new BlockingService(blockedTargetRepository, allowlistTargetRepository, sessionService,
+        blockingService = new BlockingService(blockedTargetRepository, allowlistTargetRepository, blockedAppRepository, sessionService,
                 streakService, new ClockProvider(Clock.fixed(NOW, ZoneOffset.UTC)));
         user = new User("doug", "hash", "Doug", "UTC");
 
         lenient().when(blockedTargetRepository.save(any(BlockedTarget.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(allowlistTargetRepository.save(any(AllowlistTarget.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(blockedAppRepository.save(any(BlockedApp.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private FocusSession session(SessionStatus status, BlockingState blockingState, boolean overrideUsed) {
@@ -229,6 +233,69 @@ class BlockingServiceTest {
                             e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
             verify(blockedTargetRepository, never()).delete(any());
             verify(blockedTargetRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    class BlockedAppCrud {
+
+        @Test
+        void createTrimsTheNameTurnsABlankBundleIdIntoNoneAndDefaultsToActive() {
+            BlockedApp created = blockingService.createBlockedApp(user, "  Slack ", "  ", null);
+
+            assertThat(created.getName()).isEqualTo("Slack");
+            assertThat(created.getBundleId()).isNull();
+            assertThat(created.isActive()).isTrue();
+        }
+
+        @Test
+        void createRefusesANameAlreadyBlockedInAnyCase() {
+            when(blockedAppRepository.existsByUserAndNameIgnoreCase(user, "SLACK")).thenReturn(true);
+
+            assertThatThrownBy(() -> blockingService.createBlockedApp(user, "SLACK", null, true))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+            verify(blockedAppRepository, never()).save(any());
+        }
+
+        @Test
+        void updateKeepsActiveWhenOmittedAndRefusesAnotherAppsName() {
+            noSessionEver();
+            BlockedApp existing = new BlockedApp(user, "Slack", "com.tinyspeck.slackmacgap", false);
+            when(blockedAppRepository.findByIdAndUser(5L, user)).thenReturn(Optional.of(existing));
+
+            blockingService.updateBlockedApp(user, 5L, "Slack ", null, null);
+            assertThat(existing.getBundleId()).isNull();
+            assertThat(existing.isActive()).isFalse();
+
+            when(blockedAppRepository.existsByUserAndNameIgnoreCaseAndIdNot(user, "Discord", 5L)).thenReturn(true);
+            assertThatThrownBy(() -> blockingService.updateBlockedApp(user, 5L, "Discord", null, null))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        }
+
+        @Test
+        void updateAndDeleteAreRefusedWhileEnforcementIsActive() {
+            enforcementIsActive();
+
+            assertThatThrownBy(() -> blockingService.updateBlockedApp(user, 5L, "Slack", null, false))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+            assertThatThrownBy(() -> blockingService.deleteBlockedApp(user, 5L))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+            verify(blockedAppRepository, never()).delete(any());
+            verify(blockedAppRepository, never()).save(any());
+        }
+
+        @Test
+        void anotherUsersAppIsNotFound() {
+            noSessionEver();
+            when(blockedAppRepository.findByIdAndUser(99L, user)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> blockingService.deleteBlockedApp(user, 99L))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
         }
     }
 
@@ -449,6 +516,7 @@ class BlockingServiceTest {
             assertThat(snapshot.session()).isNull();
             assertThat(snapshot.blockRules()).isEmpty();
             assertThat(snapshot.allowRules()).isEmpty();
+            assertThat(snapshot.blockedApps()).isEmpty();
             assertThat(snapshot.generatedAt()).isEqualTo(NOW);
             verify(blockedTargetRepository, never()).findByUserAndActiveTrueOrderByIdAsc(any());
         }
@@ -468,6 +536,20 @@ class BlockingServiceTest {
             assertThat(snapshot.session()).isSameAs(active);
             assertThat(snapshot.blockRules()).isEqualTo(blockRules);
             assertThat(snapshot.allowRules()).isEqualTo(allowRules);
+        }
+
+        @Test
+        void whenEnforcingTheSnapshotCarriesTheActiveAppsAndTheirChangesChangeTheStateVersion() {
+            enforcementIsActive();
+            List<BlockedApp> apps = List.of(new BlockedApp(user, "Slack", null, true));
+            when(blockedAppRepository.findByUserAndActiveTrueOrderByIdAsc(user)).thenReturn(apps);
+
+            BlockingSnapshot snapshot = blockingService.getBlockingSnapshot(user);
+            assertThat(snapshot.blockedApps()).isEqualTo(apps);
+
+            when(blockedAppRepository.findByUserAndActiveTrueOrderByIdAsc(user))
+                    .thenReturn(List.of(new BlockedApp(user, "Slack", "com.tinyspeck.slackmacgap", true)));
+            assertThat(blockingService.getBlockingSnapshot(user).stateVersion()).isNotEqualTo(snapshot.stateVersion());
         }
 
         @Test

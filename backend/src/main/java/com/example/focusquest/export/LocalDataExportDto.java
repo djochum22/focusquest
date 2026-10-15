@@ -1,5 +1,6 @@
 package com.example.focusquest.export;
 
+import com.example.focusquest.blocking.BlockedAppResponse;
 import com.example.focusquest.blocking.RuleTargetResponse;
 import com.example.focusquest.progression.ExperienceTransactionResponse;
 import com.example.focusquest.progression.GemTransactionResponse;
@@ -28,6 +29,7 @@ public record LocalDataExportDto(
         List<GemTransactionResponse> gemTransactions,
         List<RuleTargetResponse> blockedTargets,
         List<RuleTargetResponse> allowlistTargets,
+        List<BlockedAppResponse> blockedApps,
         CameraSettingsBackup cameraSettings,
         List<CameraObservationBackup> cameraObservations,
         List<OffTaskIntervalBackup> offTaskIntervals,

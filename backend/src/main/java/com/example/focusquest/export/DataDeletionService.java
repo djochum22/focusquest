@@ -2,6 +2,7 @@ package com.example.focusquest.export;
 
 import com.example.focusquest.auth.ExtensionCredentialRepository;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedAppRepository;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.blocking.BlockingService;
 import com.example.focusquest.progression.ExperienceTransactionRepository;
@@ -45,6 +46,7 @@ public class DataDeletionService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final BlockedAppRepository blockedAppRepository;
     private final ExtensionCredentialRepository extensionCredentialRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
     private final CameraObservationRepository cameraObservationRepository;
@@ -64,6 +66,7 @@ public class DataDeletionService {
                                 GemTransactionRepository gemTransactionRepository,
                                 BlockedTargetRepository blockedTargetRepository,
                                 AllowlistTargetRepository allowlistTargetRepository,
+                                BlockedAppRepository blockedAppRepository,
                                 ExtensionCredentialRepository extensionCredentialRepository,
                                 CameraSettingsRepository cameraSettingsRepository,
                                 CameraObservationRepository cameraObservationRepository,
@@ -82,6 +85,7 @@ public class DataDeletionService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.blockedAppRepository = blockedAppRepository;
         this.extensionCredentialRepository = extensionCredentialRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
         this.cameraObservationRepository = cameraObservationRepository;
@@ -108,7 +112,7 @@ public class DataDeletionService {
     }
 
     /**
-     * Deletes all of the user's sessions, streaks, ledgers and blocking rules, keeping the account
+     * Deletes all of the user's sessions, streaks, ledgers, blocking rules and blocked apps, keeping the account
      * and the extension's credential. Runs inside the caller's transaction.
      */
     void deleteActivity(User user) {
@@ -126,6 +130,7 @@ public class DataDeletionService {
         gemTransactionRepository.deleteAllByUser(user);
         blockedTargetRepository.deleteAllByUser(user);
         allowlistTargetRepository.deleteAllByUser(user);
+        blockedAppRepository.deleteAllByUser(user);
         cameraSettingsRepository.deleteAllByUser(user);
     }
 }

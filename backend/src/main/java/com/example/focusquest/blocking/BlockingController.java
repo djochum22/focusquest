@@ -84,6 +84,34 @@ public class BlockingController {
         blockingService.deleteAllowlistTarget(currentUser(principal), id);
     }
 
+    @GetMapping("/api/blocked-apps")
+    public List<BlockedAppResponse> listBlockedApps(@AuthenticationPrincipal UserDetails principal) {
+        return blockingService.listBlockedApps(currentUser(principal)).stream()
+                .map(BlockedAppResponse::from).toList();
+    }
+
+    @PostMapping("/api/blocked-apps")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BlockedAppResponse createBlockedApp(@AuthenticationPrincipal UserDetails principal,
+                                               @Valid @RequestBody BlockedAppRequest request) {
+        return BlockedAppResponse.from(blockingService.createBlockedApp(
+                currentUser(principal), request.name(), request.bundleId(), request.active()));
+    }
+
+    @PutMapping("/api/blocked-apps/{id}")
+    public BlockedAppResponse updateBlockedApp(@AuthenticationPrincipal UserDetails principal,
+                                               @PathVariable("id") Long id,
+                                               @Valid @RequestBody BlockedAppRequest request) {
+        return BlockedAppResponse.from(blockingService.updateBlockedApp(
+                currentUser(principal), id, request.name(), request.bundleId(), request.active()));
+    }
+
+    @DeleteMapping("/api/blocked-apps/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteBlockedApp(@AuthenticationPrincipal UserDetails principal, @PathVariable("id") Long id) {
+        blockingService.deleteBlockedApp(currentUser(principal), id);
+    }
+
     private User currentUser(UserDetails principal) {
         return userService.getByUsername(principal.getUsername());
     }

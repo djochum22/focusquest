@@ -2,6 +2,9 @@ package com.example.focusquest.export;
 
 import com.example.focusquest.blocking.AllowlistTarget;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
+import com.example.focusquest.blocking.BlockedApp;
+import com.example.focusquest.blocking.BlockedAppRepository;
+import com.example.focusquest.blocking.BlockedAppResponse;
 import com.example.focusquest.blocking.BlockedTarget;
 import com.example.focusquest.blocking.BlockedTargetRepository;
 import com.example.focusquest.blocking.RuleNormalizer;
@@ -49,6 +52,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -85,6 +89,7 @@ public class RestoreService {
     private final GemTransactionRepository gemTransactionRepository;
     private final BlockedTargetRepository blockedTargetRepository;
     private final AllowlistTargetRepository allowlistTargetRepository;
+    private final BlockedAppRepository blockedAppRepository;
     private final CameraSettingsRepository cameraSettingsRepository;
     private final CameraObservationRepository cameraObservationRepository;
     private final OffTaskIntervalRepository offTaskIntervalRepository;
@@ -102,6 +107,7 @@ public class RestoreService {
                           GemTransactionRepository gemTransactionRepository,
                           BlockedTargetRepository blockedTargetRepository,
                           AllowlistTargetRepository allowlistTargetRepository,
+                          BlockedAppRepository blockedAppRepository,
                           CameraSettingsRepository cameraSettingsRepository,
                           CameraObservationRepository cameraObservationRepository,
                           OffTaskIntervalRepository offTaskIntervalRepository,
@@ -118,6 +124,7 @@ public class RestoreService {
         this.gemTransactionRepository = gemTransactionRepository;
         this.blockedTargetRepository = blockedTargetRepository;
         this.allowlistTargetRepository = allowlistTargetRepository;
+        this.blockedAppRepository = blockedAppRepository;
         this.cameraSettingsRepository = cameraSettingsRepository;
         this.cameraObservationRepository = cameraObservationRepository;
         this.offTaskIntervalRepository = offTaskIntervalRepository;
@@ -218,6 +225,10 @@ public class RestoreService {
         for (RuleTargetResponse target : listOf(backup.allowlistTargets())) {
             allowlistTargetRepository.save(new AllowlistTarget(owner, RuleNormalizer.normalize(target.targetValue()),
                     target.displayName(), target.active()));
+        }
+        for (BlockedAppResponse app : listOf(backup.blockedApps())) {
+            blockedAppRepository.save(new BlockedApp(owner, app.name().trim(),
+                    app.bundleId() == null || app.bundleId().isBlank() ? null : app.bundleId().trim(), app.active()));
         }
 
         // Consent to an older consent text is restored as it was; it simply does not count.
@@ -337,6 +348,17 @@ public class RestoreService {
         }
         requireUnique(backup.blockedTargets(), RuleTargetResponse::targetValue, "blocked site");
         requireUnique(backup.allowlistTargets(), RuleTargetResponse::targetValue, "allowed site");
+
+        for (BlockedAppResponse app : listOf(backup.blockedApps())) {
+            if (app == null || app.name() == null || app.name().isBlank() || app.name().trim().length() > 100) {
+                throw invalid("A blocked app in the backup has no valid name");
+            }
+            if (app.bundleId() != null && (app.bundleId().trim().length() > 255
+                    || !app.bundleId().trim().matches(BlockedApp.BUNDLE_ID_PATTERN))) {
+                throw invalid("A blocked app in the backup has an invalid bundle id: " + app.bundleId());
+            }
+        }
+        requireUnique(backup.blockedApps(), app -> app.name().trim().toLowerCase(Locale.ROOT), "blocked app");
     }
 
     private static void requireLedgerReference(String referenceType, Long referenceId,
