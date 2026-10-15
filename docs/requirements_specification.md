@@ -1207,7 +1207,7 @@ The timings are the same for every category:
 - **Grace period.** If they are still off task 60 seconds after the warning, subtraction starts.
 - **Minimum confidence.** Observations below a confidence of 0.7 are ignored.
 
-The timings and the minimum confidence are configuration, to be tuned once real detection exists. The user cannot change the profiles yet; the Settings page shows what the camera checks for each category.
+The timings and the minimum confidence are configuration. They were checked against labelled recordings on 15 October 2026 and kept; the detector's own thresholds were tuned from the same recordings (`docs/camera_roadmap.md`, "Measured accuracy"). The user cannot change the profiles yet; the Settings page shows what the camera checks for each category.
 
 ### Off-task time
 

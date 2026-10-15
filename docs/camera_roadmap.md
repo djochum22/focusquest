@@ -11,16 +11,16 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - All three signals work live: away, looking away, and a phone in hand. Warnings come early as a heads-up (phone 5 s, looking away 15 s, away 90 s), with the 60-second grace period.
 - The companion runs in the background (C3a, launch agent; log `~/Library/Logs/FocusQuest/companion.log`), calibrates from Settings (C3b), and the session screen says when it cannot use the camera (C2).
 - **C1d, accuracy, is under way.** Labelled by the user on 15 October 2026 (`~/Documents/FocusQuest/`, eight files). The `accuracy` command is built (`e078e4f`); away warns again and getting up no longer counts as looking away (`06fcdc0`); parts A and B were labelled again (`5c6c7c8`); phone detection is left as it is (`a3e69fe`, the user's decision). The numbers are under "Measured accuracy" and "Step 3".
-- **The companion was paired again** on 15 October 2026 (unpaired since 9 October, likely when the database moved into the container). The calibration in use still dates from 5 October.
+- **The companion was paired again** on 15 October 2026 (unpaired since 9 October, likely when the database moved into the container). Calibrated again the same day (14:25).
 
-**Next, by the user:** calibrate from Settings (**Camera verification**, **Calibrate**), and label part A again for the full 3 minutes (and part E if possible) with `.venv/bin/focusquest-companion label --category CODING`. How to label:
+**Done 15 October 2026:** calibrated again and part A labelled for 273 seconds; the looking-away margin stays at 5° (see "Step 3"). Earlier step, kept for labelling again later: calibrate from Settings (**Camera verification**, **Calibrate**), and label part A again for the full 3 minutes (and part E if possible) with `.venv/bin/focusquest-companion label --category CODING`. How to label:
 
 1. Do not run a session with "Verify with camera" while labelling; the background companion may keep running.
 2. Click the camera window once, so it gets the keys. Press `1` on task, `2` away, `3` phone, `4` looking away as soon as you change what you do, and `q` to stop and save. The 2 seconds after each change are left out of the measurement, so a late key does not matter.
 3. Each part 2 to 3 minutes (see "What the user labels" for the parts); `WRITING` instead of `CODING` for paper on the desk. Each run writes `~/Documents/FocusQuest/labels-<date>-<time>.csv`: numbers only, never a picture.
 4. Different light (daylight, lamps) helps, if possible.
 
-**Next, by Claude:** decide the looking-away margin from the new labels (see the end of "Step 3"), one change at a time, measured with `accuracy`.
+**Next:** nothing is planned for the camera. Open if wanted: a better way of seeing a phone in hand (finding 3), and labelling in different light.
 
 **Before starting:**
 
@@ -54,7 +54,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
 | C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
 | C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | `e888f94`; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
-| **C1d** | **Label mode (`0e37818`), accuracy measurements (`e078e4f`), tuning (`06fcdc0`, `5c6c7c8`, `a3e69fe`); the looking-away margin is open** | **Under way** |
+| C1d | Label mode (`0e37818`), accuracy measurements (`e078e4f`), tuning (`06fcdc0`, `5c6c7c8`, `a3e69fe`); the looking-away margin kept at 5° after calibrating again. Phone in hand left weak | Done 15 October 2026 |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
@@ -194,7 +194,17 @@ Not changed yet: the calibration is ten days old and the false seconds come from
 
 **Part A labelled a third time** (15 October 2026, 14:09, 69 seconds on task), after pairing the companion again but still against the 5 October calibration: no looking away reported, at 5°, 7° or 10°. The margin stays at 5° for now: the earlier false seconds came with the head pitched below the screen zone, which did not happen here. Calibrating again, and a longer part A, would settle it.
 
-Next: calibrate from Settings, then label part A once more for the full 3 minutes and decide the margin; the phone (finding 3) is left as it is for now (the user's decision, 15 October 2026): phone in hand is weak, found in 8 % of labelled seconds. Offered and not taken yet: looking for hands every second and for a phone in an enlarged crop around each (recommended), or EfficientDet-Lite2. Either needs part D labelled again.
+**Part A after calibrating again** (15 October 2026, 14:25; new calibration: screen yaw -10.9 to 13.3°, pitch -10.3 to 8.0°; desk yaw -10.7 to 9.3°, pitch 9.3 to 23.3°). 273 seconds on task, CODING:
+
+| Margin | Looking away while on task | False warnings |
+| --- | --- | --- |
+| 5° (kept) | 2 of 273 s (0.4 a minute) | 0 |
+| 7° | 2 of 273 s | 0 |
+| 10° | 1 of 273 s | 0 |
+
+The two seconds are single turns well to the side (yaw -40° and -16°, pitch 14°). **Decided: the margin stays at 5°.** The earlier false seconds while coding (14 of 112) came from the 5 October calibration, not from the margin, and a wider one would only catch real looks away later. Older files are not compared here: `accuracy` judges them against the current calibration, not the one they were recorded with.
+
+Done with C1d's tuning, apart from the phone, which is left as it is. Earlier plan for this step: the phone (finding 3) is left as it is for now (the user's decision, 15 October 2026): phone in hand is weak, found in 8 % of labelled seconds. Offered and not taken yet: looking for hands every second and for a phone in an enlarged crop around each (recommended), or EfficientDet-Lite2. Either needs part D labelled again.
 
 - Change the thresholds where the measurements say so, one at a time, and write down why.
 - Add smoothing (a majority over a second or two, in the companion) only if single missed frames break episodes: the backend already merges gaps of up to 5 seconds.
