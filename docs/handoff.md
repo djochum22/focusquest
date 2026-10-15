@@ -12,8 +12,8 @@ Start here. The details live in two longer notes:
 
 ## For you
 
-1. **Pair the camera companion again** (it has not been connected since 9 October, so camera-verified sessions are not watched): Settings, **Camera verification**, copy the code, then from `vision/` run `.venv/bin/focusquest-companion pair <code>`.
-2. **Calibrate** from Settings, then **label part A again** (3 minutes on task at the screen) and, if you can, part E (looking away): `.venv/bin/focusquest-companion label --category CODING`. Then tell Claude, to decide the looking-away margin.
+1. **Calibrate the camera** (the companion is paired again, but the calibration is from 5 October): Settings, **Camera verification**, **Calibrate**.
+2. **Label part A once more, for the full 3 minutes**, after calibrating: from `vision/`, `.venv/bin/focusquest-companion label --category CODING`, press `1` and work normally, `q` to stop. Then tell Claude, to settle the looking-away margin.
 3. **Install Xcode** from the App Store, then `sudo xcode-select -s /Applications/Xcode.app`, and open Xcode once. Safari needs it.
 4. **Try the extension's options page** (5 minutes): `docs/platform_roadmap.md`, "Waiting on the user", item 3.
 5. **Decide about Firefox every day:** Mozilla signs the add-on, or Firefox Developer Edition. Same section, item 5.
