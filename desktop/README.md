@@ -15,6 +15,8 @@ FocusQuest as a Mac app: a window on FocusQuest and an icon in the menu bar. Bui
   the port. Quit the app first, then start Docker, then open the app.
 - **Stays in the menu bar.** Closing the window keeps the app running; the menu bar icon (or the
   Dock icon) opens it again. **Quit FocusQuest** in that menu, or Cmd+Q, quits.
+- **View, Reload (Cmd+R)** loads the web app again. The window loads it once, so after FocusQuest
+  is updated (Docker rebuilt) it shows the old one until you reload or restart the app.
 - **Says what is wrong** in the window if FocusQuest cannot start, or another program holds port 8080.
 
 - **Quits blocked apps while blocking is on**: the apps on the Blocking page's **Apps** tab, at the

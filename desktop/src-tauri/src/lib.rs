@@ -15,7 +15,7 @@ use backend::{Backend, Found, Places};
 use blocking::{Blocker, DesktopState};
 use tauri_plugin_notification::NotificationExt;
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, MenuItemKind};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, State, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
@@ -44,10 +44,18 @@ pub fn run() {
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(380.0, 480.0)
                 .build()?;
+            app.set_menu(app_menu(app.handle())?)?;
             menu_bar_icon(app.handle())?;
             let handle = app.handle().clone();
             std::thread::spawn(move || connect(&handle));
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "reload" {
+                if let Some(window) = app.get_webview_window(WINDOW) {
+                    let _ = window.reload();
+                }
+            }
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -111,6 +119,21 @@ fn show_page(app: &AppHandle, state: &str, message: Option<&str>) {
         url.query_pairs_mut().append_pair("message", message);
     }
     let _ = window.navigate(url);
+}
+
+/// macOS's usual menus, with View, Reload (Cmd+R) added: the window loads the web app once, so after
+/// FocusQuest is updated (Docker rebuilt) it would otherwise keep the old one until the app restarts.
+fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    let reload = MenuItem::with_id(app, "reload", "Reload", true, Some("CmdOrCtrl+R"))?;
+    for item in menu.items()? {
+        if let MenuItemKind::Submenu(submenu) = item {
+            if submenu.text()? == "View" {
+                submenu.prepend(&reload)?;
+            }
+        }
+    }
+    Ok(menu)
 }
 
 fn menu_bar_icon(app: &AppHandle) -> tauri::Result<()> {

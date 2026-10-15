@@ -175,6 +175,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - Matching was by name alone until part 4 below.
 
 **Part 4, picking apps (15 October 2026, `5a3c646`).** Inside the desktop app, the Apps tab's name field suggests this Mac's apps (a `<datalist>`, the user's preference for no extra panels), from a fourth command, `installed_apps`: the `.app` bundles in /Applications, /System/Applications and ~/Applications, one folder down too, read with `NSBundle`, plus the running ones, each bundle id once. `appRequest` sends the bundle id of an installed app with the typed name; an edit keeps the app's own while the name stays, so an app saved by name alone gets its id when edited in the desktop app. In a browser nothing changes. Tests: `utils/blockedApps.test.ts`, `AppForm` in `BlockingComponents.test.ts`, `apps.rs` (`cargo test -- --ignored` lists this Mac's apps).
+- **View, Reload (Cmd+R)** added 15 October 2026: the window keeps the web app it loaded, so after Docker was rebuilt with a fix, the user's window still ran the old code (Calibrate stayed disabled) and had no way to reload short of restarting the app.
 - `prepare-backend.sh` now makes the JRE writable: jlink's read-only licence files broke the second build.
 
 ## Later steps (planned)
