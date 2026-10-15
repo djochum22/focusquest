@@ -146,6 +146,24 @@ background program, so MediaPipe's usage logging cannot leave the computer; the 
 ask whether your terminal may use the camera. The background program may keep running, but do not run
 a session with **Verify with camera** while labelling. Calibrate first (Settings, **Calibrate**).
 
+Then see how often it was right:
+
+```bash
+focusquest-companion accuracy                   # every file in ~/Documents/FocusQuest, or give the files
+focusquest-companion accuracy --margin 8 --phone-from 0.3   # try other thresholds on the same files
+```
+
+It looks at each recorded second again from its raw readings, with today's thresholds or those given
+(`--present-from`, `--margin`, `--phone-from`, `--certain-from`, `--min-confidence`), against the
+current calibration. Per signal it prints how often it was found when the label said so, how often it
+was right when reported, and how often it was reported while on task, leaving out the 2 seconds after
+each label change (keys are pressed a moment late). Then the warnings: the seconds become stretches as
+the companion would send them, and episodes and warnings as the backend works them out (a copy of
+`OffTaskCalculator.java`, close enough to estimate): which labelled stretches long enough to warn
+about were warned about, how late, and how many warnings came while on task. Thresholds the files
+cannot answer are refused: faces below 0.5 have no recorded angles, and hands were not looked for
+below a phone score of 0.25.
+
 ## How it works
 
 | File | What it does |
@@ -161,6 +179,7 @@ a session with **Verify with camera** while labelling. Calibrate first (Settings
 | `api.py` | The backend's companion endpoints, and its clock |
 | `notifications.py` | System notifications for warnings |
 | `labelling.py` | `label`: the rows written while you say what you are doing, and a copy of the backend's camera profiles |
+| `accuracy.py` | `accuracy`: the labelled files looked at again, with any thresholds, and how often each signal and warning was right |
 | `cli.py`, `config.py` | The command, and where the pairing is kept |
 | `service.py` | The macOS launch agent that runs it in the background |
 

@@ -80,7 +80,7 @@ def held(phones: Sequence[Found], hands: Sequence[Box], least: float = PHONE_FRO
     return max(in_hand, key=lambda phone: phone.score, default=None)
 
 
-def confidence(phone: Found) -> float:
-    """From :data:`LEAST_CONFIDENCE` at :data:`PHONE_FROM` up to 1 at :data:`CERTAIN_FROM`."""
-    share = min(1.0, (phone.score - PHONE_FROM) / (CERTAIN_FROM - PHONE_FROM))
+def confidence(phone: Found, phone_from: float = PHONE_FROM, certain_from: float = CERTAIN_FROM) -> float:
+    """From :data:`LEAST_CONFIDENCE` at :data:`PHONE_FROM` up to 1 at :data:`CERTAIN_FROM` (others when measuring)."""
+    share = min(1.0, (phone.score - phone_from) / (certain_from - phone_from))
     return round(LEAST_CONFIDENCE + (1 - LEAST_CONFIDENCE) * max(share, 0.0), 3)

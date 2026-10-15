@@ -10,7 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from . import calibration, config, labelling, models, service
+from . import accuracy, calibration, config, labelling, models, service
 from .api import DEFAULT_BACKEND_URL, BackendClient, BackendClock, BackendError, Unauthorized
 from .cameras import CameraChoice, list_cameras
 from .companion import Companion
@@ -77,6 +77,23 @@ def main(argv: list[str] | None = None) -> int:
                        help="the CSV file to write (default: ~/Documents/FocusQuest/labels-<date>-<time>.csv)")
     label.add_argument("--camera", default="built-in", metavar="CAMERA", help="as for `run --camera`")
 
+    measure = commands.add_parser(
+        "accuracy", help="how often the camera was right, from the files `label` wrote; thresholds can be tried "
+                         "on them without labelling again")
+    measure.add_argument("files", nargs="*", type=Path, metavar="FILE",
+                         help=f"files written by `label` (default: every one in {labelling.default_path(datetime.now()).parent})")
+    defaults = accuracy.Thresholds()
+    measure.add_argument("--present-from", type=float, default=defaults.present_from, metavar="SCORE",
+                         help=f"a face found at least this surely is there (today {defaults.present_from:g})")
+    measure.add_argument("--margin", type=float, default=defaults.margin, metavar="DEGREES",
+                         help=f"how far beyond the work area the head may turn and still be on task (today {defaults.margin:g})")
+    measure.add_argument("--phone-from", type=float, default=defaults.phone_from, metavar="SCORE",
+                         help=f"a phone in a hand found at least this surely counts (today {defaults.phone_from:g})")
+    measure.add_argument("--certain-from", type=float, default=defaults.certain_from, metavar="SCORE",
+                         help=f"from this score a phone in a hand is certain (today {defaults.certain_from:g})")
+    measure.add_argument("--min-confidence", type=float, default=defaults.min_confidence, metavar="CONFIDENCE",
+                         help=f"the backend's minimum: anything less sure is ignored (today {defaults.min_confidence:g})")
+
     commands.add_parser("uninstall", help="stop watching in the background, and do not start at login")
     commands.add_parser("status", help="whether the program runs in the background, and where its log is")
 
@@ -95,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
             return _calibrate(calibration.default_path(path), args.camera)
         if args.command == "label":
             return _label(path, args, argv)
+        if args.command == "accuracy":
+            return _accuracy(path, args)
         if args.command == "install":
             return _install(path, args.code, args.backend)
         if args.command == "uninstall":
@@ -342,6 +361,29 @@ def _label(path: Path, args: argparse.Namespace, argv: list[str]) -> int:
         print(f"Wrote {labeller.rows} seconds to {out} before the camera stopped.", file=sys.stderr)
         return 1
     print(f"Wrote {labeller.rows} seconds to {out}.")
+    return 0
+
+
+def _accuracy(path: Path, args: argparse.Namespace) -> int:
+    thresholds = accuracy.Thresholds(args.present_from, args.margin, args.phone_from, args.certain_from,
+                                     args.min_confidence)
+    problem = thresholds.problem()
+    if problem is not None:
+        print(problem, file=sys.stderr)
+        return 2
+    folder = labelling.default_path(datetime.now()).parent
+    files = args.files or accuracy.default_paths(folder)
+    if not files:
+        print(f"No files from `label` in {folder}. Label first, or give the files.", file=sys.stderr)
+        return 2
+    angles = calibration.load(calibration.default_path(path))
+    try:
+        report = accuracy.measure(files, angles, thresholds)
+    except (OSError, ValueError) as error:
+        print(error, file=sys.stderr)
+        return 1
+    for line in accuracy.format_report(report):
+        print(line)
     return 0
 
 

@@ -38,6 +38,8 @@ WORK_AREAS = {
 WARNING_AFTER_SECONDS = {AWAY: 90, PHONE: 5, LOOKING_AWAY: 15}
 GRACE_SECONDS = 60
 MIN_CONFIDENCE = 0.7
+#: Stretches of a signal at most this far apart count as one (``merge-gap``).
+MERGE_GAP_SECONDS = 5
 
 COLUMNS = ("time", "category", "label", "away", "phone", "looking_away",
            "face_score", "yaw", "pitch", "phone_score", "held_phone_score", "hands")

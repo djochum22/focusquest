@@ -14,7 +14,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 - When the companion is connected but cannot use the camera, the session screen says so and why (C2).
 - Everything is committed (last: `364f204`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
 
-**Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built (`0e37818`). Next, the user labels (see "What the user labels"), then step 2, the `accuracy` command. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
+**Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built (`0e37818`). The user labelled on 15 October 2026, and step 2, the `accuracy` command, is built (not committed yet, waiting on the user's review). The first measurements are under "Measured accuracy": they point at three things to change before tuning anything else. Next: step 3, starting with those. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
 
 **Platform work in progress** (8 October 2026): the container, every browser and a desktop app, in `docs/platform_roadmap.md`. Read that note first; this labelling runs alongside it.
 
@@ -64,7 +64,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
 | C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
 | C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | `e888f94`; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
-| **C1d** | **Label mode, accuracy measurements, smoothing if needed, tuning** | **Next** |
+| **C1d** | **Label mode (`0e37818`), accuracy measurements (built, under review), smoothing if needed, tuning** | **Under way** |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 
@@ -156,6 +156,29 @@ Lighting matters: if possible, once in daylight and once with lamps.
 - **Trying thresholds** (`--margin 7`, `--phone-from 0.3`, and so on), worked out again from the raw readings without labelling again.
 
 A second source is real use: the data export (Settings) contains `cameraObservations` and the disputes, so the episodes the user marked "Not accurate?" are labelled false alarms. Few so far, but they come from real sessions.
+
+**Built** (15 October 2026), as planned above, in `accuracy.py`; the README has how to run it. As built: `replay` applies `CameraDetector.detect`'s rules to the recorded readings (with `Calibration.looking_away`'s new `margin` and `phones.confidence`'s new `phone_from` and `certain_from` parameters), `observations` feeds the seconds through the companion's own `ObservationTracker`, and `episodes` is the Python copy of `OffTaskCalculator.episodes`, which also says which signal warned. With today's thresholds the replay gives exactly what was reported in all 452 recorded seconds; when it does not (after calibrating again) the report says so. A labelled stretch counts as warned about in time if a warning for its signal came between its start and 2 seconds after its end; a warning is false if the label was on task at it and for the 2 seconds before. Beyond the plan: it also gives the seconds sent in stretches less sure than the minimum, which turned out to be what stops away warnings. With no files given it reads every `labels-*.csv` in `~/Documents/FocusQuest`. Not done: reading the disputes from a data export.
+
+### Measured accuracy
+
+**15 October 2026, first labelling.** Lighting not recorded. Thresholds as of C1e (present from 0.5, margin 5°, phone from 0.25 and certain from 0.6, minimum confidence 0.7), against the calibration made just before. Six files, 452 seconds: 158 on task (133 CODING, 25 WRITING), 195 away, 63 phone, 36 looking away. Less than planned: parts A and B are 21 and 25 seconds rather than 2 to 3 minutes, so the false alarm rates are rough.
+
+| Signal | Found when so | Right when reported | False while on task |
+| --- | --- | --- | --- |
+| Away | 85 of 184 s (46 %) | 85 of 86 s (99 %) | 0 of 142 s |
+| Phone | 5 of 59 s (8 %) | 5 of 9 s (56 %) | 0 of 142 s |
+| Looking away | 9 of 25 s (36 %) | 9 of 106 s (8 %) | 12 of 142 s (5.1 a minute) |
+
+Warnings: none came, right or wrong. One away stretch, two phone stretches and one looking-away stretch were long enough to be warned about.
+
+What it shows, in the order to take it on in step 3:
+
+1. **Away never warns.** Away's confidence is 1 minus the best face's score, and a stretch is as sure as its least sure second (`ObservationTracker`). Something faint the face detector takes for a face (scores 0.3 to 0.5) turns up now and then while nobody is there, so each away stretch ends up at 0.50 to 0.56, below the backend's 0.7, and all 110 seconds sent were ignored. Options: report away at a fixed confidence (no face at 0.5 or above means away), or start a new stretch when the confidence drops, rather than lowering the whole stretch.
+2. **Leaving, or half leaving, is mostly reported as looking away** (71 of the seconds labelled away): the head turns as the user gets up, the face is lost, and "a face lost just after a turn stays looking away" holds until a face is found again, however long that takes. Leaning to the edge of the picture also keeps a turned face in view. Limiting how long a lost face counts as looking away (say 10 seconds, then away) would fix the first; the second is arguably right, since it is off task either way.
+3. **The phone is mostly not seen at all.** In 51 of the 63 seconds labelled phone the object detector scored no phone above 0.2, and in 4 where it scored 0.5 to 0.76 no hand was found. No threshold the files can try changes that; it needs a better look (larger crops, another model) or a different signal.
+4. **Paper on the desk:** in part B the head turned 20 to 38° to either side, outside the desk zone (yaw -15 to 14°, pitch 1 to 18°), so 8 of 25 WRITING seconds were looking away. The calibrated desk zone is also shallow for a desk. Ask the user where the paper lay; calibrating the desk where it actually lies, or a wider desk zone, may be enough.
+
+Tried on the same files: `--margin 10 --present-from 0.6` finds looking away in 16 of 25 seconds and halves the false seconds on task (6 of 142), and finds away in 98 of 184.
 
 ### Step 3: tune, and smooth only if needed
 

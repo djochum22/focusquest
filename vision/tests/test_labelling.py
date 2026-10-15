@@ -142,6 +142,7 @@ class ProfileTest(unittest.TestCase):
                           "LOOKING_AWAY": int(warnings["looking-away"])}, labelling.WARNING_AFTER_SECONDS)
         self.assertIn(f"grace: {labelling.GRACE_SECONDS}s", settings)
         self.assertIn(f"min-confidence: {labelling.MIN_CONFIDENCE}", settings)
+        self.assertIn(f"merge-gap: {labelling.MERGE_GAP_SECONDS}s", settings)
 
 
 if __name__ == "__main__":

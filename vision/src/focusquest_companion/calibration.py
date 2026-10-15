@@ -109,16 +109,18 @@ class Calibration:
             return (self.screen, self.desk)
         return ()
 
-    def looking_away(self, pose: HeadPose, work_area: str, face_score: float) -> float | None:
+    def looking_away(self, pose: HeadPose, work_area: str, face_score: float,
+                     margin: float = MARGIN_DEGREES) -> float | None:
         """The confidence that the head is turned away from the work area, or None if it is not.
 
-        Just beyond the margin it is :data:`LEAST_CONFIDENCE`, growing to 1 over the next
-        :data:`CERTAIN_AFTER_DEGREES`. A face found less surely than :data:`CLEAR_FACE_FROM` lowers it.
+        Just beyond the margin (:data:`MARGIN_DEGREES` unless measuring) it is :data:`LEAST_CONFIDENCE`,
+        growing to 1 over the next :data:`CERTAIN_AFTER_DEGREES`. A face found less surely than
+        :data:`CLEAR_FACE_FROM` lowers it.
         """
         zones = self.zones(work_area)
         if not zones:
             return None
-        beyond = min(zone.outside(pose) for zone in zones) - MARGIN_DEGREES
+        beyond = min(zone.outside(pose) for zone in zones) - margin
         if beyond <= 0:
             return None
         certainty = LEAST_CONFIDENCE + (1 - LEAST_CONFIDENCE) * min(1.0, beyond / CERTAIN_AFTER_DEGREES)
