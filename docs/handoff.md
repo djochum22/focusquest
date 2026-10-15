@@ -24,4 +24,3 @@ Start here. The details live in two longer notes:
 
 1. **The looking-away margin** (C1d step 3), once part A is labelled again after calibrating.
 2. **Safari**, once Xcode is installed: convert the extension with `xcrun safari-web-extension-converter` and ship it inside the desktop app.
-3. **More end-to-end tests** (A4): the login form, streak progress, interruption.

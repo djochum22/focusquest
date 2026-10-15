@@ -23,8 +23,8 @@ const emit = defineEmits<{
       <p class="interrupted__badge" role="status">Interrupted</p>
       <InfoTip>
         The browser extension stopped checking in, so the time after its last check-in could not be
-        verified and was not counted. The time before it still counts toward your streak. Websites are
-        unblocked until you resume.
+        verified and was not counted. The time before it still counts toward your streak. The session no
+        longer keeps websites blocked until you resume; your daily target still does until it is reached.
       </InfoTip>
     </div>
     <SessionMeta :session="session" />

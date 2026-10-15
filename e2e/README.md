@@ -37,8 +37,8 @@ up, and it never touches `backend/data/`.
   profile (`backend/src/test/resources/application-e2e.yml`): an in-memory database, and two hooks the
   real application does not have. `POST /api/e2e/reset` wipes the database and sets the clock to 09:00
   UTC; `POST /api/e2e/clock/advance?seconds=N` moves the clock forward, so a five-minute session can be
-  completed at once. The heartbeat timeout is raised to 24 hours, so moving the clock is not mistaken
-  for the browser going quiet (interruption has its own backend tests).
+  completed at once. The heartbeat timeout is raised to 24 hours, so moving the clock by minutes is not
+  mistaken for the browser going quiet; the interruption test moves it by 25 hours on purpose.
 - **The extension** is built with `FOCUSQUEST_BACKEND_URL`, `FOCUSQUEST_FRONTEND_URL` and
   `FOCUSQUEST_OUT_DIR` (see `extension/scripts/build.mjs`), so it talks to the ports above.
 - **The blocked site** is a made-up host. Chromium resolves it to 127.0.0.1 through a host-resolver
@@ -64,6 +64,16 @@ anything already listening on those ports (on CI it always starts its own).
 - Rules cannot be loosened while a session runs, but can be tightened.
 - A planned session survives a reload and can be started later; changing its details deletes it, so
   a reload shows the empty form. The site is blocked all along by the unmet daily target.
+
+`tests/sessions.spec.ts` also covers interruption: with the clock moved 25 hours, past the heartbeat
+timeout, the session is interrupted, the unmet daily target keeps the site blocked, and Resume picks
+the session up again.
+
+`tests/account.spec.ts`: a signed-out user sent from Settings to the sign-in form, a wrong password
+refused, the right one returning to Settings, and the sign-in lasting a reload.
+
+`tests/streaks.spec.ts`: the daily streak's minutes and status on the Streaks page, a reached day
+counting as 1, and the count carrying into the next day, which starts again from nothing.
 
 `tests/camera.spec.ts` runs the companion program (`vision/`) for real, with a scripted detector in
 place of a camera, paired through Settings:

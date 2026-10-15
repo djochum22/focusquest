@@ -110,3 +110,22 @@ test('a planned session survives a reload and can be changed before it starts', 
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
   await expectSiteBlocked(site)
 })
+
+test('a session whose browser goes quiet is interrupted, keeps the unmet target blocking, and can be resumed', async ({ context, page }) => {
+  await setUpAccount(page)
+  await expectExtensionConnected(page)
+  await addBlockedSite(page)
+  const site = await openSite(context)
+  await startSession(page, 5)
+
+  // Longer than the heartbeat timeout (24 hours in this suite) without the extension checking in:
+  // the next request finds the session unverifiable and interrupts it.
+  await advanceBackendClock(25 * 60 * 60)
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Interrupted session' }).getByRole('status')).toHaveText('Interrupted')
+  await expectSiteBlocked(site)   // the session's hold is released, but the new day's target is unmet
+
+  await page.getByRole('button', { name: 'Resume' }).click()
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+  await expectSiteBlocked(site)
+})

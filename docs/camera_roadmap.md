@@ -36,7 +36,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | A1 | Open decisions in requirements §22 settled: XP, gems, penalty, completion, categories and more | `96c670f` |
 | A2 | Streak freezes: 10 gems each, at most 2, daily only, only for whole gaps, bridge without counting (requirements §13) | `96c670f` |
 | A3 | Complete export, and restore from Settings; tests for retried requests and for restarts | `272d453` |
-| A4 | Wider end-to-end coverage | **Open.** 8 Playwright tests: 4 for sessions and blocking, 4 for the camera. Not covered end to end: the login form, streak progress, interruption |
+| A4 | Wider end-to-end coverage | Done 15 October 2026: 11 Playwright tests, adding the login form, streak progress and interruption. Was: 8 tests; not covered end to end: the login form, streak progress, interruption |
 | B1 | Specification and privacy rules for camera verification | `97afff4` |
 | B2 | Consent in Settings, versioned (`CameraSettingsService.CONSENT_VERSION` and `utils/cameraConsent.ts` must match) | `2c99a93` |
 | B3 | Per-category camera profiles: work area, warning timings, grace, minimum confidence | `eb6e2e7` |

@@ -119,7 +119,7 @@ describe('InterruptedSessionView', () => {
 
     expect(wrapper.get('[role="status"]').text()).toBe('Interrupted')
     expect(wrapper.text()).toContain('extension stopped checking in')
-    expect(wrapper.text()).toContain('Websites are unblocked until you resume')
+    expect(wrapper.text()).toContain('your daily target still does until it is reached')
   })
 
   it('reports resume and abandon', async () => {

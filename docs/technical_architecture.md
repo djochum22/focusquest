@@ -124,7 +124,7 @@ The architecture should follow these principles:
 - Pinia for global client state where useful.
 - Axios or Fetch API for REST communication.
 - Vitest for unit and component tests.
-- Playwright for future end-to-end tests.
+- Playwright for the end-to-end tests (`e2e/`).
 
 **Chrome extension**
 
@@ -1588,7 +1588,11 @@ Built in `e2e/` (see `e2e/README.md`). Playwright drives Chromium with the exten
 7. The rule lock: a rule cannot be deleted during a session, but one can be added.
 8. Camera verification through the real companion program (`vision/`), paired from Settings and run with a scripted detector: a phone in hand warns in the web app and the program, then the time stops counting; a dispute gives it back; pausing closes the camera; when the program stops, the session goes on unverified; while the camera cannot be used (a scripted `unavailable` step), the session screen says so and why, until it can; and "Calibrate" in Settings reaches the program, which, having no camera, says why it cannot.
 
-Not covered end to end yet: the login form, streak progress and interruption. The backend integration tests cover those.
+9. Signing in: a signed-out user sent from a page to the sign-in form, a wrong password refused, the right one returning to the page asked for, and the sign-in lasting a reload.
+10. Streak progress: the daily streak's minutes and status on the Streaks page, a reached day counting, and the count carrying into the next day.
+11. Interruption: with the clock moved past the heartbeat timeout, the session is interrupted, the unmet daily target keeps the site blocked, and Resume picks the session up again.
+
+Not covered end to end: the desktop app (its own Rust tests, and tried by hand), and Firefox (checked by hand; see `docs/platform_roadmap.md`).
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4//8/AwAI/AL+GwXmLwAAAABJRU5ErkJggg==)
 

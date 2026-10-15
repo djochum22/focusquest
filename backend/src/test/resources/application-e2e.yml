@@ -19,7 +19,8 @@ focusquest:
       - chrome-extension://heccfmagjlcnoaodleaclgbbdlpibphf
   session:
     # The suite moves the backend's clock forward by whole minutes between the extension's
-    # check-ins, which must not count as the browser going quiet. Interruption has its own tests.
+    # check-ins, which must not count as the browser going quiet. The interruption test moves it 25
+    # hours on purpose.
     heartbeat-timeout: 24h
 
 logging:
