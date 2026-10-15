@@ -802,3 +802,44 @@ so that I stay in control of my camera and my data.
 - Given the consent text has changed since the user agreed,  
   when the settings are opened,  
   then camera verification is off until the user agrees to the new text.
+
+## **Epic 17: Mac app blocking**
+
+## **US-160: Block a Mac app**
+
+As a user,  
+I want distracting Mac apps kept closed while my websites are blocked,  
+so that I cannot switch to them instead.
+
+**Acceptance criteria:**
+
+- Given the user adds an app on the Blocking page's Apps tab,  
+  when blocking is on (until the day's focus target is reached, and during any session),  
+  then the FocusQuest desktop app asks that app to quit and a notification says why.
+- Given a blocked app was quit,  
+  when the user opens it again while blocking is on,  
+  then it is quit again within a few seconds.
+- Given the user is adding an app inside the desktop app,  
+  when they type its name,  
+  then the apps installed on the Mac are suggested, and a picked app is matched by its bundle id.
+- Given blocking is being enforced,  
+  when the user tries to edit or delete a blocked app,  
+  then the change is refused, as for blocked sites.
+
+## **US-161: Connect the desktop app**
+
+As a user,  
+I want the desktop app to connect to my account without copying anything,  
+so that blocking Mac apps works as soon as I sign in.
+
+**Acceptance criteria:**
+
+- Given the user signs in inside the desktop app's window,  
+  when the page loads,  
+  then the web app gives the desktop app its own token, which can only read what to block, and Settings shows it as connected.
+- Given the browser extension is connected,  
+  when the desktop app connects, or is disconnected,  
+  then the extension stays connected.
+- Given the user disconnects the desktop app in Settings,  
+  when they open another page,  
+  then it is not connected again until they connect it themselves.

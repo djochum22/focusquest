@@ -1,8 +1,8 @@
 # FocusQuest
 
 A local-first focus app: a Spring Boot backend, a Vue web app and a browser extension that blocks
-distracting sites during a focus session, with an optional camera companion program that checks
-you stay on task. Design documents are in [`docs/`](docs/).
+distracting sites during a focus session, a Mac app that keeps distracting apps closed, and an
+optional camera companion program that checks you stay on task. Design documents are in [`docs/`](docs/).
 
 | Part | Folder | Stack |
 | --- | --- | --- |
@@ -10,6 +10,7 @@ you stay on task. Design documents are in [`docs/`](docs/).
 | Web app | [`frontend/`](frontend/README.md) | Vue 3, TypeScript, Vite, Pinia |
 | Browser extension | [`extension/`](extension/README.md) | Manifest V3, TypeScript; Chromium browsers and Firefox |
 | Camera companion | [`vision/`](vision/README.md) | Python 3.11+; OpenCV and MediaPipe for the camera |
+| Desktop app (macOS) | [`desktop/`](desktop/README.md) | Tauri v2, Rust; bundles the backend with a cut-down JRE |
 
 ## Prerequisites
 
@@ -17,6 +18,7 @@ you stay on task. Design documents are in [`docs/`](docs/).
 - Node.js 20 or newer, with npm
 - For the extension: Chrome 120 or newer (or another Chromium browser), or Firefox 140 or newer
 - Python 3.11 or newer, for the camera companion and its tests
+- For the desktop app: Rust (https://rustup.rs) and macOS 12 or newer
 
 ## Run the full application locally
 
@@ -116,9 +118,28 @@ docker compose start
 To restore, stop the app and unpack it into the volume the same way: `tar xzf
 /backup/focusquest-data.tar.gz -C /data`.
 
+## Run the desktop app (macOS)
+
+FocusQuest in its own window with a menu bar icon, which also quits your blocked Mac apps (the
+**Apps** tab on the Blocking page) while blocking is on. If FocusQuest is already running on
+port 8080 (Docker or `bootRun`) it uses that; otherwise it starts the copy bundled inside it, with
+its own data in `~/Library/Application Support/FocusQuest`.
+
+```bash
+cd desktop
+npm install
+npm run build
+open src-tauri/target/release/bundle/macos/FocusQuest.app
+```
+
+Sign in inside its window once: it connects itself, and Settings shows **Desktop app: Connected**.
+Quit the app before starting Docker, or the app's own copy keeps port 8080. More in
+[`desktop/README.md`](desktop/README.md).
+
 ## Run the tests
 
-Everything at once (backend, frontend and extension, with type-checks, and the camera companion):
+Everything at once (backend, frontend and extension, with type-checks, the camera companion, and the
+desktop app where Rust is installed):
 
 ```bash
 ./scripts/test-all.sh
@@ -136,6 +157,7 @@ Or each suite on its own:
 | Frontend type-check | `cd frontend && npx vue-tsc -b` | `npm run build` also runs it |
 | Extension | `cd extension && npm test` | Vitest; `npm run typecheck` for types |
 | Camera companion | `cd vision && PYTHONPATH=src:tests python3 -m unittest discover -s tests` | Standard library only; nothing to install |
+| Desktop app | `cd desktop/src-tauri && cargo test` | `cargo test -- --ignored` also reads this Mac's apps |
 | End-to-end | `cd e2e && npm test` | Playwright: web app, backend, extension and camera companion together in Chromium. Setup in [`e2e/README.md`](e2e/README.md) |
 
 Gradle skips a test task whose inputs have not changed. Add `--rerun-tasks` to force a full run.

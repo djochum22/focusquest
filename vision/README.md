@@ -154,7 +154,7 @@ focusquest-companion accuracy --margin 8 --phone-from 0.3   # try other threshol
 ```
 
 It looks at each recorded second again from its raw readings, with today's thresholds or those given
-(`--present-from`, `--margin`, `--phone-from`, `--certain-from`, `--min-confidence`), against the
+(`--present-from`, `--margin`, `--phone-from`, `--certain-from`, `--min-confidence`, `--lost-for`), against the
 current calibration. Per signal it prints how often it was found when the label said so, how often it
 was right when reported, and how often it was reported while on task, leaving out the 2 seconds after
 each label change (keys are pressed a moment late). Then the warnings: the seconds become stretches as

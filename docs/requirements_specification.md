@@ -102,7 +102,7 @@ Potential future directions include:
 - Cloud video processing.
 - Facial recognition.
 - Keystroke surveillance.
-- Desktop application blocking. Being added after all: the backend keeps a list of blocked Mac apps, and a Tauri desktop app will enforce it (see `docs/platform_roadmap.md`).
+- Desktop application blocking. Added after all, on macOS: the backend keeps a list of blocked Mac apps, and the FocusQuest desktop app (Tauri, `desktop/`) quits them while blocking is on (see `docs/platform_roadmap.md`).
 - Mobile applications.
 - Support for browsers other than Chrome.
 - Multiple local or cloud users.
@@ -163,7 +163,7 @@ The MVP does not require separate roles or multi-user permissions.
 
 ### Future desktop direction
 
-Desktop-application blocking is being added with Tauri v2, chosen over Electron and native Swift on 8 October 2026 because it keeps Windows, iOS and Android open (see `docs/platform_roadmap.md`).
+Desktop-application blocking is built with Tauri v2, chosen over Electron and native Swift on 8 October 2026 because it keeps Windows, iOS and Android open. The Mac app (`desktop/`, 15 October 2026) opens FocusQuest in a window, using the copy already running on 127.0.0.1:8080 or starting the one bundled inside it, and quits blocked apps at the same times websites are blocked: until the day's focus target is reached, and during any session. A blocked app is asked to quit as Cmd+Q does, so it can still ask to save, and a notification says why. Windows, iOS and Android remain future work (see `docs/platform_roadmap.md`).
 
 ## 6\. Local-first architecture
 
@@ -976,7 +976,11 @@ GET /api/streak-periods/current
 
 `GET /api/streaks/current`, `GET` and `POST /api/streak-configurations` and `PUT /api/streak-configurations/{id}` are implemented; see the technical architecture (section 10) for their shapes and rules. `GET /api/streaks/history` and `GET /api/streak-periods/current` are not implemented yet.
 
-### Chrome extension
+### Browser extension and desktop app
+
+POST /api/auth/extension-token, DELETE /api/auth/extension-token
+
+POST /api/auth/desktop-token, DELETE /api/auth/desktop-token
 
 GET /api/extension/blocking-state
 
@@ -984,7 +988,7 @@ GET /api/extension/current-session
 
 POST /api/extension/heartbeat
 
-The extension polls these with the same bearer token as the rest of the API; see the technical architecture (section 10) for the response shapes.
+The extension polls these with its own token (`fqx_`), which reaches only `/api/extension/**`. The desktop app has a token of its own (`fqd_`), which only reads `GET /api/extension/blocking-state`. The web app issues both and hands them over, so the user never copies one. See the technical architecture (section 10) for the response shapes.
 
 ### Errors
 
@@ -1231,7 +1235,7 @@ The timings and the minimum confidence are configuration, to be tuned once real 
 
 ### Research question
 
-How accurately can a local computer-vision system detect absence, looking away and smartphone use during a focus session, without storing video? The disputed intervals give labelled examples to measure it against.
+How accurately can a local computer-vision system detect absence, looking away and smartphone use during a focus session, without storing video? The disputed intervals give labelled examples to measure it against, and so do labelled recordings: the companion's `label` command writes one row of numbers a second while the user says what they are doing, and its `accuracy` command measures each signal and its warnings against them. The first measurements (15 October 2026) are in `docs/camera_roadmap.md`, "Measured accuracy".
 
 ## 22\. Open decisions
 

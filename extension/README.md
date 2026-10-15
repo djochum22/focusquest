@@ -127,7 +127,8 @@ How it works, and why it is safe to leave connected:
 - The extension token is *not* the web app's login token. It is a separate random token that the
   backend stores only as a hash. It never expires, survives backend restarts, and can only call the
   three `/api/extension` endpoints: it cannot start sessions, read history or delete data.
-  Reconnecting replaces it, and disconnecting or deleting all data revokes it.
+  Reconnecting replaces it, and disconnecting or deleting all data revokes it. The desktop app has a
+  token of its own (`fqd_`), so connecting either never signs the other out.
 - The web app reaches the extension through a small content script, the bridge
   (`src/content/webAppBridge.ts`), which runs only on the web app's origins: `http://localhost:8080`,
   `http://127.0.0.1:8080`, the dev server's `http://localhost:5173`, and the address set on the options

@@ -6,31 +6,21 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 
 ## Start here
 
-**Where things stand (5 October 2026).** Camera verification works end to end with the laptop's real camera, and the user uses it every day without a terminal:
+**Where things stand (15 October 2026).** Camera verification works end to end with the laptop's real camera, without a terminal:
 
-- All three signals work live: away, looking away, and a phone in hand. After C1e they are more sensitive, and warnings come early as a heads-up (phone 5 s, looking away 15 s, away 90 s), with the 60-second grace period unchanged.
-- The companion program runs in the background (C3a): `focusquest-companion install` set up a macOS launch agent that starts it at login. Its log is `~/Library/Logs/FocusQuest/companion.log`.
-- Calibration starts from Settings (C3b): a "Calibrate" button, and the companion guides the user in its camera window.
-- When the companion is connected but cannot use the camera, the session screen says so and why (C2).
-- Everything is committed (last: `364f204`) and `scripts/test-all.sh` passes, end to end included (8 Playwright tests).
+- All three signals work live: away, looking away, and a phone in hand. Warnings come early as a heads-up (phone 5 s, looking away 15 s, away 90 s), with the 60-second grace period.
+- The companion runs in the background (C3a, launch agent; log `~/Library/Logs/FocusQuest/companion.log`), calibrates from Settings (C3b), and the session screen says when it cannot use the camera (C2).
+- **C1d, accuracy, is under way.** Labelled by the user on 15 October 2026 (`~/Documents/FocusQuest/`, eight files). The `accuracy` command is built (`e078e4f`); away warns again and getting up no longer counts as looking away (`06fcdc0`); parts A and B were labelled again (`5c6c7c8`); phone detection is left as it is (`a3e69fe`, the user's decision). The numbers are under "Measured accuracy" and "Step 3".
+- **The companion is not paired** (since 9 October 2026, likely when the database moved into the container), so camera-verified sessions are not watched, and the calibration in use dates from 5 October.
 
-**Under way: C1d** (accuracy), the research question in §21, under "Next: C1d, accuracy". The user answered the questions (8 October 2026: all four as proposed), and step 1, the `label` command, is built (`0e37818`). The user labelled on 15 October 2026, and step 2, the `accuracy` command, is built (not committed yet, waiting on the user's review). The first measurements are under "Measured accuracy": they point at three things to change before tuning anything else. Next: step 3, starting with those. MediaPipe's usage logging to Google is now blocked ("Done: no usage logging to Google"). A4 (more end-to-end tests) is open whenever there is time.
+**Next, by the user:** pair again (Settings, **Camera verification**, then `.venv/bin/focusquest-companion pair <code>` from `vision/`), calibrate from Settings, and label part A again (and part E if possible) with `.venv/bin/focusquest-companion label --category CODING`. How to label:
 
-**Platform work in progress** (8 October 2026): the container, every browser and a desktop app, in `docs/platform_roadmap.md`. Read that note first; this labelling runs alongside it.
+1. Do not run a session with "Verify with camera" while labelling; the background companion may keep running.
+2. Click the camera window once, so it gets the keys. Press `1` on task, `2` away, `3` phone, `4` looking away as soon as you change what you do, and `q` to stop and save. The 2 seconds after each change are left out of the measurement, so a late key does not matter.
+3. Each part 2 to 3 minutes (see "What the user labels" for the parts); `WRITING` instead of `CODING` for paper on the desk. Each run writes `~/Documents/FocusQuest/labels-<date>-<time>.csv`: numbers only, never a picture.
+4. Different light (daylight, lamps) helps, if possible.
 
-**To do later, by the user: label** (nothing else in C1d can go on until this is done). About 20 to 30 minutes, in one sitting or several:
-
-1. Calibrate first: Settings, under Camera verification, "Calibrate".
-2. Don't run a session with "Verify with camera" while labelling. The background companion may keep running.
-3. For each part in "What the user labels" (on task at the screen, on task with paper on the desk, away, phone, looking away), run from `vision/`:
-
-   ```bash
-   .venv/bin/focusquest-companion label --category CODING     # WRITING for the paper part
-   ```
-
-   In the camera window press `1` on task, `2` away, `3` phone, `4` looking away, as soon as you change what you do, and `q` to stop. Each part 2 to 3 minutes, with a few changes of label inside it. The first time, macOS may ask for the camera again.
-4. If possible, do it once in daylight and once with lamps.
-5. Each run writes a new file to `~/Documents/FocusQuest/labels-<date>-<time>.csv`: numbers only, never a picture. Then tell Claude it is done, and where the files are, to start step 2.
+**Next, by Claude:** decide the looking-away margin from the new labels (see the end of "Step 3"), one change at a time, measured with `accuracy`.
 
 **Before starting:**
 
@@ -64,7 +54,7 @@ Phase A closed out the MVP. Phase B built everything the camera needs before any
 | C3b | Calibration started from Settings, guided in the camera window; Settings shows when it was calibrated or why it failed | `1c59161`; tried live, works |
 | C2 | Say in the web app when the camera cannot be used: `cameraProblem` with each report, `CAMERA_UNAVAILABLE`, the reason in the session banner | `42337c8`; tried live, works |
 | C2b | No usage logging to Google: the background companion runs in a sandbox that allows connections only to this computer | `e888f94`; tried live: camera, warnings and calibration work, MediaPipe's uploads fail |
-| **C1d** | **Label mode (`0e37818`), accuracy measurements (built, under review), smoothing if needed, tuning** | **Under way** |
+| **C1d** | **Label mode (`0e37818`), accuracy measurements (`e078e4f`), tuning (`06fcdc0`, `5c6c7c8`, `a3e69fe`); the looking-away margin is open** | **Under way** |
 
 Another session also changed website blocking in `3d6a796`: sites are now blocked every day until the daily target is reached, and throughout any running session.
 

@@ -10,41 +10,39 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 ## Start here
 
-**Read `docs/handoff.md` first** (10 October 2026): it puts the camera labelling first and walks the user through it, then lists what follows.
+**Read `docs/handoff.md` first** (15 October 2026): the short list of what to do next, for the user and for Claude.
 
-**Where things stand (10 October 2026).** Step 3 is done except Safari. Step 4 has begun with its backend part, **not yet committed** (waiting on the user's review):
+**Where things stand (15 October 2026).** Steps 1, 2 and 4 are done on macOS; step 3 is done except Safari. Everything is committed.
 
 | Commit | What |
 | --- | --- |
-| `45aa0e0` | The bridge: a content script in place of `externally_connectable` |
-| `fd19bb7` | The Firefox build, checked by the user in Firefox 157 |
-| `7522901` | "Browser extension" in place of "Chrome extension" in the web app |
-| `95b33d7` | The options page: the FocusQuest address |
-| *(uncommitted)* | Step 4, part 1: blocked apps in the backend and on the Blocking page (see "Step 4 so far") |
+| `45aa0e0`, `fd19bb7`, `7522901`, `95b33d7` | Step 3: the bridge, the Firefox build, "browser extension" wording, the options page |
+| `ccf0807` | Step 4, part 2: the desktop app shell in `desktop/` |
+| `413abbb` | Step 4, part 1: blocked apps in the backend and on the Blocking page |
+| `47aca31` | Step 4, part 3: the desktop app quits blocked apps (desktop token, V19); tried live, Calculator was quit |
+| `5a3c646` | Step 4, part 4: picking apps by bundle id in the desktop app |
 
-All suites pass, end-to-end included (10 October 2026). The container on :8080 is current, with migration V18 applied to the real volume.
+The container on :8080 is current (rebuilt 15 October 2026), with migrations V18 and V19 applied to the real volume. The desktop app is built at `desktop/src-tauri/target/release/bundle/macos/FocusQuest.app` and connected to it.
 
-**Tools on this Mac (10 October 2026):** Rust 1.99 is installed with rustup (`~/.cargo/bin`; a new shell picks it up). **Xcode is not**: only the Command Line Tools, so `xcrun safari-web-extension-converter` is missing. The user is installing Xcode from the App Store; afterwards run `sudo xcode-select -s /Applications/Xcode.app` and open Xcode once to accept the licence.
+**Tools on this Mac (15 October 2026):** Rust 1.99 with rustup (`~/.cargo/bin`; a new shell picks it up). **Xcode is not installed**: only the Command Line Tools, so `xcrun safari-web-extension-converter` is missing.
 
 **Waiting on the user:**
 
-1. **Review step 4, part 1** (blocked apps) and say whether to commit it. Look at Blocking, the **Apps** tab, at http://localhost:8080.
-2. **Install Xcode** (for Safari).
-3. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
+1. **Install Xcode** (for Safari).
+2. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
    3. Open http://localhost:8080 and check Settings shows **Browser extension: Connected** again. The extension is signed out on each change and reconnects by itself.
 
    Not yet checked: a real sync through another address while connected. The unit tests cover where the calls go, and the browser checks ran without an account.
-4. **Camera labelling** (C1d, 20 to 30 minutes). **Still not done** on 10 October 2026: `~/Documents/FocusQuest/` does not exist. No camera code can go on until it is done. The steps are in `docs/camera_roadmap.md`, "To do later, by the user: label": calibrate first (Settings, **Calibrate**), then run `.venv/bin/focusquest-companion label --category CODING` from `vision/` for each part. Then tell Claude where the files are, to build step 2, the `accuracy` command.
-5. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
+3. **A decision, later: Firefox every day.** A temporary add-on is gone after each restart. Either Mozilla signs it (`npm run package:firefox` makes the zip; an unlisted add-on can be signed without being public), or Firefox Developer Edition with `xpinstall.signatures.required` set to `false`.
 
 **Next for Claude (only after the user says go):**
 
-1. ~~**Step 4, part 2: the Tauri shell**~~: built 15 October 2026, see "Part 2" below; waiting on the user's review. Part 3, enforcement, built 15 October 2026; tried live: Calculator was quit. Was: enforcement: poll `/api/extension/blocking-state` for `blockedApps` and hide or quit them through `NSWorkspace`. Open question for part 3: how the desktop app gets a token (perhaps the web app hands it one through the window, as the bridge does for the extension). The desktop app must never block itself.
-2. **Safari** once Xcode is installed. Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
-3. **Edge and Brave** by hand: load `extension/dist/` unpacked.
-4. Optional: the backend comments and the docs still say "Chrome extension" in places.
+1. **Safari** once Xcode is installed. Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the desktop app's bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
+2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
+3. Optional: the backend comments and the docs still say "Chrome extension" in places.
+4. Later: signing and notarising the desktop app, so it opens on another Mac without a warning.
 
 **Checking Firefox again** (about 10 minutes): `cd extension && npm run build:firefox`; in Firefox open `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on…**, choose `extension/dist-firefox/manifest.json` (or **Reload** if loaded); open http://localhost:8080, sign in, and check Settings shows **Connected**, that a blocked site is blocked, and that the toolbar popup opens. On trouble, see the add-on's console (**Inspect** in `about:debugging`) and the tab's console.
 
@@ -53,6 +51,8 @@ All suites pass, end-to-end included (10 October 2026). The container on :8080 i
 **Remember:**
 - The web app on :8080 is whatever was built when that copy started. After a web app or backend change, `docker compose up -d --build` (if `docker info` fails, `orb start` first), or restart `bootRun`. Only `npm run dev` (:5173) picks changes up live.
 - Firefox's match patterns cannot name a port: one that does installs without complaint and never matches.
+- **Quit the desktop app before starting Docker.** Opened while nothing answers on :8080, the app starts its own copy there and keeps it; Docker's container then starts but cannot be reached, and OrbStack's forwarding of 8080 stayed broken until `orb restart docker` (15 October 2026).
+- After changing the backend or the web app, the desktop app's own copy needs `npm run build` in `desktop/` (it bundles `prepare-backend.sh`'s jar); its window on Docker needs only the container rebuilt.
 - `.vscode/settings.json` stays out of every commit: VS Code's Java extension changed it on its own (`interactive` to `automatic`).
 
 ## The two-week goal (from 8 October 2026)
@@ -70,7 +70,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari waits for Xcode |
 | 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, and picking apps by bundle id. Open: signing |
 
 ## Done: step 1, one app, one origin
@@ -150,7 +150,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 ## Step 4 so far: the desktop app
 
-**Part 1, blocked apps (10 October 2026; not yet committed).** Built in the backend and web app first, because it needs neither Rust nor Xcode.
+**Part 1, blocked apps (10 October 2026; committed 15 October as `413abbb`).** Built in the backend and web app first, because it needs neither Rust nor Xcode.
 - **Backend:** migration `V18__create_blocked_apps.sql` (`name`, nullable `bundle_id`, `active`; unique per user and name). `BlockedApp`, `BlockedAppRepository`, `BlockedAppRequest`, `BlockedAppResponse` in `blocking/`; CRUD at `/api/blocked-apps` in `BlockingController`. An app is matched by bundle id when it has one, otherwise by name ignoring case; the same name in another case is a duplicate. Kept separate from `RuleTarget`, which is built around URL rules, and with no allowlist.
 - **Same rule as sites:** `BlockingService` locks apps like block rules (add allowed while a session enforces; edit and delete refused with 409). Active apps are in `BlockingSnapshot` and `blocking-state` as `blockedApps`, and in the `stateVersion` fingerprint. The extension ignores the new field.
 - **Backup:** export format **2.4** adds `blockedApps`; 2.0 to 2.3 still restore. Restore checks names, bundle ids and duplicates. Account and data deletion remove apps.
@@ -158,15 +158,15 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Docs:** `technical_architecture.md` (endpoints, blocking state, backup format) and `requirements_specification.md` (no longer out of scope; Tauri chosen).
 - **Tests:** `BlockedAppsApiIntegrationTest` (new), `BlockingServiceTest`, `ExtensionControllerTest`, `RestoreIntegrationTest`, `ExportServiceTest`; the web app's view, store and API tests.
 
-**Part 2, the shell (15 October 2026; not yet committed).** `desktop/`, Tauri 2.12; `desktop/README.md` has how to build it and its files.
+**Part 2, the shell (15 October 2026, `ccf0807`).** `desktop/`, Tauri 2.12; `desktop/README.md` has how to build it and its files.
 - **Decided by the user:** when FocusQuest already answers on 127.0.0.1:8080 (the Docker container), the app opens it and leaves it running on quit; only when nothing answers does it start its own copy. The two copies have separate data (the Docker volume, and `~/Library/Application Support/FocusQuest`) and cannot run at once. Offered and not taken: always its own copy (moving the data across once), or Docker only.
 - **Finding FocusQuest:** a plain HTTP request to `/api/auth/setup-status`, which answers without sign-in; anything else on the port is reported as another program holding it.
 - **Its own copy:** `scripts/prepare-backend.sh` builds the boot jar and a `jlink`ed JRE (a fixed module list, since `jdeps` cannot see into a boot jar's nested jars) into `src-tauri/resources/backend/`, bundled as a resource rather than a Tauri sidecar (a JRE is a folder, not one binary). Started with `FOCUSQUEST_DATA_DIR`, a JWT secret made once and kept in `jwt-secret` (0600) beside the data, bound to 127.0.0.1:8080, logging to `~/Library/Logs/FocusQuest/backend.log`; stopped with SIGTERM, then killed after 15 seconds.
 - **Window and menu bar:** a local page (`ui/index.html`) says "Looking for", "Starting" or why it failed, through its query string, then the window navigates to http://127.0.0.1:8080/. The web app gets no Tauri IPC. Closing hides the window; the menu bar icon (a template image made from the favicon) has Open and Quit, and the Dock icon reopens it.
-- **Checked:** the cut-down JRE runs the backend (fresh database migrated, web app served, clean shutdown on SIGTERM, 6 seconds); the built app (120 MB) found the Docker copy, started nothing and quit cleanly. **Not yet checked:** what the window shows, and starting its own copy with Docker stopped. `cargo test`: the probe's answer, the secret, the paths; `scripts/test-all.sh` runs it.
+- **Checked:** the cut-down JRE runs the backend (fresh database migrated, web app served, clean shutdown on SIGTERM, 6 seconds); the built app (120 MB) found the Docker copy, started nothing and quit cleanly. Since tried live by the user: the window on Docker, and its own copy, which it started while Docker was down. `cargo test`: the probe's answer, the secret, the paths; `scripts/test-all.sh` runs it.
 - The window is macOS's WebKit: its own sign-in, and no browser extension, so no website blocking in it. Not signed or notarised.
 
-**Part 3, keeping blocked apps closed (15 October 2026).**
+**Part 3, keeping blocked apps closed (15 October 2026, `47aca31`).**
 - **Decided by the user:** the desktop app gets its own credential through its window (offered and not taken: a pairing code); a blocked app is asked to quit, as Cmd+Q does (not taken: hiding it, or force quitting).
 - **Backend:** `ExtensionClient` (`BROWSER`, `DESKTOP`); migration `V19__add_client_to_extension_credentials.sql` makes credentials one per user and client (H2 hands the old unique index to the foreign key, so the key is dropped and added again). `POST` and `DELETE /api/auth/desktop-token`; `fqd_` tokens get `ROLE_DESKTOP`, allowed on `GET /api/extension/blocking-state` only, so the desktop app never checks in for sessions. Tests in `ExtensionTokenIntegrationTest`.
 - **Desktop app:** `blocking.rs` keeps the token (0600), reads the blocking state every 3 seconds with `ureq`, keeps the last answer when FocusQuest cannot be reached and drops it when the token is refused; `apps.rs` lists running apps (not background-only ones) through `NSWorkspace` and calls `terminate` on the main thread; every second, matching apps are quit, with one notification per launch (`tauri-plugin-notification`). Never quit: itself, the Finder, the Dock, the login window, SystemUIServer. Three commands for the web app, allowed only from `http://127.0.0.1:8080/*` (`capabilities/web-app.json`, `build.rs`'s app manifest).
@@ -174,7 +174,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Checked:** `cargo test` (9, plus one reading this Mac's running apps), the backend's tests, the web app's (583); against the bundled backend on a spare port, a desktop token read the blocked apps and was refused on the heartbeat. Tried live by the user (Docker rebuilt): Calculator was quit while blocking was on. Found on the way: an app opened while Docker was down keeps its own copy on port 8080 after Docker comes back, and OrbStack's forwarding of 8080 then stayed broken until `orb restart docker`. Quit the app before starting Docker.
 - Matching was by name alone until part 4 below.
 
-**Part 4, picking apps (15 October 2026).** Inside the desktop app, the Apps tab's name field suggests this Mac's apps (a `<datalist>`, the user's preference for no extra panels), from a fourth command, `installed_apps`: the `.app` bundles in /Applications, /System/Applications and ~/Applications, one folder down too, read with `NSBundle`, plus the running ones, each bundle id once. `appRequest` sends the bundle id of an installed app with the typed name; an edit keeps the app's own while the name stays, so an app saved by name alone gets its id when edited in the desktop app. In a browser nothing changes. Tests: `utils/blockedApps.test.ts`, `AppForm` in `BlockingComponents.test.ts`, `apps.rs` (`cargo test -- --ignored` lists this Mac's apps).
+**Part 4, picking apps (15 October 2026, `5a3c646`).** Inside the desktop app, the Apps tab's name field suggests this Mac's apps (a `<datalist>`, the user's preference for no extra panels), from a fourth command, `installed_apps`: the `.app` bundles in /Applications, /System/Applications and ~/Applications, one folder down too, read with `NSBundle`, plus the running ones, each bundle id once. `appRequest` sends the bundle id of an installed app with the typed name; an edit keeps the app's own while the name stays, so an app saved by name alone gets its id when edited in the desktop app. In a browser nothing changes. Tests: `utils/blockedApps.test.ts`, `AppForm` in `BlockingComponents.test.ts`, `apps.rs` (`cargo test -- --ignored` lists this Mac's apps).
 - `prepare-backend.sh` now makes the JRE writable: jlink's read-only licence files broke the second build.
 
 ## Later steps (planned)
@@ -196,6 +196,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Safari.** Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle.
 
 **Step 4: Tauri desktop app (days 9–14).**
+*Built on 15 October 2026; "Step 4 so far" says what was built and where it differs from this plan (the blocked apps live on the Blocking page rather than in Settings, and the backend is a bundled resource rather than a Tauri sidecar).*
 - **Location:** `desktop/`.
 - **Shell:**
   - It starts the bundled backend (a `jlink`ed JRE plus the boot jar) as a sidecar, with data in `~/Library/Application Support/FocusQuest`.
