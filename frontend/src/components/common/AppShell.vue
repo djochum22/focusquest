@@ -3,14 +3,18 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ThemeToggle from './ThemeToggle.vue'
 import { useAuthStore } from '../../stores/authStore'
+import { useDesktopStore } from '../../stores/desktopStore'
 import { useExtensionStore } from '../../stores/extensionStore'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-// Every signed-in page uses the shell, so this is where an installed but unconnected extension is
-// connected without the user having to do anything.
-onMounted(() => void useExtensionStore().autoConnect())
+// Every signed-in page uses the shell, so this is where an installed but unconnected extension, or
+// the desktop app around this page, is connected without the user having to do anything.
+onMounted(() => {
+  void useExtensionStore().autoConnect()
+  void useDesktopStore().autoConnect()
+})
 
 async function onLogout() {
   auth.logout()

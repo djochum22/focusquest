@@ -5,3 +5,4 @@ src-tauri/gen/
 src-tauri/resources/backend/*
 !src-tauri/resources/backend/.gitkeep
 .DS_Store
+src-tauri/permissions/

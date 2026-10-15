@@ -1,5 +1,6 @@
 package com.example.focusquest.security;
 
+import com.example.focusquest.auth.ExtensionClient;
 import com.example.focusquest.auth.ExtensionCredentialService;
 import com.example.focusquest.vision.CompanionCredentialService;
 import io.jsonwebtoken.JwtException;
@@ -53,8 +54,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
-        if (token.startsWith(ExtensionCredentialService.TOKEN_PREFIX)) {
-            authenticateExtension(token, request);
+        ExtensionClient client = ExtensionClient.ofToken(token);
+        if (client != null) {
+            authenticateScoped(extensionCredentialService.findUsername(token).orElse(null), client.role(), request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -80,11 +82,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    /** An extension token authenticates as its user but with ROLE_EXTENSION only, never ROLE_USER. */
-    private void authenticateExtension(String token, HttpServletRequest request) {
-        authenticateScoped(extensionCredentialService.findUsername(token).orElse(null), "ROLE_EXTENSION", request);
     }
 
     /**

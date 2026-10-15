@@ -12,6 +12,7 @@ import InfoTip from '../components/common/InfoTip.vue'
 import SettingsSection from '../components/settings/SettingsSection.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useCameraStore } from '../stores/cameraStore'
+import { useDesktopStore } from '../stores/desktopStore'
 import { useExtensionStore } from '../stores/extensionStore'
 import { useSessionStore } from '../stores/sessionStore'
 import { readBackupFile, useSettingsStore } from '../stores/settingsStore'
@@ -23,6 +24,7 @@ import { DISPLAY_NAME_MAX, hasErrors, validateProfile, type FieldErrors, type Pr
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const extension = useExtensionStore()
+const desktop = useDesktopStore()
 const session = useSessionStore()
 const router = useRouter()
 const camera = useCameraStore()
@@ -34,6 +36,14 @@ const EXTENSION_SUMMARY = {
   disconnected: 'Not connected',
   'not-installed': 'Not installed',
   problem: 'Cannot reach the backend',
+} as const
+
+const DESKTOP_SUMMARY = {
+  unknown: 'Checking…',
+  connected: 'Connected',
+  disconnected: 'Not connected',
+  'not-installed': 'Not connected',
+  problem: 'Cannot reach FocusQuest',
 } as const
 
 const profile = reactive<ProfileForm>({
@@ -74,9 +84,11 @@ const restoredFrom = ref<string | null>(null)
 const deleteError = ref<string | null>(null)
 const confirmingDelete = ref(false)
 const extensionError = ref<string | null>(null)
+const desktopError = ref<string | null>(null)
 
 onMounted(() => {
   void extension.refresh()
+  if (desktop.inDesktopApp) void desktop.refresh().catch(() => {})
   // Only needed to know whether the time zone is locked; the backend has the last word.
   session.fetchCurrent().catch(() => {})
 })
@@ -114,6 +126,24 @@ async function onDisconnectExtension() {
     await extension.disconnect()
   } catch (error) {
     extensionError.value = getErrorMessage(error)
+  }
+}
+
+async function onConnectDesktop() {
+  desktopError.value = null
+  try {
+    await desktop.connect()
+  } catch (error) {
+    desktopError.value = getErrorMessage(error)
+  }
+}
+
+async function onDisconnectDesktop() {
+  desktopError.value = null
+  try {
+    await desktop.disconnect()
+  } catch (error) {
+    desktopError.value = getErrorMessage(error)
   }
 }
 
@@ -269,6 +299,38 @@ async function onConfirmDelete() {
               Reconnect
             </AppButton>
             <AppButton variant="link" :disabled="extension.working" @click="onDisconnectExtension">
+              Disconnect
+            </AppButton>
+          </template>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection v-if="desktop.inDesktopApp" title="Desktop app">
+        <template #summary>
+          <span :class="{ 'settings__ok': desktop.connection === 'connected' }">{{ DESKTOP_SUMMARY[desktop.connection] }}</span>
+        </template>
+        <p class="settings__text settings__status">
+          <span v-if="desktop.connection === 'unknown'" class="muted">Checking…</span>
+          <span v-else-if="desktop.connection === 'connected'" class="settings__done">Connected</span>
+          <span v-else-if="desktop.connection === 'problem'">
+            The desktop app cannot reach FocusQuest right now. It keeps blocking what it last knew.
+          </span>
+          <span v-else>Not connected. Blocked apps are not closed until it is.</span>
+          <InfoTip>
+            The desktop app quits your blocked apps while blocking is on, the same times websites are
+            blocked. Its sign-in can only read what to block. Disconnecting stops it closing apps.
+          </InfoTip>
+        </p>
+        <ErrorMessage :message="desktopError" />
+        <div class="settings__actions">
+          <AppButton v-if="desktop.connection === 'disconnected'" size="small" :loading="desktop.working" @click="onConnectDesktop">
+            Connect desktop app
+          </AppButton>
+          <template v-else-if="desktop.connection === 'connected' || desktop.connection === 'problem'">
+            <AppButton variant="link" :disabled="desktop.working" @click="onConnectDesktop">
+              Reconnect
+            </AppButton>
+            <AppButton variant="link" :disabled="desktop.working" @click="onDisconnectDesktop">
               Disconnect
             </AppButton>
           </template>

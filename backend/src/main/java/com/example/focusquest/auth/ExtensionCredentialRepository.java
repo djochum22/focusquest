@@ -17,4 +17,8 @@ public interface ExtensionCredentialRepository extends JpaRepository<ExtensionCr
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ExtensionCredential c where c.user = :user")
     void deleteAllByUser(@Param("user") User user);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from ExtensionCredential c where c.user = :user and c.client = :client")
+    void deleteAllByUserAndClient(@Param("user") User user, @Param("client") ExtensionClient client);
 }

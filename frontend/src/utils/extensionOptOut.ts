@@ -1,23 +1,27 @@
 /**
- * Remembers that the user disconnected the extension on purpose, so the app stops reconnecting it
- * automatically. localStorage (not sessionStorage) because the choice should outlast the tab.
+ * Remembers that the user disconnected the extension (or the desktop app) on purpose, so the app stops
+ * reconnecting it automatically. localStorage (not sessionStorage) because the choice should outlast the tab.
  * Every access is guarded because storage can be blocked or throw.
  */
 
-const STORAGE_KEY = 'focusquest.extension.autoConnect'
+export type Connectable = 'extension' | 'desktop'
 
-export function isAutoConnectOff(): boolean {
+function storageKey(client: Connectable): string {
+  return `focusquest.${client}.autoConnect`
+}
+
+export function isAutoConnectOff(client: Connectable = 'extension'): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'off'
+    return localStorage.getItem(storageKey(client)) === 'off'
   } catch {
     return false
   }
 }
 
-export function setAutoConnectOff(off: boolean): void {
+export function setAutoConnectOff(off: boolean, client: Connectable = 'extension'): void {
   try {
-    if (off) localStorage.setItem(STORAGE_KEY, 'off')
-    else localStorage.removeItem(STORAGE_KEY)
+    if (off) localStorage.setItem(storageKey(client), 'off')
+    else localStorage.removeItem(storageKey(client))
   } catch {
     // Storage unavailable: the choice just won't be remembered.
   }

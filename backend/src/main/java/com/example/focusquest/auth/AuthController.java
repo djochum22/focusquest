@@ -54,19 +54,36 @@ public class AuthController {
     }
 
     /**
-     * Issues the token the Chrome extension signs in with, replacing any earlier one. Only a signed-in
+     * Issues the token the browser extension signs in with, replacing any earlier one. Only a signed-in
      * user can call this; the extension token itself is refused here (see SecurityConfig).
      */
     @PostMapping("/extension-token")
     public ExtensionTokenResponse issueExtensionToken(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getByUsername(userDetails.getUsername());
-        return ExtensionTokenResponse.from(extensionCredentialService.issue(user));
+        return ExtensionTokenResponse.from(extensionCredentialService.issue(user, ExtensionClient.BROWSER));
     }
 
     /** Signs the extension out for good: its token stops working immediately. */
     @DeleteMapping("/extension-token")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeExtensionToken(@AuthenticationPrincipal UserDetails userDetails) {
-        extensionCredentialService.revoke(userService.getByUsername(userDetails.getUsername()));
+        extensionCredentialService.revoke(userService.getByUsername(userDetails.getUsername()), ExtensionClient.BROWSER);
+    }
+
+    /**
+     * Issues the token the desktop app reads the blocking state with, replacing any earlier desktop
+     * token and leaving the extension's alone. The web app hands it over inside the desktop app's window.
+     */
+    @PostMapping("/desktop-token")
+    public ExtensionTokenResponse issueDesktopToken(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getByUsername(userDetails.getUsername());
+        return ExtensionTokenResponse.from(extensionCredentialService.issue(user, ExtensionClient.DESKTOP));
+    }
+
+    /** Signs the desktop app out: its token stops working immediately. */
+    @DeleteMapping("/desktop-token")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeDesktopToken(@AuthenticationPrincipal UserDetails userDetails) {
+        extensionCredentialService.revoke(userService.getByUsername(userDetails.getUsername()), ExtensionClient.DESKTOP);
     }
 }

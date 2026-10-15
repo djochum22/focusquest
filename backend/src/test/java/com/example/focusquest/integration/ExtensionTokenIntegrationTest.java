@@ -11,7 +11,10 @@ import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** The Chrome extension's own token: how it is issued, what it may reach, and how it is revoked. */
+/**
+ * The browser extension's and the desktop app's own tokens: how they are issued, what they may reach,
+ * and how they are revoked.
+ */
 class ExtensionTokenIntegrationTest extends ApiIntegrationTest {
 
     @Autowired
@@ -110,5 +113,54 @@ class ExtensionTokenIntegrationTest extends ApiIntegrationTest {
         perform(userToken, delete("/api/me/data")).andExpect(status().isNoContent());
 
         assertThat(credentialRepository.count()).isZero();
+    }
+
+    private String issueDesktopToken(String userToken) throws Exception {
+        String response = postAs(userToken, "/api/auth/desktop-token")
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(response, "$.token");
+    }
+
+    @Test
+    void desktopTokenOnlyReadsTheBlockingState() throws Exception {
+        String userToken = setUpAccount("doug", "UTC");
+        String desktopToken = issueDesktopToken(userToken);
+
+        assertThat(desktopToken).startsWith("fqd_");
+        getAs(desktopToken, "/api/extension/blocking-state")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.blockedApps").isArray());
+        // It does not check in for sessions as the extension does, and reaches nothing else.
+        postJsonAs(desktopToken, "/api/extension/heartbeat", "{}").andExpect(status().isForbidden());
+        getAs(desktopToken, "/api/extension/current-session").andExpect(status().isForbidden());
+        getAs(desktopToken, "/api/auth/me").andExpect(status().isForbidden());
+        getAs(desktopToken, "/api/blocked-apps").andExpect(status().isForbidden());
+        postAs(desktopToken, "/api/auth/desktop-token").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void theDesktopAndTheExtensionEachKeepTheirOwnToken() throws Exception {
+        String userToken = setUpAccount("doug", "UTC");
+        String extensionToken = issueExtensionToken(userToken);
+        String firstDesktop = issueDesktopToken(userToken);
+        String secondDesktop = issueDesktopToken(userToken);
+
+        getAs(firstDesktop, "/api/extension/blocking-state").andExpect(status().isUnauthorized());
+        getAs(secondDesktop, "/api/extension/blocking-state").andExpect(status().isOk());
+        getAs(extensionToken, "/api/extension/blocking-state").andExpect(status().isOk());
+        assertThat(credentialRepository.count()).isEqualTo(2);
+
+        perform(userToken, delete("/api/auth/desktop-token")).andExpect(status().isNoContent());
+        getAs(secondDesktop, "/api/extension/blocking-state").andExpect(status().isUnauthorized());
+        getAs(extensionToken, "/api/extension/blocking-state").andExpect(status().isOk());
+    }
+
+    @Test
+    void aTokenWithTheOtherClientsPrefixIsRejected() throws Exception {
+        String userToken = setUpAccount("doug", "UTC");
+        String extensionToken = issueExtensionToken(userToken);
+
+        getAs("fqd_" + extensionToken.substring(4), "/api/extension/blocking-state").andExpect(status().isUnauthorized());
     }
 }

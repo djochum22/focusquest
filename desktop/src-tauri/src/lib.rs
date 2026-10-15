@@ -1,26 +1,43 @@
 //! FocusQuest as a Mac app: a window on FocusQuest and a menu bar icon. FocusQuest itself is the
 //! backend serving the web app; this app finds it or starts it (`backend.rs`). Closing the window
-//! keeps the app in the menu bar; quitting stops the copy it started, if any.
+//! keeps the app in the menu bar; quitting stops the copy it started, if any. While blocking is on,
+//! it quits the apps FocusQuest blocks (`blocking.rs`, `apps.rs`).
 
+mod apps;
 mod backend;
+mod blocking;
 
-use std::sync::Mutex;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use backend::{Backend, Found, Places};
+use blocking::{Blocker, DesktopState};
+use tauri_plugin_notification::NotificationExt;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, State, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 const WINDOW: &str = "main";
+/// How often to look at the running apps, and how many looks between asking FocusQuest again.
+const LOOK_EVERY: Duration = Duration::from_secs(1);
+const SYNC_EVERY_LOOKS: u32 = 3;
 
 /// The copy of FocusQuest this app started; None if it uses one already running.
 struct Started(Mutex<Option<Backend>>);
 
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(Started(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![desktop_status, desktop_connect, desktop_disconnect])
         .setup(|app| {
+            let token_path = app.path().app_data_dir()?.join("desktop-token");
+            let blocker = Arc::new(Blocker::load(token_path));
+            app.manage(blocker.clone());
+            let handle = app.handle().clone();
+            std::thread::spawn(move || keep_blocked_apps_closed(&handle, &blocker));
             // The local page says what is happening until FocusQuest answers.
             WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App("index.html".into()))
                 .title("FocusQuest")
@@ -112,6 +129,50 @@ fn menu_bar_icon(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
     Ok(())
+}
+
+// What the web app calls inside the window (utils/desktopBridge.ts); allowed only from FocusQuest's own
+// address (capabilities/web-app.json). The answers have the same shape as the browser extension's.
+
+#[tauri::command]
+fn desktop_status(blocker: State<'_, Arc<Blocker>>) -> DesktopState {
+    blocker.state()
+}
+
+#[tauri::command]
+async fn desktop_connect(token: String, blocker: State<'_, Arc<Blocker>>) -> Result<DesktopState, String> {
+    let blocker = Arc::clone(&blocker);
+    tauri::async_runtime::spawn_blocking(move || blocker.connect(token)).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn desktop_disconnect(blocker: State<'_, Arc<Blocker>>) -> DesktopState {
+    blocker.disconnect()
+}
+
+/// Every second, quits the running apps FocusQuest blocks, saying why once per launch of each.
+fn keep_blocked_apps_closed(app: &AppHandle, blocker: &Blocker) {
+    let own_pid = std::process::id() as i32;
+    let mut told: HashSet<i32> = HashSet::new();
+    let mut looks = 0;
+    loop {
+        if looks % SYNC_EVERY_LOOKS == 0 {
+            blocker.sync();
+        }
+        looks += 1;
+        let rules = blocker.rules();
+        let running = apps::running();
+        let quitting = blocking::to_quit(&rules, &running, own_pid);
+        told.retain(|pid| quitting.iter().any(|(app, _)| app.pid == *pid));
+        for (running_app, name) in quitting {
+            if told.insert(running_app.pid) {
+                let _ = app.notification().builder().title("FocusQuest").body(blocking::reason(name, &rules)).show();
+            }
+            let pid = running_app.pid;
+            let _ = app.run_on_main_thread(move || apps::quit(pid));
+        }
+        std::thread::sleep(LOOK_EVERY);
+    }
 }
 
 fn show_window(app: &AppHandle) {

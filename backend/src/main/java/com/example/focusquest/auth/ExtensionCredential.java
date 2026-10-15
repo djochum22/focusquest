@@ -3,17 +3,22 @@ package com.example.focusquest.auth;
 import com.example.focusquest.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-/** The stored side of a Chrome extension token: who it belongs to and a hash of it, never the token. */
+/**
+ * The stored side of an extension token: who it belongs to, which program holds it, and a hash of it,
+ * never the token. One per user and client.
+ */
 @Entity
 @Table(name = "extension_credentials")
 public class ExtensionCredential {
@@ -22,9 +27,13 @@ public class ExtensionCredential {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, updatable = false, length = 16)
+    private ExtensionClient client;
 
     @Column(name = "token_hash", nullable = false, updatable = false, length = 64)
     private String tokenHash;
@@ -35,14 +44,19 @@ public class ExtensionCredential {
     protected ExtensionCredential() {
     }
 
-    public ExtensionCredential(User user, String tokenHash) {
+    public ExtensionCredential(User user, ExtensionClient client, String tokenHash) {
         this.user = user;
+        this.client = client;
         this.tokenHash = tokenHash;
         this.createdAt = Instant.now();
     }
 
     public User getUser() {
         return user;
+    }
+
+    public ExtensionClient getClient() {
+        return client;
     }
 
     public String getTokenHash() {

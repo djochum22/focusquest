@@ -41,7 +41,7 @@ All suites pass, end-to-end included (10 October 2026). The container on :8080 i
 
 **Next for Claude (only after the user says go):**
 
-1. ~~**Step 4, part 2: the Tauri shell**~~: built 15 October 2026, see "Part 2" below; waiting on the user's review. Next, part 3, enforcement: poll `/api/extension/blocking-state` for `blockedApps` and hide or quit them through `NSWorkspace`. Open question for part 3: how the desktop app gets a token (perhaps the web app hands it one through the window, as the bridge does for the extension). The desktop app must never block itself.
+1. ~~**Step 4, part 2: the Tauri shell**~~: built 15 October 2026, see "Part 2" below; waiting on the user's review. Part 3, enforcement, built 15 October 2026; tried live: Calculator was quit. Was: enforcement: poll `/api/extension/blocking-state` for `blockedApps` and hide or quit them through `NSWorkspace`. Open question for part 3: how the desktop app gets a token (perhaps the web app hands it one through the window, as the bridge does for the extension). The desktop app must never block itself.
 2. **Safari** once Xcode is installed. Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle. The backend already admits `safari-web-extension://` origins on `/api/extension/**`.
 3. **Edge and Brave** by hand: load `extension/dist/` unpacked.
 4. Optional: the backend comments and the docs still say "Chrome extension" in places.
@@ -71,7 +71,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
 | 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari open |
-| 4 | Tauri desktop app, with Mac app blocking | **Under way:** blocked apps in the backend and web app, and the shell in `desktop/` (both uncommitted); enforcement open |
+| 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell and enforcement. Open: a picker for bundle ids, signing |
 
 ## Done: step 1, one app, one origin
 
@@ -150,7 +150,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 ## Step 4 so far: the desktop app
 
-**Part 1, blocked apps (10 October 2026).** Built in the backend and web app first, because it needs neither Rust nor Xcode.
+**Part 1, blocked apps (10 October 2026; not yet committed).** Built in the backend and web app first, because it needs neither Rust nor Xcode.
 - **Backend:** migration `V18__create_blocked_apps.sql` (`name`, nullable `bundle_id`, `active`; unique per user and name). `BlockedApp`, `BlockedAppRepository`, `BlockedAppRequest`, `BlockedAppResponse` in `blocking/`; CRUD at `/api/blocked-apps` in `BlockingController`. An app is matched by bundle id when it has one, otherwise by name ignoring case; the same name in another case is a duplicate. Kept separate from `RuleTarget`, which is built around URL rules, and with no allowlist.
 - **Same rule as sites:** `BlockingService` locks apps like block rules (add allowed while a session enforces; edit and delete refused with 409). Active apps are in `BlockingSnapshot` and `blocking-state` as `blockedApps`, and in the `stateVersion` fingerprint. The extension ignores the new field.
 - **Backup:** export format **2.4** adds `blockedApps`; 2.0 to 2.3 still restore. Restore checks names, bundle ids and duplicates. Account and data deletion remove apps.
@@ -165,6 +165,15 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Window and menu bar:** a local page (`ui/index.html`) says "Looking for", "Starting" or why it failed, through its query string, then the window navigates to http://127.0.0.1:8080/. The web app gets no Tauri IPC. Closing hides the window; the menu bar icon (a template image made from the favicon) has Open and Quit, and the Dock icon reopens it.
 - **Checked:** the cut-down JRE runs the backend (fresh database migrated, web app served, clean shutdown on SIGTERM, 6 seconds); the built app (120 MB) found the Docker copy, started nothing and quit cleanly. **Not yet checked:** what the window shows, and starting its own copy with Docker stopped. `cargo test`: the probe's answer, the secret, the paths; `scripts/test-all.sh` runs it.
 - The window is macOS's WebKit: its own sign-in, and no browser extension, so no website blocking in it. Not signed or notarised.
+
+**Part 3, keeping blocked apps closed (15 October 2026).**
+- **Decided by the user:** the desktop app gets its own credential through its window (offered and not taken: a pairing code); a blocked app is asked to quit, as Cmd+Q does (not taken: hiding it, or force quitting).
+- **Backend:** `ExtensionClient` (`BROWSER`, `DESKTOP`); migration `V19__add_client_to_extension_credentials.sql` makes credentials one per user and client (H2 hands the old unique index to the foreign key, so the key is dropped and added again). `POST` and `DELETE /api/auth/desktop-token`; `fqd_` tokens get `ROLE_DESKTOP`, allowed on `GET /api/extension/blocking-state` only, so the desktop app never checks in for sessions. Tests in `ExtensionTokenIntegrationTest`.
+- **Desktop app:** `blocking.rs` keeps the token (0600), reads the blocking state every 3 seconds with `ureq`, keeps the last answer when FocusQuest cannot be reached and drops it when the token is refused; `apps.rs` lists running apps (not background-only ones) through `NSWorkspace` and calls `terminate` on the main thread; every second, matching apps are quit, with one notification per launch (`tauri-plugin-notification`). Never quit: itself, the Finder, the Dock, the login window, SystemUIServer. Three commands for the web app, allowed only from `http://127.0.0.1:8080/*` (`capabilities/web-app.json`, `build.rs`'s app manifest).
+- **Web app:** `utils/desktopBridge.ts` (`@tauri-apps/api`), `api/desktopApi.ts`, `stores/desktopStore.ts` (as the extension's store, sharing `classify` and the opt-out, now per client), connected from `AppShell` on every signed-in page; a **Desktop app** row in Settings, shown only inside the app.
+- **Checked:** `cargo test` (9, plus one reading this Mac's running apps), the backend's tests, the web app's (583); against the bundled backend on a spare port, a desktop token read the blocked apps and was refused on the heartbeat. Tried live by the user (Docker rebuilt): Calculator was quit while blocking was on. Found on the way: an app opened while Docker was down keeps its own copy on port 8080 after Docker comes back, and OrbStack's forwarding of 8080 then stayed broken until `orb restart docker`. Quit the app before starting Docker.
+- Matching is by name until the web app can fill bundle ids (a picker in the desktop app is still to come).
+- `prepare-backend.sh` now makes the JRE writable: jlink's read-only licence files broke the second build.
 
 ## Later steps (planned)
 

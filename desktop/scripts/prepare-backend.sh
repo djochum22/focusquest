@@ -22,9 +22,12 @@ echo "Building the boot jar, with the web app..."
 jar="$(ls "$repo"/backend/build/libs/focusquest-backend-*-SNAPSHOT.jar | grep -v plain | head -1)"
 
 echo "Making the JRE..."
+chmod -R u+w "$out/jre" 2>/dev/null || true
 rm -rf "$out/jre" "$out/focusquest.jar"
 "$java_home/bin/jlink" --add-modules "$modules" --strip-debug --no-man-pages --no-header-files \
   --compress=zip-6 --output "$out/jre"
+# jlink makes the licence files read-only, and the build cannot copy over them a second time.
+chmod -R u+w "$out/jre"
 cp "$jar" "$out/focusquest.jar"
 
 echo "Ready in $out ($(du -sh "$out" | cut -f1))."

@@ -18,7 +18,7 @@ import { isAutoConnectOff, setAutoConnectOff } from '../utils/extensionOptOut'
  */
 export type ExtensionConnection = 'unknown' | 'not-installed' | 'disconnected' | 'connected' | 'problem'
 
-function classify(state: ExtensionState | null): ExtensionConnection {
+export function classify(state: ExtensionState | null): ExtensionConnection {
   if (state === null) return 'not-installed'
   if (!state.hasToken || state.status === 'signed-out' || state.status === 'unauthorized') return 'disconnected'
   if (state.status === 'ok') return 'connected'

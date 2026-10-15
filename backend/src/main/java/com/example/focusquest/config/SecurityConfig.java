@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -60,6 +61,10 @@ public class SecurityConfig {
                         // it gives full read and write access to the database, password hash included.
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
+                    // The desktop app's token (ROLE_DESKTOP) only reads what to block; it does not check in for
+                    // sessions as the extension does.
+                    auth.requestMatchers(HttpMethod.GET, "/api/extension/blocking-state")
+                            .hasAnyRole("USER", "EXTENSION", "DESKTOP");
                     // The extension's own token (ROLE_EXTENSION) reaches only the endpoints it synchronizes with.
                     auth.requestMatchers("/api/extension/**").hasAnyRole("USER", "EXTENSION");
                     // Only the paired camera companion program (ROLE_COMPANION) may report what the

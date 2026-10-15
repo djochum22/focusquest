@@ -11,11 +11,21 @@ FocusQuest as a Mac app: a window on FocusQuest and an icon in the menu bar. Bui
   `~/Library/Application Support/FocusQuest` and its log in `~/Library/Logs/FocusQuest/backend.log`,
   and stops it when you quit. Both copies use port 8080, where the browser extension and the camera
   companion look for FocusQuest, so only one can run at a time; they do not share data.
+  The app decides when it opens: if you start Docker while it runs its own copy, the copy keeps
+  the port. Quit the app first, then start Docker, then open the app.
 - **Stays in the menu bar.** Closing the window keeps the app running; the menu bar icon (or the
   Dock icon) opens it again. **Quit FocusQuest** in that menu, or Cmd+Q, quits.
 - **Says what is wrong** in the window if FocusQuest cannot start, or another program holds port 8080.
 
-Not yet: keeping blocked Mac apps closed (step 4, part 3 in `docs/platform_roadmap.md`).
+- **Quits blocked apps while blocking is on**: the apps on the Blocking page's **Apps** tab, at the
+  same times websites are blocked (until the day's focus target, and during any session). It asks
+  them to quit as Cmd+Q does, so they can still ask to save, and says why in a notification. Opened
+  again, they are quit again within a second. It never quits itself, the Finder, the Dock or the
+  login window.
+- **Connects by itself.** Signed in to FocusQuest in its window, the web app gives it a token of
+  its own (`fqd_`), which can only read what to block; Settings shows **Desktop app: Connected**,
+  with Disconnect. The token is kept in `~/Library/Application Support/com.focusquest.desktop/desktop-token`.
+  If FocusQuest cannot be reached, it keeps blocking what it last knew.
 
 Website blocking is still the browser extension's: the app's window is a separate browser (macOS's
 WebKit) with no extension and its own sign-in.
@@ -44,9 +54,12 @@ if FocusQuest is not already running).
 | File | What it does |
 | --- | --- |
 | `src-tauri/src/lib.rs` | The window, the menu bar icon, closing and quitting |
+| `src-tauri/src/blocking.rs` | The desktop token, reading the blocking state every 3 seconds, and which running apps to quit |
+| `src-tauri/src/apps.rs` | The running apps, and quitting one, through `NSWorkspace` |
+| `src-tauri/capabilities/web-app.json` | The three commands the web app may call, from FocusQuest's own address only |
 | `src-tauri/src/backend.rs` | Finds FocusQuest on 127.0.0.1:8080 (`/api/auth/setup-status`), or starts and stops the bundled copy; the sign-in secret kept in its data folder |
 | `ui/index.html` | The page shown until FocusQuest answers, or why it could not start |
 | `scripts/prepare-backend.sh` | Bundles the boot jar and a cut-down JRE |
 | `src-tauri/icons/` | Made from `frontend/public/favicon.svg`; `tray.png` is the menu bar icon, black on transparent for macOS to tint |
 
-Tests: `cargo test` in `src-tauri/` (also run by `scripts/test-all.sh`).
+Tests: `cargo test` in `src-tauri/` (also run by `scripts/test-all.sh`); `cargo test -- --ignored` also reads this Mac's running apps.
