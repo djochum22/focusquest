@@ -5,7 +5,8 @@ import { useAuthStore } from '../../stores/authStore'
 import { useCameraStore } from '../../stores/cameraStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useStreakStore } from '../../stores/streakStore'
-import type { CreateSessionRequest } from '../../types/session'
+import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
+import { CATEGORY_LABELS } from '../../utils/sessionLabels'
 import { blockingSentence } from '../../utils/streak'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
@@ -18,6 +19,11 @@ import SessionMeta from './SessionMeta.vue'
  * begins the timer; starting replaces this component with the running session. A planned session
  * left over (after a reload, or when starting failed) is offered on its own to start or change.
  */
+const props = defineProps<{
+  /** A session ended early today, offered as one tap to carry on with; null when there is none. */
+  unfinished?: CreateSessionRequest | null
+}>()
+
 const session = useSessionStore()
 const camera = useCameraStore()
 const auth = useAuthStore()
@@ -31,7 +37,9 @@ const greeting = computed(() => {
   return name ? `${part}, ${name}` : part
 })
 
-const blockingNote = computed(() => blockingSentence(streak.daily))
+/** The form's current type and category, so the note can say whether this session counts today. */
+const choice = ref<{ taskMode: TaskMode; taskCategory: TaskCategory } | null>(null)
+const blockingNote = computed(() => blockingSentence(streak.daily, session.planned ?? choice.value))
 
 // Only decides whether the form offers the camera; without it the form simply does not.
 onMounted(() => {
@@ -62,6 +70,14 @@ async function onStart() {
   }
 }
 
+/** "Continue: Essay draft · 18 min": the task if it had one, otherwise its category. */
+const continueLabel = computed(() => {
+  const next = props.unfinished
+  if (!next) return null
+  const what = next.taskDescription ?? (next.taskMode === 'TASK_FREE' ? 'task-free session' : CATEGORY_LABELS[next.taskCategory])
+  return `Continue: ${what} · ${next.plannedFocusMinutes} min`
+})
+
 function onChange() {
   const planned = session.planned
   if (!planned) return
@@ -81,10 +97,10 @@ function onChange() {
     <ErrorMessage :message="submitError" />
     <SessionMeta :session="session.planned" />
     <div class="planner__actions">
-      <AppButton class="planner__start" :loading="session.busy" @click="onStart">
+      <AppButton size="large" :loading="session.busy" @click="onStart">
         {{ session.busy ? 'Starting…' : 'Start focusing' }}
       </AppButton>
-      <p class="planner__blocking">{{ blockingNote }}</p>
+      <p class="planner__blocking">{{ blockingNote }} <slot name="blocking" /></p>
       <AppButton variant="link" :disabled="session.busy" @click="onChange">Change details</AppButton>
     </div>
   </section>
@@ -98,15 +114,26 @@ function onChange() {
       <template v-if="$slots.today" #default><slot name="today" /></template>
     </TodayProgress>
     <ErrorMessage :message="submitError" />
+    <AppButton
+      v-if="unfinished && continueLabel"
+      class="planner__continue"
+      variant="secondary"
+      size="small"
+      :disabled="session.busy"
+      @click="onSubmit(unfinished)"
+    >
+      {{ continueLabel }}
+    </AppButton>
     <SessionForm
       :submitting="session.busy"
       :camera-available="camera.settings?.enabled ?? false"
       :camera-by-default="camera.settings?.verifyNewSessionsByDefault ?? false"
       :initial="changing"
       @submit="onSubmit"
+      @choice="choice = $event"
     >
       <template #note>
-        <p class="planner__blocking">{{ blockingNote }}</p>
+        <p class="planner__blocking">{{ blockingNote }} <slot name="blocking" /></p>
       </template>
     </SessionForm>
   </section>
@@ -129,17 +156,18 @@ function onChange() {
   line-height: 1.15;
   text-wrap: balance;
 }
+.planner .planner__continue {
+  align-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .planner__actions {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-}
-.planner .planner__start {
-  min-width: 12rem;
-  padding: 0.85rem 2rem;
-  border-radius: 999px;
-  font-size: 1.05rem;
 }
 .planner__blocking {
   max-width: 26rem;

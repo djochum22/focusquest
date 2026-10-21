@@ -156,6 +156,15 @@ so that I can commit to focused work.
 - Given the user is about to start a session,  
   when today's daily target is not reached,  
   then the screen says, without a tooltip, that websites stay blocked until the target is reached, even after the session ends.
+- Given the session type or category chosen on the form does not count toward today's daily target,  
+  when the user is about to start it,  
+  then the screen says "This session won't count toward today's target" instead of suggesting the session will lift the blocking.
+- Given the user selects "Task-free",  
+  when the form changes,  
+  then it says in plain text, not behind an info tip, that task-free time counts only toward streaks set to task-free sessions.
+- Given the user is on the session-creation screen with a keyboard and a wide screen,  
+  when it opens,  
+  then the cursor is in the task field; on a touch screen nothing is focused, so no keyboard pops up.
 
 ## **US-021: Configure blocked targets for a session**
 
@@ -226,16 +235,22 @@ so that I receive session-completion XP and the session is recorded as completed
   then the time is added to the applicable streak period.
 - Given the session is completed,  
   when the dashboard shows the result,  
-  then it shows the XP the completion added, the focused time and today's progress, and keeps them on screen until the user selects "Plan another".
+  then it shows the XP the completion added, a thin bar of progress through the current level ("Level 2 reached" when it crossed one), the focused time and today's progress, moves keyboard focus to that result, and keeps it on screen, even across a reload the same day, until the user selects "Plan another".
 - Given a completion or an early end pushes today over the daily target,  
   when the dashboard shows the result,  
-  then it names the streak day reached ("Day 1 of your streak"); short of the target, it says how many minutes more would start or keep the streak.
+  then it names the streak day reached ("Day 1 of your streak", set as large as a stat on completion, with the flame); short of the target, it says how many minutes more would start or keep the streak.
+- Given a running session that counts carries today over the daily target before it ends,  
+  when the dashboard shows today's bar,  
+  then it says the target is reached and that the streak starts (or reaches its next day) when the session ends, instead of "No streak yet".
+- Given a running session has not reached its planned time,  
+  when the user looks for Complete,  
+  then a quiet line above the clock says Complete opens when the time is up.
 - Given a running session reaches its planned time,  
   when the timer reaches zero,  
-  then it says "Planned time reached" once (also to screen readers) and keeps counting the time beyond the plan, with Complete offered beside Pause.
+  then it says "Planned time reached" once (also to screen readers) and keeps counting the time beyond the plan; Complete becomes the main button, Pause the secondary one, and "End early" is no longer offered.
 - Given a session is running or paused,  
   when the user looks at the browser tab,  
-  then its title shows the time left, the time beyond the plan, or "Paused".
+  then its title shows the time left, the time beyond the plan, or "Paused" with the time ("Paused 14:53").
 
 ## **Epic 5: Pausing and resuming sessions**
 
@@ -309,6 +324,15 @@ so that I can stop the commitment before completion.
 - Given a session is running or paused,  
   when the dashboard offers to abandon it,  
   then the action is a quiet "End early" link that asks for confirmation, stating the time kept toward today's target and whether websites unblock now or how many minutes are left.
+- Given the session has already reached its planned time (paused past it, or the countdown just hit zero),  
+  when the user selects "End early",  
+  then the confirmation offers "Complete session" (or "Resume and complete" when paused) instead, since ending would forfeit the XP already earned.
+- Given the user ended a session early today,  
+  when the start page shows,  
+  then it offers "Continue: <task> · <minutes left>", which starts the same task, category and camera choice for the time it had left in one tap.
+- Given an abandoned session still holds website blocking,  
+  when the start page shows,  
+  then the one line under Start that says websites stay blocked also carries the "Override blocking" link, rather than a second line repeating it.
 - Given the session is abandoned with time that counts toward today's target,  
   when the dashboard returns to the start page,  
   then it says how many minutes counted toward today.

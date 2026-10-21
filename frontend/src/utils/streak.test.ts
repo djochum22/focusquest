@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StreakProgress } from '../types/streak'
 import { makeSession } from '../test-utils/sessions'
 import {
+  blockingSentence,
   endEarlyOutcome,
   levelProgressPercent,
   progressPercent,
@@ -175,5 +176,15 @@ describe('endEarlyOutcome', () => {
 
   it('leaves an interrupted session unblocked', () => {
     expect(endEarlyOutcome(running({ status: 'INTERRUPTED' }), makeProgress()).blocking).toBe('Websites stay unblocked.')
+  })
+})
+
+describe('blockingSentence', () => {
+  it('promises blocking until the target only for a session that counts toward it', () => {
+    const daily = makeProgress({ requiredTaskMode: 'TASK_REQUIRED' })
+
+    expect(blockingSentence(daily, { taskMode: 'TASK_REQUIRED', taskCategory: 'WRITING' })).toMatch(/^Websites stay blocked until/)
+    expect(blockingSentence(daily, { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE' })).toMatch(/^This session won't count/)
+    expect(blockingSentence(daily, null)).toMatch(/^Websites stay blocked until/)
   })
 })

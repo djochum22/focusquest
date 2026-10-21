@@ -37,7 +37,7 @@ const emit = defineEmits<{
     />
     <slot />
     <div class="interrupted__actions">
-      <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
+      <AppButton size="large" :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
     <AppButton variant="link" class="interrupted__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
   </section>

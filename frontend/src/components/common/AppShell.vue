@@ -26,6 +26,7 @@ async function onLogout() {
 
 <template>
   <div class="shell">
+    <a class="shell__skip" href="#main">Skip to content</a>
     <header class="shell__header">
       <span class="shell__brand">FocusQuest</span>
       <nav class="shell__nav" aria-label="Main">
@@ -44,11 +45,27 @@ async function onLogout() {
         <span class="shell__signout-label">Sign out</span>
       </button>
     </header>
-    <main class="shell__main"><slot /></main>
+    <main id="main" class="shell__main" tabindex="-1"><slot /></main>
   </div>
 </template>
 
 <style scoped>
+/* Off screen until a keyboard user tabs to it, then it sits over the header's corner. */
+.shell__skip {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.shell__skip:focus {
+  transform: none;
+}
 .shell__header {
   display: flex;
   flex-wrap: wrap;
@@ -117,6 +134,9 @@ async function onLogout() {
   .shell__signout-label {
     display: none;
   }
+}
+.shell__main:focus {
+  outline: none;
 }
 .shell__main {
   width: 100%;

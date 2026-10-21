@@ -600,6 +600,14 @@
       "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-secondary{background:transparent;border-color:var(--border);color:var(--text)}.ds-btn-secondary:hover{background:var(--surface-muted)}.ds-btn-small{padding:.4rem .9rem;border-radius:999px;font-size:.875rem}"
     },
     {
+      "name": "Large Pill Button",
+      "kind": "button",
+      "refersTo": "button-large",
+      "description": "The main action of a dashboard state: Start focusing, Complete, Resume, Plan another (and Pause beside Complete, as secondary).",
+      "html": "<button class=\"ds-btn ds-btn-primary ds-btn-large\">Start focusing</button>",
+      "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-primary{background:var(--accent);color:var(--accent-contrast)}.ds-btn-primary:hover{background:var(--accent-hover)}.ds-btn-large{min-width:10rem;padding:.85rem 2rem;border-radius:999px;font-size:1.05rem}"
+    },
+    {
       "name": "Link Button",
       "kind": "button",
       "refersTo": "button-link",

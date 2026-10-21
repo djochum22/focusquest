@@ -5,8 +5,11 @@ withDefaults(
     variant?: 'primary' | 'secondary' | 'danger' | 'link'
     loading?: boolean
     disabled?: boolean
-    /** Small suits a button inside a panel, beside text rather than leading a page. */
-    size?: 'normal' | 'small'
+    /**
+     * Small suits a button inside a panel, beside text rather than leading a page; large is the
+     * pill that carries a dashboard state's main action (Start, Complete, Resume, Plan another).
+     */
+    size?: 'normal' | 'small' | 'large'
   }>(),
   { type: 'button', variant: 'primary', loading: false, disabled: false, size: 'normal' },
 )
@@ -16,7 +19,7 @@ withDefaults(
   <button
     :type="type"
     class="app-button"
-    :class="[`app-button--${variant}`, { 'app-button--small': size === 'small' }]"
+    :class="[`app-button--${variant}`, size !== 'normal' && `app-button--${size}`]"
     :disabled="disabled || loading"
     :aria-busy="loading"
   >
@@ -38,6 +41,12 @@ withDefaults(
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   font-size: 0.875rem;
+}
+.app-button--large {
+  min-width: 10rem;
+  padding: 0.85rem 2rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
 }
 .app-button:disabled {
   opacity: 0.6;

@@ -7,7 +7,7 @@ async function completeSession(page: import('@playwright/test').Page, minutes: n
   await advanceBackendClock(minutes * 60)
   await page.reload()
   await page.getByRole('button', { name: 'Complete' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Session complete' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Session complete' })).toBeVisible()
 }
 
 function dailyStreak(page: import('@playwright/test').Page) {

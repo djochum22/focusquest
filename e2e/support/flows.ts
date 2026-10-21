@@ -51,6 +51,10 @@ export async function chooseDuration(page: Page, minutes: number): Promise<void>
 /** Starts a task session from the dashboard in one step, which turns blocking on. */
 export async function startSession(page: Page, minutes = 5): Promise<void> {
   await page.goto(FRONTEND_URL)
+  // A completed session's summary stays, even across a reload, until the user plans another.
+  await page.getByRole('button', { name: /^(Start focusing|Plan another)$/ }).first().waitFor()
+  const another = page.getByRole('button', { name: 'Plan another' })
+  if (await another.isVisible()) await another.click()
   await page.getByLabel('Category').selectOption('WRITING')
   await chooseDuration(page, minutes)
   await page.getByRole('button', { name: 'Start focusing' }).click()

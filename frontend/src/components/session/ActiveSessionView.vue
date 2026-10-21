@@ -48,6 +48,13 @@ const netActiveSeconds = computed(() => {
   return props.session.activeFocusSeconds + Math.max(0, sinceSession) - offTaskSeconds.value
 })
 const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
+
+/**
+ * Offered once the server's own figure allows it, not the local countdown: the backend decides.
+ * From then on Complete is the main action and End early is gone, since ending would forfeit the
+ * XP the student has already earned. The clock keeps counting past the plan for one still in flow.
+ */
+const canComplete = computed(() => props.session.remainingFocusSeconds <= 0)
 </script>
 
 <template>
@@ -59,6 +66,7 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
       :active-seconds="netActiveSeconds"
       :received-at="timerReceivedAt"
       :running="counting"
+      :waiting-label="canComplete ? undefined : 'Complete opens when the time is up'"
       @elapsed="emit('elapsed')"
     />
     <p v-if="offTaskSeconds > 0" class="muted active__hint" data-testid="off-task-total">
@@ -66,18 +74,13 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
       <InfoTip>Off-task time does not count toward the session.</InfoTip>
     </p>
     <div class="active__actions">
-      <AppButton variant="secondary" :disabled="busy" @click="emit('pause')">Pause</AppButton>
-      <!-- Offered once the server's own figure allows it, not the local countdown: the backend decides.
-           Beside Pause, not above it: past the plan the student may well still be in flow. -->
-      <AppButton v-if="session.remainingFocusSeconds <= 0" variant="secondary" :disabled="busy" @click="emit('complete')">
-        Complete
-      </AppButton>
+      <AppButton v-if="canComplete" size="large" :disabled="busy" @click="emit('complete')">Complete</AppButton>
+      <AppButton variant="secondary" size="large" :disabled="busy" @click="emit('pause')">Pause</AppButton>
     </div>
-    <p v-if="session.remainingFocusSeconds > 0" class="muted active__hint">
-      You can complete the session once the planned time is reached.
-    </p>
     <slot />
-    <AppButton variant="link" class="active__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
+    <AppButton v-if="!canComplete" variant="link" class="active__leave" :disabled="busy" @click="emit('abandon')">
+      End early
+    </AppButton>
   </section>
 </template>
 

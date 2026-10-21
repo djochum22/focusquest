@@ -13,6 +13,8 @@ const props = defineProps<{
   running: boolean
   /** What the browser tab says while the timer is stopped, e.g. "Paused". */
   stoppedLabel?: string
+  /** A quiet line above the clock until the planned time is reached, e.g. when Complete opens. */
+  waitingLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -69,7 +71,8 @@ const APP_TITLE = 'FocusQuest'
 watch(
   [clockText, () => props.running, () => props.stoppedLabel],
   () => {
-    document.title = `${props.running ? clockText.value : (props.stoppedLabel ?? 'Paused')} · ${APP_TITLE}`
+    const state = props.running ? '' : `${props.stoppedLabel ?? 'Paused'} `
+    document.title = `${state}${clockText.value} · ${APP_TITLE}`
   },
   { immediate: true },
 )
@@ -79,7 +82,9 @@ onBeforeUnmount(() => (document.title = APP_TITLE))
 <template>
   <div class="timer" :class="{ 'timer--paused': !running, 'timer--reached': reached }">
     <!-- Said once when the planned time is reached; the clock itself is not announced every second. -->
-    <p class="timer__reached" role="status">{{ reached ? 'Planned time reached' : '' }}</p>
+    <p class="timer__status" :class="{ 'timer__status--reached': reached }" role="status">
+      {{ reached ? 'Planned time reached' : (running ? waitingLabel : '') }}
+    </p>
     <!-- The time itself is the timer's content, so screen readers read it rather than a label. -->
     <p class="timer__clock">
       <span class="visually-hidden">{{ reached ? 'Time beyond the plan: ' : 'Time remaining: ' }}</span><span role="timer">{{ clockText }}</span>
@@ -111,9 +116,13 @@ onBeforeUnmount(() => (document.title = APP_TITLE))
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
-.timer__reached {
+.timer__status {
   min-height: 1.35rem;
   margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.timer__status--reached {
   color: var(--success);
   font-size: 0.9rem;
   font-weight: 600;

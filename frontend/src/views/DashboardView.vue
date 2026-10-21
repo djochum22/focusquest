@@ -19,8 +19,10 @@ import { useProgressionStore } from '../stores/progressionStore'
 import { useSessionStore } from '../stores/sessionStore'
 import { useStreakStore } from '../stores/streakStore'
 import type { FocusSession } from '../types/session'
+import { loadCompletionSummary, saveCompletionSummary } from '../utils/completionSummary'
 import { formatMinutes } from '../utils/duration'
-import { isOverridable } from '../utils/sessionState'
+import { clearUnfinishedSession, loadUnfinishedSession, saveUnfinishedSession } from '../utils/sessionDefaults'
+import { isOverridable, planReached } from '../utils/sessionState'
 import { endEarlyOutcome, sessionCountsToward, targetLine } from '../utils/streak'
 
 const session = useSessionStore()
@@ -73,13 +75,23 @@ const sessionToday = computed(() => {
   return { extra: current.uncreditedStreakSeconds, since: growing ? session.receivedAt : null }
 })
 
-/** XP the last completed session added: the balance before it, then after. */
+/**
+ * XP the last completed session added: the balance before it, then after. After a reload the
+ * balance before is gone, so the figure (and whether it reached today's target) comes back from
+ * the summary saved when it ended.
+ */
 const xpGained = ref<number | null>(null)
 watch(
   () => session.lastEnded,
   async (ended) => {
     xpGained.value = null
     if (ended?.status !== 'COMPLETED') return
+    const saved = loadCompletionSummary()
+    if (saved?.sessionId === ended.id) {
+      xpGained.value = saved.xpGained
+      reachedNow.value = saved.reachedTarget
+      return
+    }
     const before = progression.loaded ? progression.totalXp : null
     try {
       await progression.fetch()
@@ -91,6 +103,38 @@ watch(
 )
 
 const completed = computed(() => (session.lastEnded?.status === 'COMPLETED' ? session.lastEnded : null))
+watch([completed, xpGained, reachedNow], ([ended, xp, reached]) => {
+  if (ended) saveCompletionSummary({ sessionId: ended.id, xpGained: xp, reachedTarget: reached })
+})
+const level = computed(() =>
+  progression.loaded
+    ? {
+        level: progression.level,
+        totalXp: progression.totalXp,
+        levelStartXp: progression.levelStartXp,
+        nextLevelXp: progression.nextLevelXp,
+      }
+    : null,
+)
+
+/** A session ended early today, offered on the start page to carry on with; gone once one starts. */
+const unfinished = ref(loadUnfinishedSession())
+watch(
+  () => session.lastEnded,
+  (ended) => {
+    if (ended?.status !== 'ABANDONED') return
+    saveUnfinishedSession(ended)
+    unfinished.value = loadUnfinishedSession()
+  },
+)
+watch(
+  () => session.current?.id,
+  (id) => {
+    if (id === undefined) return
+    clearUnfinishedSession()
+    unfinished.value = null
+  },
+)
 
 /** A line about a session just ended early: the time it kept, and whether today's target got it. */
 function endedEarlyText(ended: FocusSession): string {
@@ -145,9 +189,27 @@ async function perform(action: () => Promise<void>) {
   }
 }
 
+/**
+ * Asked to end a session that has already reached its planned time (the countdown hit zero just
+ * now, or it was paused past it), the dialog offers to complete it instead: ending would quietly
+ * forfeit the XP it has earned. Worked out when the dialog opens, so it does not flip while open.
+ */
+const finishInstead = ref(false)
+function askToEnd() {
+  finishInstead.value = session.current !== null && planReached(session.current, session.receivedAt)
+  confirming.value = 'abandon'
+}
+
 async function confirmAbandon() {
-  const id = session.current?.id
-  if (id !== undefined) await perform(() => session.abandon(id))
+  const current = session.current
+  if (current) {
+    await perform(async () => {
+      if (!finishInstead.value) return session.abandon(current.id)
+      // Only a running session can be completed, so a paused or interrupted one resumes first.
+      if (current.status !== 'ACTIVE') await session.resume(current.id)
+      await session.complete(current.id)
+    })
+  }
   confirming.value = null
 }
 
@@ -202,7 +264,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         @dispute="dispute"
         @pause="perform(() => session.pause(session.current!.id))"
         @complete="perform(() => session.complete(session.current!.id))"
-        @abandon="confirming = 'abandon'"
+        @abandon="askToEnd"
         @elapsed="resync"
       >
         <TodayProgress
@@ -220,7 +282,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :received-at="session.receivedAt"
         :busy="session.busy"
         @resume="perform(() => session.resume(session.current!.id))"
-        @abandon="confirming = 'abandon'"
+        @abandon="askToEnd"
       >
         <TodayProgress
           v-if="streak.daily"
@@ -236,13 +298,14 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :received-at="session.receivedAt"
         :busy="session.busy"
         @resume="perform(() => session.resume(session.current!.id))"
-        @abandon="confirming = 'abandon'"
+        @abandon="askToEnd"
       />
 
       <SessionComplete
         v-else-if="completed"
         :session="completed"
         :xp-gained="xpGained"
+        :level="level"
         :today="streak.daily"
         :streak-length="streak.dailyStreak"
         :milestone="milestone"
@@ -251,25 +314,26 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
       />
 
       <template v-else>
-        <SessionPlanner>
+        <SessionPlanner :unfinished="unfinished">
           <template v-if="endedEarly" #today>
             <span role="status">
               {{ endedEarly }}
               <strong v-if="reachedNow && milestone" class="dashboard__milestone">{{ milestone }}</strong>
             </span>
           </template>
+          <!-- The session ended early is what holds the blocking now; the one way out joins the line
+               that already says websites stay blocked, rather than a second line saying it again. -->
+          <template v-if="blockingHeld" #blocking>
+            <span class="dashboard__override">
+              <InfoTip label="Can I unblock websites now?">
+                Overriding unblocks them for the rest of today, at an XP penalty.
+              </InfoTip>
+              <AppButton variant="link" :disabled="session.busy" @click="confirming = 'override'">
+                Override blocking
+              </AppButton>
+            </span>
+          </template>
         </SessionPlanner>
-        <p v-if="blockingHeld" class="dashboard__held" role="status">
-          Websites are still blocked from your last session
-          <InfoTip label="Why are websites still blocked?">
-            They stay blocked until today's target is reached. Overriding unblocks them for the rest of
-            today, at an XP penalty.
-          </InfoTip>
-          <span aria-hidden="true">·</span>
-          <AppButton variant="link" :disabled="session.busy" @click="confirming = 'override'">
-            Override blocking
-          </AppButton>
-        </p>
         <!-- History is reached from here rather than the main navigation. -->
         <RouterLink :to="{ name: 'history' }" class="dashboard__history">Session history →</RouterLink>
       </template>
@@ -277,16 +341,17 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
     <ConfirmDialog
       :open="confirming === 'abandon'"
-      title="End this session early?"
-      confirm-label="End session"
+      :title="finishInstead ? 'You reached the planned time' : 'End this session early?'"
+      :confirm-label="finishInstead ? (session.current?.status === 'ACTIVE' ? 'Complete session' : 'Resume and complete') : 'End session'"
       cancel-label="Keep focusing"
-      danger
+      :danger="!finishInstead"
       :loading="session.busy"
       @confirm="confirmAbandon"
       @cancel="confirming = null"
     >
+      <p v-if="finishInstead">Complete it to earn its XP. Ending it early would earn none.</p>
       <!-- Worked out from today's target and the session's own time, not left as an if/otherwise. -->
-      <template v-if="endOutcome">
+      <template v-else-if="endOutcome">
         <p>{{ endOutcome.kept }}</p>
         <p>{{ endOutcome.blocking }}</p>
       </template>
@@ -329,14 +394,10 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.dashboard__held {
-  display: flex;
-  flex-wrap: wrap;
+.dashboard__override {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 0.4rem;
-  margin: 1rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  white-space: nowrap;
 }
 </style>

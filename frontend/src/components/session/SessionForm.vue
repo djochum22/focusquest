@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref, useId, watch } from 'vue'
+import { onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
 import AppButton from '../common/AppButton.vue'
 import InfoTip from '../common/InfoTip.vue'
 import FormField from '../common/FormField.vue'
-import type { CreateSessionRequest } from '../../types/session'
+import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
 import { loadSessionDefaults, saveSessionDefaults } from '../../utils/sessionDefaults'
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from '../../utils/sessionLabels'
 import {
@@ -24,7 +24,11 @@ const props = defineProps<{
   /** Details to start from, e.g. a planned session being changed; otherwise the last ones used. */
   initial?: CreateSessionRequest | null
 }>()
-const emit = defineEmits<{ submit: [request: CreateSessionRequest] }>()
+const emit = defineEmits<{
+  submit: [request: CreateSessionRequest]
+  /** The session type and category as currently chosen; null while no category is picked. */
+  choice: [choice: { taskMode: TaskMode; taskCategory: TaskCategory } | null]
+}>()
 
 /** The "Verify with camera" switch, following the default until the user changes it. */
 const useCamera = ref(props.initial?.cameraVerification ?? props.cameraByDefault ?? false)
@@ -51,10 +55,27 @@ const form = reactive<SessionForm>({
   taskDescription: props.initial?.taskDescription ?? '',
   plannedFocusMinutes: initialMinutes,
 })
+watch(
+  () => [form.taskMode, form.taskCategory] as const,
+  ([taskMode, category]) => {
+    if (taskMode === 'TASK_FREE') emit('choice', { taskMode, taskCategory: 'TASK_FREE' })
+    else emit('choice', category === '' ? null : { taskMode, taskCategory: category })
+  },
+  { immediate: true },
+)
 const customDuration = ref(!(PRESET_MINUTES as readonly number[]).includes(initialMinutes))
 const errors = ref<FieldErrors<SessionForm>>({})
 const taskId = useId()
 const minutesId = useId()
+
+/**
+ * On a computer the cursor waits in the task field, so the student can type and press Enter. Not on
+ * a touch screen, where focusing would throw up the keyboard over the page.
+ */
+const taskInput = useTemplateRef<HTMLInputElement>('taskInput')
+onMounted(() => {
+  if (window.matchMedia?.('(pointer: fine) and (min-width: 40rem)').matches) taskInput.value?.focus()
+})
 
 function pickPreset(minutes: number) {
   customDuration.value = false
@@ -95,6 +116,7 @@ function onSubmit() {
         <label :for="taskId" class="visually-hidden">Task (optional)</label>
         <input
           :id="taskId"
+          ref="taskInput"
           v-model="form.taskDescription"
           class="session-form__task-input"
           type="text"
@@ -107,11 +129,7 @@ function onSubmit() {
       </div>
     </template>
     <p v-else class="muted session-form__note">
-      No task needed
-      <InfoTip>
-        Focus time is tracked without a task. It only counts toward streaks that accept task-free
-        sessions.
-      </InfoTip>
+      No task needed. Task-free time counts only toward streaks set to task-free sessions.
     </p>
 
     <div class="session-form__options">
@@ -175,7 +193,7 @@ function onSubmit() {
     </div>
 
     <div class="session-form__go">
-      <AppButton type="submit" class="session-form__submit" :loading="submitting">
+      <AppButton type="submit" size="large" :loading="submitting">
         {{ submitting ? 'Starting…' : 'Start focusing' }}
       </AppButton>
       <slot name="note" />
@@ -292,7 +310,9 @@ function onSubmit() {
 }
 .session-form__note {
   margin: 0;
+  font-size: 0.9rem;
   text-align: center;
+  text-wrap: balance;
 }
 .session-form__camera {
   display: flex;
@@ -316,11 +336,5 @@ function onSubmit() {
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
-}
-.session-form .session-form__submit {
-  min-width: 12rem;
-  padding: 0.85rem 2rem;
-  border-radius: 999px;
-  font-size: 1.05rem;
 }
 </style>

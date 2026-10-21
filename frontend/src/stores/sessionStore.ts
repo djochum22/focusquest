@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import * as sessionApi from '../api/sessionApi'
 import type { CreateSessionRequest, FocusSession } from '../types/session'
+import { clearCompletionSummary, loadCompletionSummary } from '../utils/completionSummary'
 import { notifyExtensionOfChange } from '../utils/extensionBridge'
 import { isOverridable } from '../utils/sessionState'
 import { useAuthStore } from './authStore'
@@ -27,7 +28,10 @@ export const useSessionStore = defineStore('session', () => {
    * after a reload it is fetched again rather than lost.
    */
   const planned = ref<FocusSession | null>(null)
-  /** The session the user just finished, kept while it may still hold blocking that can be overridden. */
+  /**
+   * The session the user just finished: a completed one until its summary is dismissed, an abandoned
+   * one while it may still hold blocking that can be overridden.
+   */
   const lastEnded = ref<FocusSession | null>(null)
   const history = ref<FocusSession[]>([])
   const historyLoaded = ref(false)
@@ -59,7 +63,7 @@ export const useSessionStore = defineStore('session', () => {
   async function fetchCurrent() {
     const running = await sessionApi.fetchCurrentSession()
     applyCurrent(running)
-    if (!running && !lastEnded.value) await restoreOverridableSession()
+    if (!running && !lastEnded.value) await restoreLastEnded()
     if (!running && !planned.value) await restorePlannedSession()
   }
 
@@ -76,15 +80,16 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   /**
-   * After a reload the session just abandoned is no longer in memory, yet it may still be holding
-   * website blocking and be the only thing the user can override. The latest ended session is the
-   * one enforcement is derived from, so bring it back if it qualifies. Failing to look is not an
-   * error worth surfacing: the dashboard simply shows no summary.
+   * After a reload the session just ended is no longer in memory. An abandoned one may still be
+   * holding website blocking and be the only thing the user can override; a completed one may have
+   * a summary the user has not dismissed yet. Only the latest ended session qualifies. Failing to
+   * look is not an error worth surfacing: the dashboard simply shows no summary.
    */
-  async function restoreOverridableSession() {
+  async function restoreLastEnded() {
     try {
       const [latest] = await sessionApi.fetchHistory(1)
-      if (latest && isOverridable(latest)) lastEnded.value = latest
+      const summaryOpen = latest?.status === 'COMPLETED' && loadCompletionSummary()?.sessionId === latest.id
+      if (latest && (isOverridable(latest) || summaryOpen)) lastEnded.value = latest
     } catch {
       // ignore
     }
@@ -158,6 +163,7 @@ export const useSessionStore = defineStore('session', () => {
 
   function dismissLastEnded() {
     lastEnded.value = null
+    clearCompletionSummary()
   }
 
   function reset() {

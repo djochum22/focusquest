@@ -378,7 +378,8 @@ describe('DashboardView', () => {
     const wrapper = await mountDashboard()
 
     expect(wrapper.find('form').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Websites are still blocked from your last session')
+    // One line says websites stay blocked, and carries the way out.
+    expect(wrapper.text()).toContain("Websites stay blocked until today's 60 min target is reached")
     expect(button(wrapper, 'Override blocking')).toBeDefined()
     wrapper.unmount()
   })
@@ -432,7 +433,7 @@ describe('DashboardView', () => {
 
     expect(sessionApi.abandonSession).toHaveBeenCalledWith(1)
     expect(wrapper.find('form').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Websites are still blocked from your last session')
+    expect(button(wrapper, 'Override blocking')).toBeDefined()
     wrapper.unmount()
   })
 
@@ -492,5 +493,102 @@ describe('DashboardView', () => {
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
       wrapper.unmount()
     })
+  })
+  it('offers to complete, not end early, a session paused past its planned time', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ status: 'PAUSED', activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    vi.mocked(sessionApi.resumeSession).mockResolvedValue(makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }))
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(
+      makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 }),
+    )
+    const wrapper = await mountDashboard()
+
+    await button(wrapper, 'End early')!.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Complete it to earn its XP.')
+    expect(button(wrapper, 'End session')).toBeUndefined()
+    await button(wrapper, 'Resume and complete')!.trigger('click')
+    await flushPromises()
+
+    expect(sessionApi.abandonSession).not.toHaveBeenCalled()
+    expect(sessionApi.resumeSession).toHaveBeenCalledWith(1)
+    expect(sessionApi.completeSession).toHaveBeenCalledWith(1)
+    expect(wrapper.text()).toContain('Session complete')
+    wrapper.unmount()
+  })
+
+  it('brings the completion summary back after a reload, until the student plans another', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    const finished = makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 })
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(finished)
+    const first = await mountDashboard()
+    vi.mocked(progressionApi.fetchProgression).mockResolvedValue(progression(125))
+    await button(first, 'Complete')!.trigger('click')
+    await flushPromises()
+    expect(first.text()).toContain('+25 XP')
+    first.unmount()
+
+    // A reload: fresh stores, nothing running, the completed session is the latest in history.
+    setActivePinia(createPinia())
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(sessionApi.fetchHistory).mockResolvedValue([finished])
+    const reloaded = await mountDashboard()
+    expect(reloaded.text()).toContain('Session complete')
+    expect(reloaded.text()).toContain('+25 XP')
+    await button(reloaded, 'Plan another')!.trigger('click')
+    reloaded.unmount()
+
+    setActivePinia(createPinia())
+    const again = await mountDashboard()
+    expect(again.text()).not.toContain('Session complete')
+    again.unmount()
+  })
+
+  it('offers to continue a session ended early, in one tap, for the time it had left', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    vi.mocked(sessionApi.abandonSession).mockResolvedValue(
+      makeSession({ status: 'ABANDONED', blockingState: 'RELEASED', remainingFocusSeconds: 1080 }),
+    )
+    vi.mocked(sessionApi.createSession).mockResolvedValue(makeSession({ id: 2, status: 'PLANNED' }))
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 2 }))
+    const wrapper = await mountDashboard()
+    await button(wrapper, 'End early')!.trigger('click')
+    await button(wrapper, 'End session')!.trigger('click')
+    await flushPromises()
+
+    await button(wrapper, 'Continue: Write the report · 18 min')!.trigger('click')
+    await flushPromises()
+
+    expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      taskDescription: 'Write the report', taskCategory: 'WRITING', plannedFocusMinutes: 18,
+    }))
+    expect(wrapper.text()).toContain('Pause')
+    wrapper.unmount()
+  })
+
+  it('says a session that cannot count toward today will not, instead of promising to unblock', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    const wrapper = await mountDashboard()
+    expect(wrapper.text()).toContain("Websites stay blocked until today's 60 min target is reached")
+
+    await wrapper.find('input[value="TASK_FREE"]').setValue()
+    expect(wrapper.text()).toContain("This session won't count toward today's target.")
+    wrapper.unmount()
+  })
+
+  it('says, while a session carries today over the target, that the streak follows when it ends', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ uncreditedStreakSeconds: 2400 }))
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily(), weekly: null, dailyStreak: 0, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.text()).toContain("Today's target reached")
+    expect(wrapper.text()).toContain('Your streak starts when this session ends')
+    expect(wrapper.text()).not.toContain('No streak yet')
+    wrapper.unmount()
   })
 })

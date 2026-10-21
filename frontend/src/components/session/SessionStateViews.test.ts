@@ -22,20 +22,25 @@ describe('ActiveSessionView', () => {
     })
   }
 
-  it('cannot be completed before the planned time is reached, and says why', () => {
+  it('cannot be completed before the planned time is reached, and says when it can', () => {
     const wrapper = mountActive({ remainingFocusSeconds: 600 })
 
     expect(labelled(wrapper, 'Complete')).toBeUndefined()
-    expect(wrapper.text()).toContain('You can complete the session once the planned time is reached.')
+    expect(wrapper.text()).toContain('Complete opens when the time is up')
     wrapper.unmount()
   })
 
-  it('can be completed once the server reports no time remaining', async () => {
+  it('makes Complete the main action once the server reports no time remaining, and drops End early', async () => {
     const wrapper = mountActive({ remainingFocusSeconds: 0 })
 
-    expect(labelled(wrapper, 'Complete').attributes('disabled')).toBeUndefined()
-    expect(wrapper.text()).not.toContain('once the planned time is reached')
-    await labelled(wrapper, 'Complete').trigger('click')
+    const complete = labelled(wrapper, 'Complete')
+    expect(complete.attributes('disabled')).toBeUndefined()
+    expect(complete.classes()).toContain('app-button--primary')
+    expect(labelled(wrapper, 'Pause').classes()).toContain('app-button--secondary')
+    // Ending early past the plan would only forfeit the XP already earned.
+    expect(labelled(wrapper, 'End early')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('Complete opens')
+    await complete.trigger('click')
     expect(wrapper.emitted('complete')).toHaveLength(1)
     wrapper.unmount()
   })
@@ -52,7 +57,7 @@ describe('ActiveSessionView', () => {
   })
 
   it('locks every control while a request is in flight, so nothing is sent twice', async () => {
-    const wrapper = mountActive({ remainingFocusSeconds: 0 }, true)
+    const wrapper = mountActive({ remainingFocusSeconds: 600 }, true)
 
     // The info button only explains; it is not a session control.
     for (const button of wrapper.findAll('button:not(.info__button)')) {

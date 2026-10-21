@@ -50,9 +50,19 @@ export function sessionCountsToward(
   return session.taskMode === 'TASK_FREE' || !progress.requiredCategory || progress.requiredCategory === session.taskCategory
 }
 
-/** What starting a session means for website blocking, given today's progress (null if unknown). */
-export function blockingSentence(daily: StreakProgress | null): string {
+/**
+ * What starting a session means for website blocking, given today's progress (null if unknown) and
+ * the session about to start (null while its type or category is not chosen yet). A session that
+ * does not count toward today cannot lift the blocking, so it says that instead of promising it.
+ */
+export function blockingSentence(
+  daily: StreakProgress | null,
+  session: { taskMode: TaskMode; taskCategory: TaskCategory } | null = null,
+): string {
   if (!daily || daily.status === 'COMPLETED') return 'Websites stay blocked while the session runs.'
+  if (session && !sessionCountsToward(daily, session)) {
+    return "This session won't count toward today's target. Websites stay blocked until that target is reached."
+  }
   return `Websites stay blocked until today's ${daily.targetMinutes} min target is reached, even after this session ends.`
 }
 
@@ -92,7 +102,7 @@ export function endEarlyOutcome(
   const left = Math.ceil((daily.targetMinutes * 60 - after) / 60)
   return {
     kept,
-    blocking: `Websites stay blocked until today's ${daily.targetMinutes} min target is reached (${left} min to go). You can then override that at an XP penalty.`,
+    blocking: `Websites stay blocked until today's ${daily.targetMinutes} min target is reached (${left} min to go). Until then you can unblock them early, at an XP penalty.`,
   }
 }
 

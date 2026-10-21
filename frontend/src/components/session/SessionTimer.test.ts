@@ -80,7 +80,7 @@ describe('SessionTimer', () => {
     expect(document.title).toBe('09:00 · FocusQuest')
 
     await wrapper.setProps({ running: false, stoppedLabel: 'Paused' })
-    expect(document.title).toBe('Paused · FocusQuest')
+    expect(document.title).toBe('Paused 09:00 · FocusQuest')
 
     wrapper.unmount()
     expect(document.title).toBe('FocusQuest')

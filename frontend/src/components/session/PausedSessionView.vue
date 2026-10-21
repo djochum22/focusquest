@@ -39,7 +39,7 @@ const emit = defineEmits<{
       stopped-label="Paused"
     />
     <div class="paused__actions">
-      <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
+      <AppButton size="large" :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
     <slot />
     <AppButton variant="link" class="paused__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>

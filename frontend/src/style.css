@@ -196,6 +196,7 @@ a {
 .planner__title,
 .meta__task,
 .complete__xp,
+.complete__day,
 .modal__title,
 .stat__value,
 .streak-progress__count,
@@ -203,6 +204,9 @@ a {
   font-family: var(--font-display);
   /* Young Serif has only its regular weight; never let the browser fake a bold one. */
   font-synthesis: none;
+  /* Its default figures are old-style (a small "1", a "5" below the line); lining ones stand as tall
+     as the letters, so "+35 XP" reads as one figure. */
+  font-variant-numeric: lining-nums;
 }
 
 /* Shared layout for the signed-in pages inside AppShell. */

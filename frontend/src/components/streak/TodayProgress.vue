@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { StreakProgress } from '../../types/streak'
 import { formatMinutes } from '../../utils/duration'
 import ProgressBar from '../common/ProgressBar.vue'
+import StreakFlame from './StreakFlame.vue'
 
 /**
  * Today's daily target as one quiet bar: time so far, and the streak it keeps alive. The backend
@@ -19,6 +20,8 @@ const props = defineProps<{
   countingSince?: number | null
   /** A slimmer bar, for beside a running session's own timer. */
   compact?: boolean
+  /** Leave the streak out, where the screen already shows it larger. */
+  hideStreak?: boolean
 }>()
 
 const now = ref(Date.now())
@@ -45,6 +48,16 @@ const percent = computed(() => (target.value > 0 ? Math.floor((seconds.value * 1
 const streakText = computed(() =>
   props.streakLength > 0 ? `${props.streakLength}-day streak` : 'No streak yet',
 )
+/**
+ * A running session has just carried today over the target, but the backend only records that when
+ * the session pauses or ends: the streak is on its way, not missing.
+ */
+const reachedLive = computed(() => reached.value && props.progress.status !== 'COMPLETED')
+const liveNote = computed(() =>
+  props.streakLength > 0
+    ? `Day ${props.streakLength + 1} of your streak when this session ends`
+    : 'Your streak starts when this session ends',
+)
 </script>
 
 <template>
@@ -61,15 +74,13 @@ const streakText = computed(() =>
         <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
       </ProgressBar>
       <!-- The streak sits beside the bar, never on it, so the fill edge cannot cut through it. -->
-      <span class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
-        <svg v-if="streakLength > 0" class="today__flame" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-          <path fill="currentColor"
-                d="M13.5 1.5c.4 2.9-.9 4.9-2.4 6.6-1.6 1.8-3.6 3.6-3.6 6.9A6.3 6.3 0 0 0 9.4 19.6c-.6-2.6.7-4.3 2.2-5.6.2 1.7 1.1 2.6 2.3 3.1-.3-1.8.3-3.4 1.5-4.6 1.6 1.5 2.6 3.4 2.6 5.5 0 1-.3 1.9-.7 2.6A6.5 6.5 0 0 0 20 15c0-5.6-4.6-8.6-6.5-13.5z" />
-        </svg>
+      <span v-if="!hideStreak && !(reachedLive && streakLength === 0)" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
+        <StreakFlame v-if="streakLength > 0" class="today__flame" />
         {{ streakText }}
       </span>
     </div>
     <p v-if="$slots.default" class="today__note"><slot /></p>
+    <p v-else-if="reachedLive" class="today__note today__note--news">{{ liveNote }}</p>
   </div>
 </template>
 
@@ -115,5 +126,9 @@ const streakText = computed(() =>
   color: var(--text-muted);
   font-size: 0.9rem;
   text-align: center;
+}
+.today__note--news {
+  color: var(--success);
+  font-weight: 600;
 }
 </style>

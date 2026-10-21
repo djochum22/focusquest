@@ -8,43 +8,21 @@ Start here. The details live in two longer notes:
 
 The dashboard (`frontend/src/views/DashboardView.vue` and the session components) is being reworked with the Impeccable design skill (`.claude/skills/impeccable/`). Product context is in `PRODUCT.md`, the design system in `DESIGN.md`.
 
-**State:** two rounds of fixes are done, tested (frontend unit tests, backend tests, all 11 end-to-end tests), documented and committed on the branch **`dashboard-redesign`** (not merged into master yet). Continue on that branch. Critique scores so far: 24 → 30 → 27 out of 40. The last critique used a stricter reviewer, and two of its findings came from the second round: End early is now a trap past the plan, and the live bar contradicts the streak line. Each critique report is in `.impeccable/critique/`; the latest one (`2026-10-21T12-44-00Z__…`) is the to-do list below.
+**State:** three rounds of fixes are done. All three are committed on the branch **`dashboard-redesign`** (not merged into master yet). Continue on that branch. Critique scores so far: 24 → 30 → 27 out of 40 (the last from a stricter reviewer). Each critique report is in `.impeccable/critique/`; round three worked through the latest one (`2026-10-21T12-44-00Z__…`).
 
-**Decided by the user for the next round:** fix both P1s together. Complete becomes the main green button once the planned time is reached. Take on all five issues.
+**Round three, done (21 October 2026):**
 
-**Next round, in this order** (in Claude Code: "run these all at once", or one `/impeccable <command>` at a time):
+1. **End early is no longer a trap.** Once the server reports no time left, Complete is the main green pill, Pause the secondary one, and End early is gone; the clock keeps counting. If End early is chosen after the plan is met (paused past it, or the countdown just hit zero), the dialog offers "Complete session", or "Resume and complete" when paused. Completing does *not* unblock websites while today's target is unmet (blocking is on all day until then), so the dialog does not promise it.
+2. **Whether a session counts.** The note under Start checks the form's current type and category; when they don't count toward today it says "This session won't count toward today's target." The end-early dialog now says "Until then you can unblock them early, at an XP penalty." The task-free explanation is plain text.
+3. **The streak moment.** While a running session carries today over the target: "Your streak starts when this session ends" (or "Day N … when this session ends"), not "No streak yet". On completion, "Day N of your streak" is a serif stat with the flame, and a thin level bar sits under the XP ("Level 2 reached" when one is crossed). The flame is now one component, `StreakFlame.vue`.
+4. **Type.** Young Serif has lining figures, so every display-font element now sets `font-variant-numeric: lining-nums` ("+35 XP" reads as one figure). A new `AppButton size="large"` pill is used for Start, Complete, Pause, Resume and Plan another.
+5. **A sturdier ending.** The completion summary survives a reload that day until "Plan another" (`utils/completionSummary.ts`). After an early end the start page offers "Continue: <task> · N min" for the time it had left (`saveUnfinishedSession` in `utils/sessionDefaults.ts`).
+6. **Keyboard and screen readers.** "Skip to content" link in `AppShell.vue`; the task field takes focus on a computer (not on touch screens); the paused tab title shows the time ("Paused 14:53 · FocusQuest"); focus moves to the completion screen.
+7. **Polish.** "Complete opens when the time is up" sits quietly in the timer's status row instead of a line of its own. After an early end, the override link joins the one line under Start that says websites stay blocked, instead of a second line repeating it. The compact bar's fill edge can split a figure ("3|0"); both halves keep their contrast, so it is left as designed.
 
-1. **harden: End early is a trap.**
-   - When the server reports no time remaining, hide End early. Complete becomes the main green button and Pause is secondary; the clock keeps counting past the plan.
-   - If the dialog still opens around that moment, it points to Complete instead of quietly losing XP.
-   - Files: `ActiveSessionView.vue`, `endEarlyOutcome` in `utils/streak.ts`.
-2. **clarify: say whether a session counts.**
-   - The blocking note under Start checks the form's current choices (Task-free, category) with `sessionCountsToward`. When they don't count, it says "This session won't count toward today's target" instead of promising blocking it can't lift.
-   - Reword "You can then override that".
-   - Move the task-free explanation out of its info tip.
-   - Files: `blockingSentence` in `utils/streak.ts`, `SessionPlanner.vue`, `SessionForm.vue`.
-3. **delight: the streak moment.**
-   - While a running session pushes today's bar over the target, the line beside it reads "Target reached · your streak starts when this session ends"; today it says "No streak yet".
-   - On completion, give "Day N of your streak" the weight of a stat (serif, with the flame).
-   - Add a thin level-progress bar under the XP.
-   - Files: `TodayProgress.vue`, `SessionComplete.vue`.
-4. **typeset:**
-   - "+35" renders smaller than "XP", because Young Serif's digits are old-style. Size the figure so the number reads as big as the letters.
-   - Resume is a rectangle while Start and Plan another are pills; match them.
-5. **harden: a sturdier ending.**
-   - Today's completion summary survives a reload until "Plan another".
-   - After an early end, the start page offers "Continue: <task>" as one tap. Only the category and duration are remembered now, in `utils/sessionDefaults.ts`.
-6. **audit: keyboard and screen readers.**
-   - Add a skip link in `AppShell.vue`.
-   - Put the cursor in the task field on desktop.
-   - The paused tab title shows the time ("Paused 14:53 · FocusQuest", in `SessionTimer.vue`).
-   - Move focus to the completion screen when it appears.
-7. **polish:**
-   - Replace the permanent "You can complete the session once the planned time is reached" line with something quieter.
-   - After an early end, three blocking statements stack; make them one.
-   - Check the compact bar's text where the fill edge splits letters.
+Checked: 623 frontend unit tests, all 11 end-to-end tests (two needed updating: the completion is now found as the "Session complete" region, and starting a session first dismisses a lingering summary), types and lint; screenshots in light at 1280px and dark at 390px, no sideways scroll at 390px. No backend code changed.
 
-Then run `/impeccable critique` to score the dashboard again.
+**Next:** run `/impeccable critique` to score the dashboard again.
 
 **Seeing it without touching real data:** the review rounds used the isolated end-to-end stack, not the app on port 8080:
 
