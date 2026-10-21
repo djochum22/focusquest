@@ -25,7 +25,7 @@ describe('ActiveSessionView', () => {
   it('cannot be completed before the planned time is reached, and says why', () => {
     const wrapper = mountActive({ remainingFocusSeconds: 600 })
 
-    expect(labelled(wrapper, 'Complete').attributes('disabled')).toBeDefined()
+    expect(labelled(wrapper, 'Complete')).toBeUndefined()
     expect(wrapper.text()).toContain('You can complete the session once the planned time is reached.')
     wrapper.unmount()
   })
@@ -44,7 +44,7 @@ describe('ActiveSessionView', () => {
     const wrapper = mountActive()
 
     await labelled(wrapper, 'Pause').trigger('click')
-    await labelled(wrapper, 'Abandon').trigger('click')
+    await labelled(wrapper, 'End early').trigger('click')
 
     expect(wrapper.emitted('pause')).toHaveLength(1)
     expect(wrapper.emitted('abandon')).toHaveLength(1)
@@ -58,7 +58,7 @@ describe('ActiveSessionView', () => {
     for (const button of wrapper.findAll('button:not(.info__button)')) {
       expect(button.attributes('disabled')).toBeDefined()
     }
-    await labelled(wrapper, 'Abandon').trigger('click')
+    await labelled(wrapper, 'End early').trigger('click')
     expect(wrapper.emitted('abandon')).toBeUndefined()
     wrapper.unmount()
   })
@@ -74,7 +74,7 @@ describe('PausedSessionView', () => {
   it('says the session is paused and that blocking stays on', () => {
     const wrapper = mountPaused()
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Paused')
+    expect(wrapper.get('[role="status"]').text()).toBe('Paused · Websites blocked')
     expect(wrapper.text()).toContain('Blocking stays on while you are paused')
   })
 
@@ -82,7 +82,7 @@ describe('PausedSessionView', () => {
     const wrapper = mountPaused()
 
     await labelled(wrapper, 'Resume').trigger('click')
-    await labelled(wrapper, 'Abandon').trigger('click')
+    await labelled(wrapper, 'End early').trigger('click')
 
     expect(wrapper.emitted('resume')).toHaveLength(1)
     expect(wrapper.emitted('abandon')).toHaveLength(1)
@@ -117,7 +117,7 @@ describe('InterruptedSessionView', () => {
   it('says the session was interrupted, why, and that websites are unblocked', () => {
     const wrapper = mountInterrupted()
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Interrupted')
+    expect(wrapper.get('[role="status"]').text()).toBe('Interrupted · Unblocked after a technical interruption')
     expect(wrapper.text()).toContain('extension stopped checking in')
     expect(wrapper.text()).toContain('your daily target still does until it is reached')
   })
@@ -126,7 +126,7 @@ describe('InterruptedSessionView', () => {
     const wrapper = mountInterrupted()
 
     await labelled(wrapper, 'Resume').trigger('click')
-    await labelled(wrapper, 'Abandon').trigger('click')
+    await labelled(wrapper, 'End early').trigger('click')
 
     expect(wrapper.emitted('resume')).toHaveLength(1)
     expect(wrapper.emitted('abandon')).toHaveLength(1)

@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { StreakProgress } from '../types/streak'
-import { levelProgressPercent, progressPercent, remainingSeconds, requirementLabel, streakHint, streakUnit } from './streak'
+import { makeSession } from '../test-utils/sessions'
+import {
+  endEarlyOutcome,
+  levelProgressPercent,
+  progressPercent,
+  remainingSeconds,
+  requirementLabel,
+  sessionCountsToward,
+  streakHint,
+  streakUnit,
+  targetLine,
+} from './streak'
 
 function makeProgress(overrides: Partial<StreakProgress> = {}): StreakProgress {
   return {
@@ -109,5 +120,60 @@ describe('streakHint with streak freezes', () => {
 
   it('does not mention freezes once today is reached', () => {
     expect(streakHint(5, makeProgress({ status: 'COMPLETED' }), 0)).toBe('You have reached your target today.')
+  })
+})
+
+describe('sessionCountsToward', () => {
+  it('follows the period: task mode must match, and a required category too', () => {
+    const anyTask = makeProgress()
+    const reading = makeProgress({ requiredCategory: 'READING' })
+
+    expect(sessionCountsToward(anyTask, { taskMode: 'TASK_REQUIRED', taskCategory: 'CODING' })).toBe(true)
+    expect(sessionCountsToward(anyTask, { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE' })).toBe(false)
+    expect(sessionCountsToward(reading, { taskMode: 'TASK_REQUIRED', taskCategory: 'CODING' })).toBe(false)
+  })
+})
+
+describe('targetLine', () => {
+  it('names the moment the target is reached, with the streak day', () => {
+    expect(targetLine(makeProgress({ status: 'COMPLETED' }), 1, true)).toBe('Day 1 of your streak')
+  })
+
+  it('says nothing about a target reached earlier', () => {
+    expect(targetLine(makeProgress({ status: 'COMPLETED' }), 3, false)).toBeNull()
+  })
+
+  it('says what is left, and what it does for the streak', () => {
+    expect(targetLine(makeProgress({ qualifyingSeconds: 25 * 60 }), 0, false)).toBe('5 min more today starts a streak')
+    expect(targetLine(makeProgress({ qualifyingSeconds: 25 * 60 }), 4, false)).toBe('5 min more today keeps your 4-day streak')
+  })
+})
+
+describe('endEarlyOutcome', () => {
+  const running = (overrides = {}) =>
+    makeSession({ activeFocusSeconds: 480, finalizedPausedSeconds: 0, offTaskSeconds: 0, uncreditedStreakSeconds: 480, ...overrides })
+
+  it('says the session reaches the target and websites unblock, when it does', () => {
+    const outcome = endEarlyOutcome(running(), makeProgress({ qualifyingSeconds: 25 * 60 }))
+
+    expect(outcome.kept).toBe("You keep 8 min toward today's target. No completion XP.")
+    expect(outcome.blocking).toBe("That reaches today's target, so websites unblock now.")
+  })
+
+  it('says how much is left when websites stay blocked', () => {
+    const outcome = endEarlyOutcome(running(), makeProgress({ qualifyingSeconds: 10 * 60 }))
+
+    expect(outcome.blocking).toMatch(/^Websites stay blocked until today's 30 min target is reached \(12 min to go\)/)
+  })
+
+  it('does not count a session the target does not accept', () => {
+    const outcome = endEarlyOutcome(running(), makeProgress({ qualifyingSeconds: 25 * 60, requiredCategory: 'READING' }))
+
+    expect(outcome.kept).toContain('does not count')
+    expect(outcome.blocking).toMatch(/^Websites stay blocked/)
+  })
+
+  it('leaves an interrupted session unblocked', () => {
+    expect(endEarlyOutcome(running({ status: 'INTERRUPTED' }), makeProgress()).blocking).toBe('Websites stay unblocked.')
   })
 })

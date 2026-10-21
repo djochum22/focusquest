@@ -20,56 +20,40 @@ const emit = defineEmits<{
 
 <template>
   <section class="stage paused" aria-label="Paused session">
-    <div class="paused__status">
-      <p class="paused__badge" role="status">Paused</p>
-      <InfoTip>
-        The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
-        streak progress until you resume.
-        <template v-if="session.finalizedPausedSeconds > 0">
-          Earlier pauses: {{ formatMinutes(session.finalizedPausedSeconds) }}.
-        </template>
-      </InfoTip>
-    </div>
-    <SessionMeta :session="session" />
+    <SessionMeta :session="session" status="Paused">
+      <template #info>
+        <InfoTip>
+          The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
+          streak progress until you resume.
+          <template v-if="session.finalizedPausedSeconds > 0">
+            Earlier pauses: {{ formatMinutes(session.finalizedPausedSeconds) }}.
+          </template>
+        </InfoTip>
+      </template>
+    </SessionMeta>
     <SessionTimer
       :planned-seconds="session.plannedFocusMinutes * 60"
       :active-seconds="session.activeFocusSeconds"
       :received-at="receivedAt"
       :running="false"
+      stopped-label="Paused"
     />
     <div class="paused__actions">
       <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
-    <div class="paused__leave">
-      <AppButton variant="secondary" :disabled="busy" @click="emit('abandon')">Abandon</AppButton>
-    </div>
+    <slot />
+    <AppButton variant="link" class="paused__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
   </section>
 </template>
 
 <style scoped>
-.paused__badge {
-  margin: 0;
-  padding: 0.15rem 0.75rem;
-  border-radius: 999px;
-  background: var(--notice-bg);
-  color: var(--notice);
-  font-weight: 700;
-}
-.paused__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-.paused__actions,
-.paused__leave {
+.paused__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.75rem;
 }
-.paused__leave {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+.paused .paused__leave {
+  align-self: center;
 }
 </style>

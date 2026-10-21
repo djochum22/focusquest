@@ -2,6 +2,7 @@ import { advanceBackendClock, expect, test } from '../support/fixtures'
 import { FRONTEND_URL } from '../support/env'
 import {
   addBlockedSite,
+  chooseDuration,
   expectExtensionConnected,
   expectSiteBlocked,
   expectSiteOpen,
@@ -24,7 +25,7 @@ test('a blocked site stays blocked until the daily target is reached, and comple
   await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible()
   await expectSiteBlocked(site)   // pausing never releases blocking
   await page.getByRole('button', { name: 'Resume' }).click()
-  await expect(page.getByRole('button', { name: 'Complete' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Complete' })).toBeHidden()   // offered once the time is reached
 
   await advanceBackendClock(5 * 60)
   await page.reload()
@@ -50,8 +51,8 @@ test('an abandoned session keeps blocking until the user overrides it at an XP p
   const site = await openSite(context)
   await expectSiteBlocked(site)
 
-  await page.getByRole('button', { name: 'Abandon' }).click()
-  await page.getByRole('button', { name: 'Abandon session' }).click()
+  await page.getByRole('button', { name: 'End early' }).click()
+  await page.getByRole('button', { name: 'End session' }).click()
   await expect(page.getByText('Websites are still blocked from your last session')).toBeVisible()
   await expectSiteBlocked(site)   // today's 30-minute daily target is not reached
 
@@ -83,32 +84,21 @@ test('blocking rules cannot be loosened while a session runs', async ({ page }) 
   await expect(page.getByRole('listitem').filter({ hasText: 'another.example' })).toBeVisible()
 })
 
-test('a planned session survives a reload and can be changed before it starts', async ({ context, page }) => {
+test('the start page says blocking outlasts the session, and remembers the last category and length', async ({ page }) => {
   await setUpAccount(page)
-  await expectExtensionConnected(page)
-  await addBlockedSite(page)
-  const site = await openSite(context)
 
   await page.goto(FRONTEND_URL)
-  await page.getByLabel('Category').selectOption('WRITING')
-  await page.getByLabel('Duration (minutes)').fill('5')
-  await page.getByRole('button', { name: 'Create session' }).click()
-  await page.reload()
-  await expect(page.getByRole('button', { name: 'Start session' })).toBeVisible()
-  await expectSiteBlocked(site)   // by today's unmet target; a planned session changes nothing
-
-  // Changing the details deletes it, so a reload shows the empty form.
-  await page.getByRole('button', { name: 'Change details' }).click()
-  await page.reload()
-  await expect(page.getByRole('button', { name: 'Create session' })).toBeVisible()
-
-  await page.getByLabel('Category').selectOption('WRITING')
-  await page.getByLabel('Duration (minutes)').fill('5')
-  await page.getByRole('button', { name: 'Create session' }).click()
-  await page.reload()
-  await page.getByRole('button', { name: 'Start session' }).click()
+  await expect(page.getByText("Websites stay blocked until today's 30 min target is reached")).toBeVisible()
+  await page.getByLabel('Category').selectOption('READING')
+  await chooseDuration(page, 50)
+  await page.getByRole('button', { name: 'Start focusing' }).click()
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
-  await expectSiteBlocked(site)
+
+  await page.getByRole('button', { name: 'End early' }).click()
+  await page.getByRole('button', { name: 'End session' }).click()
+  await page.reload()
+  await expect(page.getByLabel('Category')).toHaveValue('READING')
+  await expect(page.getByLabel('50 min', { exact: true })).toBeChecked()
 })
 
 test('a session whose browser goes quiet is interrupted, keeps the unmet target blocking, and can be resumed', async ({ context, page }) => {
@@ -122,7 +112,7 @@ test('a session whose browser goes quiet is interrupted, keeps the unmet target 
   // the next request finds the session unverifiable and interrupts it.
   await advanceBackendClock(25 * 60 * 60)
   await page.reload()
-  await expect(page.getByRole('region', { name: 'Interrupted session' }).getByRole('status')).toHaveText('Interrupted')
+  await expect(page.getByRole('region', { name: 'Interrupted session' }).getByRole('status').filter({ hasText: /^Interrupted · / })).toBeVisible()
   await expectSiteBlocked(site)   // the session's hold is released, but the new day's target is unmet
 
   await page.getByRole('button', { name: 'Resume' }).click()

@@ -12,6 +12,9 @@ import java.time.Instant;
  *
  * <p>For a camera-verified session, {@code offTaskSeconds} is the off-task time so far and
  * {@code remainingFocusSeconds} counts it: active time minus off-task time must reach the plan.
+ *
+ * <p>{@code uncreditedStreakSeconds} is the session's time not yet credited to the streak as of
+ * {@code generatedAt}, so the UI can show today's progress including a session still running.
  */
 public record FocusSessionDto(
         Long id,
@@ -34,6 +37,7 @@ public record FocusSessionDto(
         Instant createdAt,
         boolean cameraVerification,
         long offTaskSeconds,
+        long uncreditedStreakSeconds,
         Instant generatedAt
 ) {
 
@@ -61,6 +65,7 @@ public record FocusSessionDto(
                 session.getCreatedAt(),
                 session.isCameraVerification(),
                 offTaskSeconds,
+                session.uncreditedStreakSecondsAt(now),
                 now);
     }
 }

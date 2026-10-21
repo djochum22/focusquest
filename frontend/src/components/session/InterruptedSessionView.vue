@@ -19,54 +19,38 @@ const emit = defineEmits<{
 
 <template>
   <section class="stage interrupted" aria-label="Interrupted session">
-    <div class="interrupted__status">
-      <p class="interrupted__badge" role="status">Interrupted</p>
-      <InfoTip>
-        The browser extension stopped checking in, so the time after its last check-in could not be
-        verified and was not counted. The time before it still counts toward your streak. The session no
-        longer keeps websites blocked until you resume; your daily target still does until it is reached.
-      </InfoTip>
-    </div>
-    <SessionMeta :session="session" />
+    <SessionMeta :session="session" status="Interrupted">
+      <template #info>
+        <InfoTip>
+          The browser extension stopped checking in, so the time after its last check-in could not be
+          verified and was not counted. The time before it still counts toward your streak. The session no
+          longer keeps websites blocked until you resume; your daily target still does until it is reached.
+        </InfoTip>
+      </template>
+    </SessionMeta>
     <SessionTimer
       :planned-seconds="session.plannedFocusMinutes * 60"
       :active-seconds="session.activeFocusSeconds"
       :received-at="receivedAt"
       :running="false"
+      stopped-label="Interrupted"
     />
+    <slot />
     <div class="interrupted__actions">
       <AppButton :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
-    <div class="interrupted__leave">
-      <AppButton variant="secondary" :disabled="busy" @click="emit('abandon')">Abandon</AppButton>
-    </div>
+    <AppButton variant="link" class="interrupted__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
   </section>
 </template>
 
 <style scoped>
-.interrupted__badge {
-  margin: 0;
-  padding: 0.15rem 0.75rem;
-  border-radius: 999px;
-  background: var(--notice-bg);
-  color: var(--notice);
-  font-weight: 700;
-}
-.interrupted__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-.interrupted__actions,
-.interrupted__leave {
+.interrupted__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.75rem;
 }
-.interrupted__leave {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+.interrupted .interrupted__leave {
+  align-self: center;
 }
 </style>

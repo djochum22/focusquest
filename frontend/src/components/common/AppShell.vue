@@ -36,12 +36,12 @@ async function onLogout() {
       </nav>
       <ThemeToggle />
       <span class="shell__user">{{ auth.user?.displayName }}</span>
-      <button type="button" class="shell__signout" @click="onLogout">
+      <button type="button" class="shell__signout" aria-label="Sign out" @click="onLogout">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
         </svg>
-        Sign out
+        <span class="shell__signout-label">Sign out</span>
       </button>
     </header>
     <main class="shell__main"><slot /></main>
@@ -95,6 +95,28 @@ async function onLogout() {
 .shell__signout:hover {
   background: var(--surface-muted);
   color: var(--text);
+}
+/*
+ * On a phone the header takes two rows: brand and account controls, then the pages. The name is
+ * dropped and sign-out keeps only its icon (its accessible name stays).
+ */
+@media (max-width: 40rem) {
+  .shell__header {
+    gap: 0.5rem 1rem;
+    padding: 0.6rem 1rem;
+  }
+  .shell__brand {
+    flex: 1;
+  }
+  .shell__nav {
+    order: 1;
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+  .shell__user,
+  .shell__signout-label {
+    display: none;
+  }
 }
 .shell__main {
   width: 100%;

@@ -3,15 +3,31 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import * as offTaskApi from '../api/offTaskApi'
+import * as progressionApi from '../api/progressionApi'
 import * as sessionApi from '../api/sessionApi'
+import * as streakApi from '../api/streakApi'
 import { useOffTaskStore } from '../stores/offTaskStore'
 import { makeOffTaskStatus } from '../test-utils/offTask'
 import type { FocusSession } from '../types/session'
+import type { StreakProgress } from '../types/streak'
 import DashboardView from './DashboardView.vue'
 
 vi.mock('../api/sessionApi')
 vi.mock('../api/offTaskApi')
 vi.mock('../api/cameraApi')
+vi.mock('../api/streakApi')
+vi.mock('../api/progressionApi')
+
+/** Today's daily target: 60 min, 20 of them done, counting any task session. */
+function makeDaily(overrides: Partial<StreakProgress> = {}): StreakProgress {
+  return {
+    periodType: 'DAILY', startTime: '2026-01-15T00:00:00Z', endTime: '2026-01-16T00:00:00Z', targetMinutes: 60,
+    requiredTaskMode: 'TASK_REQUIRED', requiredCategory: null, qualifyingSeconds: 1200, overtimeSeconds: 0,
+    status: 'ACTIVE', ...overrides,
+  }
+}
+
+const progression = (totalXp: number) => ({ totalXp, level: 2, levelStartXp: 100, nextLevelXp: 250, gems: 0 })
 
 function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
   return {
@@ -35,6 +51,7 @@ function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
     createdAt: '2026-01-15T08:59:00Z',
     cameraVerification: false,
     offTaskSeconds: 0,
+    uncreditedStreakSeconds: 0,
     generatedAt: '2026-01-15T09:05:00Z',
     ...overrides,
   }
@@ -63,6 +80,11 @@ const button = (wrapper: Awaited<ReturnType<typeof mountDashboard>>, label: stri
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(sessionApi.fetchHistory).mockResolvedValue([])
+  vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+    daily: makeDaily(), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+  })
+  vi.mocked(progressionApi.fetchProgression).mockResolvedValue(progression(100))
+  localStorage.clear()
   setActivePinia(createPinia())
   document.body.innerHTML = ''
 })
@@ -92,8 +114,8 @@ describe('DashboardView', () => {
       makeSession({ status: 'ABANDONED', blockingState: 'RELEASED' }),
     )
     const wrapper = await mountDashboard()
-    await button(wrapper, 'Abandon')!.trigger('click')
-    await button(wrapper, 'Abandon session')!.trigger('click')
+    await button(wrapper, 'End early')!.trigger('click')
+    await button(wrapper, 'End session')!.trigger('click')
     await flushPromises()
 
     expect(wrapper.find('form').exists()).toBe(true)
@@ -103,7 +125,7 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
-  it('acknowledges a completed session briefly, then leaves only the form', async () => {
+  it('keeps a completed session on screen with what it earned, until the student moves on', async () => {
     vi.useFakeTimers()
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
       makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
@@ -112,31 +134,85 @@ describe('DashboardView', () => {
       makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 }),
     )
     const wrapper = await mountDashboard()
+    vi.mocked(progressionApi.fetchProgression).mockResolvedValue(progression(125))
 
     await button(wrapper, 'Complete')!.trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Session complete · 25 min focused')
-    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.text()).toContain('+25 XP')
+    expect(wrapper.text()).toContain('25 min focused on Write the report')
+    expect(wrapper.find('form').exists()).toBe(false)
 
-    vi.advanceTimersByTime(6000)
+    vi.advanceTimersByTime(60_000)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Session complete')
+
+    await button(wrapper, 'Plan another')!.trigger('click')
     await flushPromises()
     expect(wrapper.text()).not.toContain('Session complete')
+    expect(wrapper.find('form').exists()).toBe(true)
     wrapper.unmount()
     vi.useRealTimers()
   })
 
-  it('does not acknowledge an abandoned session', async () => {
-    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
-    vi.mocked(sessionApi.abandonSession).mockResolvedValue(
-      makeSession({ status: 'ABANDONED', blockingState: 'RELEASED' }),
+  it('names the moment a completion reaches today\'s target', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 2400, remainingFocusSeconds: 0, plannedFocusMinutes: 40 }),
+    )
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(
+      makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 2400, plannedFocusMinutes: 40 }),
     )
     const wrapper = await mountDashboard()
-    await button(wrapper, 'Abandon')!.trigger('click')
-    await button(wrapper, 'Abandon session')!.trigger('click')
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3600, status: 'COMPLETED' }), weekly: null, dailyStreak: 5,
+      weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+
+    await button(wrapper, 'Complete')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Day 5 of your streak')
+    wrapper.unmount()
+  })
+
+  it('works out, before ending early, what the session keeps and whether websites unblock', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ uncreditedStreakSeconds: 300 }))
+    const wrapper = await mountDashboard()
+
+    await button(wrapper, 'End early')!.trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain("You keep 5 min toward today's target. No completion XP.")
+    expect(document.body.textContent).toContain("Websites stay blocked until today's 60 min target is reached (35 min to go).")
+    wrapper.unmount()
+  })
+
+  it('says how much of a session ended early still counted toward today', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
+    vi.mocked(sessionApi.abandonSession).mockResolvedValue(
+      makeSession({ status: 'ABANDONED', blockingState: 'RELEASED', qualifyingSeconds: 1080 }),
+    )
+    const wrapper = await mountDashboard()
+    await button(wrapper, 'End early')!.trigger('click')
+    await button(wrapper, 'End session')!.trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('Session complete')
+    expect(wrapper.text()).toContain('Ended early. 18 min counted toward today.')
     wrapper.unmount()
+  })
+
+  it("shows today's target and streak on the start page and while focusing", async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    const idle = await mountDashboard()
+    expect(idle.text()).toContain('Today 20 / 60 min')
+    expect(idle.text()).toContain('4-day streak')
+    idle.unmount()
+
+    // 5 minutes of the running session are not credited yet; they count on the bar all the same.
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession({ uncreditedStreakSeconds: 300 }))
+    const running = await mountDashboard()
+    expect(running.get('[aria-label="Active session"]').text()).toContain('Today 25 / 60 min')
+    running.unmount()
   })
 
   it('links to the session history from the start page only', async () => {
@@ -151,18 +227,15 @@ describe('DashboardView', () => {
     running.unmount()
   })
 
-  it('creates a session from the form, then starts it in place', async () => {
+  it('creates a session from the form and starts it in one step', async () => {
     const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, startedAt: null })
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
     vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
     const wrapper = await mountDashboard()
     await wrapper.get('select').setValue('CODING')
-    await wrapper.get('form').trigger('submit')
-    await flushPromises()
-    expect(wrapper.find('[aria-label="Session ready"]').exists()).toBe(true)
 
-    await button(wrapper, 'Start session')!.trigger('click')
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
 
     expect(sessionApi.startSession).toHaveBeenCalledWith(7)
@@ -178,11 +251,11 @@ describe('DashboardView', () => {
 
     expect(wrapper.text()).toContain('Write the report')
     expect(button(wrapper, 'Pause')).toBeDefined()
-    expect(button(wrapper, 'Complete')?.attributes('disabled')).toBeDefined()
+    expect(button(wrapper, 'Complete')).toBeUndefined()
     wrapper.unmount()
   })
 
-  it('enables Complete only when the server reports no remaining time', async () => {
+  it('offers Complete only when the server reports no remaining time', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
       makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
     )
@@ -229,7 +302,7 @@ describe('DashboardView', () => {
     )
     const wrapper = await mountDashboard()
 
-    await button(wrapper, 'Abandon')!.trigger('click')
+    await button(wrapper, 'End early')!.trigger('click')
     await flushPromises()
 
     expect(document.body.textContent).toContain('Websites stay unblocked.')
@@ -260,8 +333,8 @@ describe('DashboardView', () => {
       makeSession({ status: 'ABANDONED', blockingState: 'OVERRIDE_USED', overrideUsed: true }),
     )
     const wrapper = await mountDashboard()
-    await button(wrapper, 'Abandon')!.trigger('click')
-    await button(wrapper, 'Abandon session')!.trigger('click')
+    await button(wrapper, 'End early')!.trigger('click')
+    await button(wrapper, 'End session')!.trigger('click')
     await flushPromises()
     expect(sessionApi.overrideSession).not.toHaveBeenCalled()
 
@@ -351,10 +424,10 @@ describe('DashboardView', () => {
     )
     const wrapper = await mountDashboard()
 
-    await button(wrapper, 'Abandon')!.trigger('click')
+    await button(wrapper, 'End early')!.trigger('click')
     expect(sessionApi.abandonSession).not.toHaveBeenCalled()
 
-    await button(wrapper, 'Abandon session')!.trigger('click')
+    await button(wrapper, 'End session')!.trigger('click')
     await flushPromises()
 
     expect(sessionApi.abandonSession).toHaveBeenCalledWith(1)

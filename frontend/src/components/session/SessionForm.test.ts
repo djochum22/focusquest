@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SessionForm from './SessionForm.vue'
 
@@ -10,17 +10,25 @@ type Wrapper = ReturnType<typeof mountForm>
 
 const submit = (wrapper: Wrapper) => wrapper.get('form').trigger('submit')
 const minutesInput = (wrapper: Wrapper) => wrapper.get('input[type="number"]')
+const preset = (wrapper: Wrapper, value: string) => wrapper.get(`input[name="duration"][value="${value}"]`)
+/** Picks "Custom" and types the minutes. */
+async function typeMinutes(wrapper: Wrapper, value: string) {
+  await wrapper.findAll('input[name="duration"]').at(-1)!.setValue()
+  await minutesInput(wrapper).setValue(value)
+}
+
+beforeEach(() => localStorage.clear())
 const submitted = (wrapper: Wrapper) => wrapper.emitted('submit') ?? []
 
 describe('SessionForm', () => {
   describe('validation', () => {
-    it('asks for a category before creating a task session', async () => {
+    it('starts on Studying the first time, so a first session needs no category choice', async () => {
       const wrapper = mountForm()
 
+      expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('STUDYING')
+      expect(wrapper.get('select').attributes('aria-required')).toBe('true')
       await submit(wrapper)
-
-      expect(wrapper.text()).toContain('Choose a category.')
-      expect(submitted(wrapper)).toHaveLength(0)
+      expect(submitted(wrapper)[0]![0]).toMatchObject({ taskCategory: 'STUDYING' })
     })
 
     it.each([
@@ -32,7 +40,7 @@ describe('SessionForm', () => {
     ])('rejects a %s duration', async (_name, value, message) => {
       const wrapper = mountForm()
       await wrapper.get('select').setValue('CODING')
-      await minutesInput(wrapper).setValue(value)
+      await typeMinutes(wrapper, value)
 
       await submit(wrapper)
 
@@ -43,7 +51,7 @@ describe('SessionForm', () => {
     it('accepts the minimum duration', async () => {
       const wrapper = mountForm()
       await wrapper.get('select').setValue('CODING')
-      await minutesInput(wrapper).setValue('5')
+      await typeMinutes(wrapper, '5')
 
       await submit(wrapper)
 
@@ -52,11 +60,10 @@ describe('SessionForm', () => {
 
     it('flags the invalid fields for assistive technology', async () => {
       const wrapper = mountForm()
-      await minutesInput(wrapper).setValue('')
+      await typeMinutes(wrapper, '')
 
       await submit(wrapper)
 
-      expect(wrapper.get('select').attributes('aria-invalid')).toBe('true')
       expect(minutesInput(wrapper).attributes('aria-invalid')).toBe('true')
     })
 
@@ -68,12 +75,13 @@ describe('SessionForm', () => {
 
     it('clears earlier errors once the form is valid', async () => {
       const wrapper = mountForm()
+      await typeMinutes(wrapper, '2')
       await submit(wrapper)
-      await wrapper.get('select').setValue('CODING')
+      await minutesInput(wrapper).setValue('20')
 
       await submit(wrapper)
 
-      expect(wrapper.text()).not.toContain('Choose a category.')
+      expect(wrapper.text()).not.toContain('at least 5 minutes')
     })
   })
 
@@ -81,7 +89,8 @@ describe('SessionForm', () => {
     it('defaults to a 25 minute task session', () => {
       const wrapper = mountForm()
 
-      expect((minutesInput(wrapper).element as HTMLInputElement).value).toBe('25')
+      expect((preset(wrapper, '25').element as HTMLInputElement).checked).toBe(true)
+      expect(wrapper.find('input[type="number"]').exists()).toBe(false)
       expect((wrapper.get('input[type="radio"][value="TASK_REQUIRED"]').element as HTMLInputElement).checked).toBe(true)
     })
 
@@ -89,7 +98,7 @@ describe('SessionForm', () => {
       const wrapper = mountForm()
       await wrapper.get('input[type="text"]').setValue('  Refactor the parser  ')
       await wrapper.get('select').setValue('CODING')
-      await minutesInput(wrapper).setValue('40')
+      await typeMinutes(wrapper, '40')
 
       await submit(wrapper)
 
@@ -147,12 +156,57 @@ describe('SessionForm', () => {
     })
   })
 
+  describe('quick choices', () => {
+    it('keeps the session-type radios in one group, so arrow keys move between them', () => {
+      const names = mountForm()
+        .findAll('input[value="TASK_REQUIRED"], input[value="TASK_FREE"]')
+        .map((r) => r.attributes('name'))
+
+      expect(names).toEqual(['taskMode', 'taskMode'])
+    })
+
+    it('starts a session of a preset length in one tap', async () => {
+      const wrapper = mountForm()
+      await wrapper.get('select').setValue('CODING')
+      await preset(wrapper, '50').setValue()
+
+      await submit(wrapper)
+
+      expect(submitted(wrapper)[0]![0]).toMatchObject({ plannedFocusMinutes: 50 })
+    })
+
+    it('starts the next form from the category and length used last', async () => {
+      const first = mountForm()
+      await first.get('select').setValue('READING')
+      await preset(first, '90').setValue()
+      await submit(first)
+
+      const next = mountForm()
+
+      expect((next.get('select').element as HTMLSelectElement).value).toBe('READING')
+      expect((preset(next, '90').element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('starts from given details, such as a planned session being changed', () => {
+      const wrapper = mount(SessionForm, {
+        props: {
+          submitting: false,
+          initial: { taskMode: 'TASK_REQUIRED', taskCategory: 'WRITING', taskDescription: 'Essay draft', plannedFocusMinutes: 35 },
+        },
+      })
+
+      expect((wrapper.get('input[type="text"]').element as HTMLInputElement).value).toBe('Essay draft')
+      expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('WRITING')
+      expect((minutesInput(wrapper).element as HTMLInputElement).value).toBe('35')
+    })
+  })
+
   describe('while submitting', () => {
     it('shows progress and disables the button', () => {
       const wrapper = mountForm(true)
 
       const button = wrapper.get('button[type="submit"]')
-      expect(button.text()).toBe('Creating…')
+      expect(button.text()).toBe('Starting…')
       expect(button.attributes('disabled')).toBeDefined()
     })
   })

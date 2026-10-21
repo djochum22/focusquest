@@ -53,6 +53,8 @@ export interface FocusSession {
   cameraVerification: boolean
   /** Off-task time so far, subtracted from the active time; `remainingFocusSeconds` already counts it. */
   offTaskSeconds: number
+  /** The session's time not yet credited to the streak; the backend credits at pause, resume and end. */
+  uncreditedStreakSeconds: number
   generatedAt: string
 }
 

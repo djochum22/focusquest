@@ -67,23 +67,22 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
     </p>
     <div class="active__actions">
       <AppButton variant="secondary" :disabled="busy" @click="emit('pause')">Pause</AppButton>
-      <!-- Enabled from the server's own figure, not the local countdown: the backend decides. -->
-      <AppButton :disabled="busy || session.remainingFocusSeconds > 0" @click="emit('complete')">
+      <!-- Offered once the server's own figure allows it, not the local countdown: the backend decides.
+           Beside Pause, not above it: past the plan the student may well still be in flow. -->
+      <AppButton v-if="session.remainingFocusSeconds <= 0" variant="secondary" :disabled="busy" @click="emit('complete')">
         Complete
       </AppButton>
     </div>
     <p v-if="session.remainingFocusSeconds > 0" class="muted active__hint">
       You can complete the session once the planned time is reached.
     </p>
-    <div class="active__leave">
-      <AppButton variant="secondary" :disabled="busy" @click="emit('abandon')">Abandon</AppButton>
-    </div>
+    <slot />
+    <AppButton variant="link" class="active__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
   </section>
 </template>
 
 <style scoped>
-.active__actions,
-.active__leave {
+.active__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -94,8 +93,7 @@ const counting = computed(() => props.offTask?.state !== 'DEDUCTING')
   text-align: center;
   font-size: 0.9rem;
 }
-.active__leave {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+.active .active__leave {
+  align-self: center;
 }
 </style>

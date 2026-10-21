@@ -6,6 +6,8 @@ import * as sessionApi from '../../api/sessionApi'
 import { apiFailure, networkFailure } from '../../test-utils/apiFailures'
 import { makeSession } from '../../test-utils/sessions'
 import { useSessionStore } from '../../stores/sessionStore'
+import { useStreakStore } from '../../stores/streakStore'
+import type { StreakProgress } from '../../types/streak'
 import SessionPlanner from './SessionPlanner.vue'
 
 vi.mock('../../api/sessionApi')
@@ -27,6 +29,12 @@ async function createTaskSession(wrapper: Wrapper) {
 
 const planned = makeSession({ id: 7, status: 'PLANNED', blockingState: null, startedAt: null })
 
+const makeDaily = (overrides: Partial<StreakProgress> = {}): StreakProgress => ({
+  periodType: 'DAILY', startTime: '2026-10-21T00:00:00Z', endTime: '2026-10-22T00:00:00Z', targetMinutes: 60,
+  requiredTaskMode: 'TASK_REQUIRED', requiredCategory: null, qualifyingSeconds: 1200, overtimeSeconds: 0,
+  status: 'ACTIVE', ...overrides,
+})
+
 const cameraOff = { enabled: false, consentVersion: 1, consentedAt: null, verifyNewSessionsByDefault: true,
   companion: { paired: false, pairedAt: null, lastSeenAt: null, connected: false, calibration: null } }
 
@@ -35,6 +43,7 @@ beforeEach(() => {
   vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue(cameraOff)
   setActivePinia(createPinia())
   document.body.innerHTML = ''
+  localStorage.clear()
 })
 
 describe('SessionPlanner', () => {
@@ -46,8 +55,9 @@ describe('SessionPlanner', () => {
     wrapper.unmount()
   })
 
-  it('creates the session from the form values and offers to start it', async () => {
+  it('creates the session from the form values and starts it in one step', async () => {
     vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
     const wrapper = mountPlanner()
 
     await createTaskSession(wrapper)
@@ -58,37 +68,33 @@ describe('SessionPlanner', () => {
       taskDescription: null,
       plannedFocusMinutes: 25,
     })
-    expect(wrapper.get('[aria-label="Session ready"]').text()).toContain('Starting it begins the timer')
-    expect(button(wrapper, 'Start session')).toBeDefined()
-    wrapper.unmount()
-  })
-
-  it('starts the planned session, which becomes the current one', async () => {
-    vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
-    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
-    const wrapper = mountPlanner()
-    await createTaskSession(wrapper)
-
-    await button(wrapper, 'Start session')!.trigger('click')
-    await flushPromises()
-
     expect(sessionApi.startSession).toHaveBeenCalledWith(7)
     expect(useSessionStore().current?.id).toBe(7)
     wrapper.unmount()
   })
 
-  it('lets the user go back and change the details before starting', async () => {
-    vi.mocked(sessionApi.createSession).mockResolvedValue(planned)
+  it('says, before starting, that websites stay blocked until the daily target is reached', () => {
+    useStreakStore().daily = makeDaily()
+    const wrapper = mountPlanner()
+
+    expect(wrapper.text()).toContain("Websites stay blocked until today's 60 min target is reached, even after this session ends.")
+    expect(wrapper.text()).toContain('Today 20 / 60 min')
+    wrapper.unmount()
+  })
+
+  it('offers a planned session left over to start, or to change with its details kept', async () => {
+    useSessionStore().planned = { ...planned, taskDescription: 'Essay draft', taskCategory: 'WRITING', plannedFocusMinutes: 35 }
     vi.mocked(sessionApi.deletePlannedSession).mockResolvedValue()
     const wrapper = mountPlanner()
-    await createTaskSession(wrapper)
+    expect(button(wrapper, 'Start focusing')).toBeDefined()
 
     await button(wrapper, 'Change details')!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('form').exists()).toBe(true)
     expect(sessionApi.deletePlannedSession).toHaveBeenCalledWith(planned.id)
     expect(sessionApi.startSession).not.toHaveBeenCalled()
+    expect((wrapper.get('input[type="text"]').element as HTMLInputElement).value).toBe('Essay draft')
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('WRITING')
     wrapper.unmount()
   })
 
@@ -110,6 +116,7 @@ describe('SessionPlanner', () => {
       vi.mocked(sessionApi.createSession)
         .mockRejectedValueOnce(networkFailure())
         .mockResolvedValueOnce(planned)
+      vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7 }))
       const wrapper = mountPlanner()
       await createTaskSession(wrapper)
       expect(wrapper.find('[role="alert"]').exists()).toBe(true)
@@ -118,7 +125,7 @@ describe('SessionPlanner', () => {
       await flushPromises()
 
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-      expect(wrapper.find('[aria-label="Session ready"]').exists()).toBe(true)
+      expect(useSessionStore().current?.id).toBe(7)
       wrapper.unmount()
     })
 
@@ -131,10 +138,9 @@ describe('SessionPlanner', () => {
       const wrapper = mountPlanner()
       await createTaskSession(wrapper)
 
-      await button(wrapper, 'Start session')!.trigger('click')
-      await flushPromises()
-
+      // The planned session stays, with the refusal, so it can be started again or changed.
       expect(wrapper.get('[role="alert"]').text()).toBe('Another session is already in progress')
+      expect(button(wrapper, 'Start focusing')).toBeDefined()
       wrapper.unmount()
     })
   })
@@ -142,6 +148,7 @@ describe('SessionPlanner', () => {
   it('offers the camera once it is turned on in Settings, and creates a camera-verified session', async () => {
     vi.mocked(cameraApi.fetchCameraSettings).mockResolvedValue({ ...cameraOff, enabled: true, consentedAt: '2026-01-15T08:00:00Z' })
     vi.mocked(sessionApi.createSession).mockResolvedValue({ ...planned, cameraVerification: true })
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 7, cameraVerification: true }))
     const wrapper = mountPlanner()
     await flushPromises()
 
@@ -149,7 +156,7 @@ describe('SessionPlanner', () => {
     await createTaskSession(wrapper)
 
     expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({ cameraVerification: true }))
-    expect(wrapper.text()).toContain('Checked by camera')
+    expect(useSessionStore().current?.cameraVerification).toBe(true)
     wrapper.unmount()
   })
 

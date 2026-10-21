@@ -1,5 +1,6 @@
-import type { TaskCategory, TaskMode } from '../types/session'
+import type { FocusSession, TaskCategory, TaskMode } from '../types/session'
 import type { StreakPeriodStatus, StreakPeriodType, StreakProgress } from '../types/streak'
+import { formatMinutes } from './duration'
 import { CATEGORY_LABELS } from './sessionLabels'
 
 export const PERIOD_LABELS: Record<StreakPeriodType, string> = {
@@ -38,6 +39,61 @@ export function remainingSeconds(progress: StreakProgress): number {
 export function requirementLabel(taskMode: TaskMode, category: TaskCategory | null): string {
   if (taskMode === 'TASK_FREE') return 'Task-free sessions only'
   return category ? `Task-based sessions · ${CATEGORY_LABELS[category]}` : 'Task-based sessions · any category'
+}
+
+/** Whether a session's time counts toward a streak period; mirrors the backend's rule. */
+export function sessionCountsToward(
+  progress: StreakProgress,
+  session: { taskMode: TaskMode; taskCategory: TaskCategory },
+): boolean {
+  if (progress.requiredTaskMode !== session.taskMode) return false
+  return session.taskMode === 'TASK_FREE' || !progress.requiredCategory || progress.requiredCategory === session.taskCategory
+}
+
+/** What starting a session means for website blocking, given today's progress (null if unknown). */
+export function blockingSentence(daily: StreakProgress | null): string {
+  if (!daily || daily.status === 'COMPLETED') return 'Websites stay blocked while the session runs.'
+  return `Websites stay blocked until today's ${daily.targetMinutes} min target is reached, even after this session ends.`
+}
+
+/**
+ * Where today's target stands after a session: reached just now (the moment worth naming), or
+ * how much is left and what reaching it would do for the streak. Null once it was already reached.
+ */
+export function targetLine(daily: StreakProgress, streakLength: number, reachedNow: boolean): string | null {
+  if (daily.status === 'COMPLETED') {
+    // The bar beside it already says the target is reached; the line adds what that did for the streak.
+    return reachedNow ? `Day ${Math.max(1, streakLength)} of your streak` : null
+  }
+  const left = Math.ceil(remainingSeconds(daily) / 60)
+  return streakLength > 0
+    ? `${left} min more today keeps your ${streakLength}-day streak`
+    : `${left} min more today starts a streak`
+}
+
+/**
+ * What ending a running session early will do, worked out rather than left as a conditional: the
+ * time it keeps toward today, and whether websites unblock. `interrupted` sessions already let go.
+ */
+export function endEarlyOutcome(
+  session: FocusSession,
+  daily: StreakProgress | null,
+): { kept: string; blocking: string } {
+  const keptSeconds = session.activeFocusSeconds + session.finalizedPausedSeconds - session.offTaskSeconds
+  const counts = daily !== null && sessionCountsToward(daily, session)
+  const kept = counts
+    ? `You keep ${formatMinutes(keptSeconds)} toward today's target. No completion XP.`
+    : `${formatMinutes(keptSeconds)} focused, which does not count toward today's target. No completion XP.`
+  if (session.status === 'INTERRUPTED') return { kept, blocking: 'Websites stay unblocked.' }
+  if (!daily) return { kept, blocking: 'Websites unblock only if today\'s target is already reached.' }
+  const after = daily.qualifyingSeconds + (counts ? session.uncreditedStreakSeconds : 0)
+  if (daily.status === 'COMPLETED') return { kept, blocking: 'Today\'s target is already reached, so websites unblock now.' }
+  if (after >= daily.targetMinutes * 60) return { kept, blocking: 'That reaches today\'s target, so websites unblock now.' }
+  const left = Math.ceil((daily.targetMinutes * 60 - after) / 60)
+  return {
+    kept,
+    blocking: `Websites stay blocked until today's ${daily.targetMinutes} min target is reached (${left} min to go). You can then override that at an XP penalty.`,
+  }
 }
 
 /** The unit of a streak of this length: "day", "days", "week" or "weeks". */

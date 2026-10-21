@@ -38,13 +38,22 @@ export async function addBlockedSite(page: Page, site = SITE_HOST): Promise<void
   await expect(page.getByRole('listitem').filter({ hasText: site })).toBeVisible()
 }
 
-/** Plans a task session on the dashboard and starts it, which turns blocking on. */
+/** Picks a duration on the start page: one of the presets, or typed under "Custom". */
+export async function chooseDuration(page: Page, minutes: number): Promise<void> {
+  if ([25, 50, 90].includes(minutes)) {
+    await page.getByLabel(`${minutes} min`, { exact: true }).check()
+  } else {
+    await page.getByLabel('Custom', { exact: true }).check()
+    await page.getByLabel('Minutes', { exact: true }).fill(String(minutes))
+  }
+}
+
+/** Starts a task session from the dashboard in one step, which turns blocking on. */
 export async function startSession(page: Page, minutes = 5): Promise<void> {
   await page.goto(FRONTEND_URL)
   await page.getByLabel('Category').selectOption('WRITING')
-  await page.getByLabel('Duration (minutes)').fill(String(minutes))
-  await page.getByRole('button', { name: 'Create session' }).click()
-  await page.getByRole('button', { name: 'Start session' }).click()
+  await chooseDuration(page, minutes)
+  await page.getByRole('button', { name: 'Start focusing' }).click()
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
 }
 

@@ -84,12 +84,8 @@ onBeforeUnmount(() => media?.removeEventListener?.('change', onSystemChange))
   width: 0.85rem;
   height: 0.85rem;
 }
-.theme-toggle[aria-checked='true'] .theme-toggle__track {
-  border-color: var(--accent);
-  background: var(--accent);
-}
+/* On, the knob moves across; the track stays neutral, since green is kept for acting and progress. */
 .theme-toggle[aria-checked='true'] .theme-toggle__thumb {
-  background: var(--accent-contrast);
   transform: translate(1.4rem, -50%);
 }
 @media (prefers-reduced-motion: reduce) {

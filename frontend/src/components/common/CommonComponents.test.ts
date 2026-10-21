@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ErrorMessage from './ErrorMessage.vue'
@@ -244,9 +244,13 @@ describe('InfoTip', () => {
     const wrapper = mountTip()
     const tip = () => wrapper.get('[role="tooltip"]').classes()
 
-    await wrapper.trigger('mouseenter')
+    await wrapper.trigger('pointerenter', { pointerType: 'mouse' })
     expect(tip()).toContain('info__tip--open')
-    await wrapper.trigger('mouseleave')
+    await wrapper.trigger('pointerleave', { pointerType: 'mouse' })
+    expect(tip()).not.toContain('info__tip--open')
+
+    // A finger's hover events are left to the tap itself.
+    await wrapper.trigger('pointerenter', { pointerType: 'touch' })
     expect(tip()).not.toContain('info__tip--open')
 
     await wrapper.get('button').trigger('focus')
@@ -264,5 +268,24 @@ describe('InfoTip', () => {
 
     expect(wrapper.get('[role="tooltip"]').classes()).toContain('info__tip--open')
     expect(wrapper.get('button').attributes('aria-expanded')).toBe('true')
+  })
+
+  it('closes on a second tap, and on a tap elsewhere', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(InfoTip, { slots: { default: 'Why this matters' }, attachTo: document.body })
+    const tip = () => wrapper.get('[role="tooltip"]').classes()
+
+    await wrapper.get('button').trigger('click')
+    vi.advanceTimersByTime(1000)
+    await wrapper.get('button').trigger('click')
+    expect(tip()).not.toContain('info__tip--open')
+
+    await wrapper.get('button').trigger('click')
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+    expect(tip()).not.toContain('info__tip--open')
+
+    wrapper.unmount()
+    vi.useRealTimers()
   })
 })

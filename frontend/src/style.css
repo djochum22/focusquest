@@ -111,6 +111,16 @@ select {
   font: inherit;
 }
 
+/* Placeholders are hints, but they still need to be readable: Chromium's default grey is not on dusk. */
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
 input:focus-visible,
 select:focus-visible,
 button:focus-visible,
@@ -184,6 +194,9 @@ a {
 .auth-card h1,
 .page-title,
 .planner__title,
+.meta__task,
+.complete__xp,
+.modal__title,
 .stat__value,
 .streak-progress__count,
 .freezes__owned {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useId } from 'vue'
+import { onBeforeUnmount, ref, useId, watch } from 'vue'
 
 /**
  * A small "i" button whose explanation appears on hover, focus or tap. Longer explanations live here
@@ -9,17 +9,44 @@ withDefaults(defineProps<{ label?: string }>(), { label: 'More information' })
 
 const tipId = useId()
 const open = ref(false)
+const root = ref<HTMLElement | null>(null)
+
+/**
+ * A tap fires hover and focus just before the click, which opens the tip; a click that soon after
+ * must not close it again. A later tap on the button, or anywhere else, closes it.
+ */
+const SAME_GESTURE_MS = 400
+let openedAt = 0
+watch(open, (isOpen) => {
+  if (isOpen) openedAt = Date.now()
+  if (isOpen) document.addEventListener('pointerdown', onOutside)
+  else document.removeEventListener('pointerdown', onOutside)
+})
+onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside))
+
+function onOutside(event: PointerEvent) {
+  if (!root.value?.contains(event.target as Node)) open.value = false
+}
+
+/** Hover only means something for a mouse; a tap sends hover events too, and its leave would close the tip. */
+function onHover(event: PointerEvent, entering: boolean) {
+  if (event.pointerType === 'mouse') open.value = entering
+}
+
+function onClick() {
+  open.value = !(open.value && Date.now() - openedAt > SAME_GESTURE_MS)
+}
 </script>
 
 <template>
-  <span class="info" @mouseenter="open = true" @mouseleave="open = false">
+  <span ref="root" class="info" @pointerenter="onHover($event, true)" @pointerleave="onHover($event, false)">
     <button
       type="button"
       class="info__button"
       :aria-label="label"
       :aria-describedby="tipId"
       :aria-expanded="open"
-      @click="open = true"
+      @click="onClick"
       @focus="open = true"
       @blur="open = false"
       @keydown.esc="open = false"
@@ -47,8 +74,18 @@ const open = ref(false)
   border-radius: 50%;
   background: transparent;
   color: var(--text-muted);
-  font: italic 600 0.7rem/1 Georgia, serif;
+  font: 0.7rem/1 var(--font-display);
+  font-synthesis: none;
   cursor: help;
+}
+/* The circle stays small; the area a finger can hit reaches 24px around it. */
+.info__button {
+  position: relative;
+}
+.info__button::after {
+  position: absolute;
+  inset: -0.3rem;
+  content: '';
 }
 .info__button:hover {
   border-color: var(--text);
@@ -73,12 +110,31 @@ const open = ref(false)
   line-height: 1.4;
   text-align: left;
   transform: translateX(-50%);
-  visibility: hidden;
-  opacity: 0;
+  /* Out of the layout while closed, so a tip near the edge never widens the page. aria-describedby
+     still reads hidden text. */
+  display: none;
   transition: opacity 0.12s;
 }
 .info__tip--open {
-  visibility: visible;
-  opacity: 1;
+  display: block;
+}
+@starting-style {
+  .info__tip--open {
+    opacity: 0;
+  }
+}
+/* On a phone the tip docks along the bottom of the screen, clear of the edges and the content. */
+@media (max-width: 40rem) {
+  .info__tip {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    width: auto;
+    max-width: none;
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    transform: none;
+  }
 }
 </style>

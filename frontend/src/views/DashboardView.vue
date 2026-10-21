@@ -11,11 +11,17 @@ import ActiveSessionView from '../components/session/ActiveSessionView.vue'
 import InterruptedSessionView from '../components/session/InterruptedSessionView.vue'
 import ManualOverrideDialog from '../components/session/ManualOverrideDialog.vue'
 import PausedSessionView from '../components/session/PausedSessionView.vue'
+import SessionComplete from '../components/session/SessionComplete.vue'
 import SessionPlanner from '../components/session/SessionPlanner.vue'
+import TodayProgress from '../components/streak/TodayProgress.vue'
 import { useOffTaskStore } from '../stores/offTaskStore'
+import { useProgressionStore } from '../stores/progressionStore'
 import { useSessionStore } from '../stores/sessionStore'
+import { useStreakStore } from '../stores/streakStore'
+import type { FocusSession } from '../types/session'
 import { formatMinutes } from '../utils/duration'
 import { isOverridable } from '../utils/sessionState'
+import { endEarlyOutcome, sessionCountsToward, targetLine } from '../utils/streak'
 
 const session = useSessionStore()
 const offTask = useOffTaskStore()
@@ -26,23 +32,79 @@ const offTask = useOffTaskStore()
  */
 const blockingHeld = computed(() => session.lastEnded !== null && isOverridable(session.lastEnded))
 
-/** How long the "Session complete" acknowledgement stays before fading out. */
-const ACKNOWLEDGEMENT_MS = 6000
+const streak = useStreakStore()
+const progression = useProgressionStore()
 
-/** A brief nod to a session just completed, with its focused time; null once it has faded. */
-const completedFocus = ref<string | null>(null)
-let acknowledgementTimer: ReturnType<typeof setTimeout> | undefined
+/**
+ * Today's target, fetched again whenever the session changes, since the backend credits time on
+ * pause, resume and end. A failed fetch leaves the bar out; nothing here depends on it.
+ */
+function refreshStreak() {
+  streak.fetchCurrent().catch(() => {})
+}
+watch(() => [session.current?.status, session.receivedAt, session.lastEnded?.id], refreshStreak)
+
+/**
+ * Set when a fetch shows today's target newly reached, so whatever screen comes next can name the
+ * moment; cleared when the next session starts.
+ */
+const reachedNow = ref(false)
 watch(
-  () => session.lastEnded,
-  (ended) => {
-    clearTimeout(acknowledgementTimer)
-    completedFocus.value = null
-    if (ended?.status !== 'COMPLETED') return
-    completedFocus.value = formatMinutes(ended.activeFocusSeconds - ended.offTaskSeconds)
-    acknowledgementTimer = setTimeout(() => (completedFocus.value = null), ACKNOWLEDGEMENT_MS)
+  () => streak.daily?.status,
+  (status, previous) => {
+    if (status === 'COMPLETED' && previous !== undefined && previous !== 'COMPLETED') reachedNow.value = true
   },
 )
-onBeforeUnmount(() => clearTimeout(acknowledgementTimer))
+watch(
+  () => session.current?.id,
+  (id, previous) => {
+    if (id !== undefined && id !== previous) reachedNow.value = false
+  },
+)
+const milestone = computed(() => (streak.daily ? targetLine(streak.daily, streak.dailyStreak, reachedNow.value) : null))
+
+/** The running session's share of today not yet credited, and whether it is still growing. */
+const sessionToday = computed(() => {
+  const current = session.current
+  if (!current || !streak.daily || streak.daily.status === 'COMPLETED' || !sessionCountsToward(streak.daily, current)) {
+    return { extra: 0, since: null }
+  }
+  const growing = current.status === 'ACTIVE' && offTask.status?.state !== 'DEDUCTING'
+  return { extra: current.uncreditedStreakSeconds, since: growing ? session.receivedAt : null }
+})
+
+/** XP the last completed session added: the balance before it, then after. */
+const xpGained = ref<number | null>(null)
+watch(
+  () => session.lastEnded,
+  async (ended) => {
+    xpGained.value = null
+    if (ended?.status !== 'COMPLETED') return
+    const before = progression.loaded ? progression.totalXp : null
+    try {
+      await progression.fetch()
+      if (before !== null) xpGained.value = progression.totalXp - before
+    } catch {
+      // ignore
+    }
+  },
+)
+
+const completed = computed(() => (session.lastEnded?.status === 'COMPLETED' ? session.lastEnded : null))
+
+/** A line about a session just ended early: the time it kept, and whether today's target got it. */
+function endedEarlyText(ended: FocusSession): string {
+  const kept = formatMinutes(ended.qualifyingSeconds)
+  return streak.daily && sessionCountsToward(streak.daily, ended)
+    ? `Ended early. ${kept} counted toward today.`
+    : `Ended early after ${kept}.`
+}
+
+/** What ending the current session early would do, for the confirmation. */
+const endOutcome = computed(() => (session.current ? endEarlyOutcome(session.current, streak.daily) : null))
+const endedEarly = computed(() =>
+  session.lastEnded?.status === 'ABANDONED' && session.lastEnded.qualifyingSeconds > 0 ? endedEarlyText(session.lastEnded) : null,
+)
 
 // Poll the camera's view only while a camera-verified session is running.
 watch(
@@ -109,6 +171,8 @@ function onVisibilityChange() {
 
 onMounted(() => {
   void load()
+  refreshStreak()
+  progression.fetch().catch(() => {})
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
@@ -140,7 +204,16 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         @complete="perform(() => session.complete(session.current!.id))"
         @abandon="confirming = 'abandon'"
         @elapsed="resync"
-      />
+      >
+        <TodayProgress
+          v-if="streak.daily"
+          :progress="streak.daily"
+          :streak-length="streak.dailyStreak"
+          :extra-seconds="sessionToday.extra"
+          :counting-since="sessionToday.since"
+          compact
+        />
+      </ActiveSessionView>
       <PausedSessionView
         v-else-if="session.current?.status === 'PAUSED'"
         :session="session.current"
@@ -148,7 +221,15 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :busy="session.busy"
         @resume="perform(() => session.resume(session.current!.id))"
         @abandon="confirming = 'abandon'"
-      />
+      >
+        <TodayProgress
+          v-if="streak.daily"
+          :progress="streak.daily"
+          :streak-length="streak.dailyStreak"
+          :extra-seconds="sessionToday.extra"
+          compact
+        />
+      </PausedSessionView>
       <InterruptedSessionView
         v-else-if="session.current?.status === 'INTERRUPTED'"
         :session="session.current"
@@ -158,18 +239,31 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         @abandon="confirming = 'abandon'"
       />
 
+      <SessionComplete
+        v-else-if="completed"
+        :session="completed"
+        :xp-gained="xpGained"
+        :today="streak.daily"
+        :streak-length="streak.dailyStreak"
+        :milestone="milestone"
+        :milestone-reached="reachedNow"
+        @next="session.dismissLastEnded()"
+      />
+
       <template v-else>
-        <Transition name="dashboard__fade">
-          <p v-if="completedFocus" class="dashboard__complete" role="status">
-            <span aria-hidden="true">✓</span> Session complete · {{ completedFocus }} focused
-          </p>
-        </Transition>
-        <SessionPlanner />
+        <SessionPlanner>
+          <template v-if="endedEarly" #today>
+            <span role="status">
+              {{ endedEarly }}
+              <strong v-if="reachedNow && milestone" class="dashboard__milestone">{{ milestone }}</strong>
+            </span>
+          </template>
+        </SessionPlanner>
         <p v-if="blockingHeld" class="dashboard__held" role="status">
           Websites are still blocked from your last session
           <InfoTip label="Why are websites still blocked?">
-            They stay blocked until today's daily streak is reached. Overriding unblocks them for the
-            rest of today, at an XP penalty.
+            They stay blocked until today's target is reached. Overriding unblocks them for the rest of
+            today, at an XP penalty.
           </InfoTip>
           <span aria-hidden="true">·</span>
           <AppButton variant="link" :disabled="session.busy" @click="confirming = 'override'">
@@ -183,20 +277,19 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
     <ConfirmDialog
       :open="confirming === 'abandon'"
-      title="Abandon this session?"
-      confirm-label="Abandon session"
+      title="End this session early?"
+      confirm-label="End session"
       cancel-label="Keep focusing"
       danger
       :loading="session.busy"
       @confirm="confirmAbandon"
       @cancel="confirming = null"
     >
-      <p>The session ends without completion XP. The time you have focused so far still counts toward your streak.</p>
-      <p v-if="session.current?.status === 'INTERRUPTED'">Websites stay unblocked.</p>
-      <p v-else>
-        Websites are unblocked only if today's daily streak is already reached. Otherwise they stay
-        blocked, and you can then choose to override the blocking at an XP penalty.
-      </p>
+      <!-- Worked out from today's target and the session's own time, not left as an if/otherwise. -->
+      <template v-if="endOutcome">
+        <p>{{ endOutcome.kept }}</p>
+        <p>{{ endOutcome.blocking }}</p>
+      </template>
     </ConfirmDialog>
 
     <ManualOverrideDialog
@@ -211,34 +304,18 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 <style scoped>
 /* A start page, not a panel: the content sits open on the page, a little above centre. */
 .dashboard__stack {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   max-width: 34rem;
   margin: 0 auto;
-  padding-top: 10vh;
+  padding-top: 6vh;
 }
-/* Sits in the space above the heading, so the form does not jump when it fades. */
-.dashboard__complete {
-  position: absolute;
-  top: calc(10vh - 2.75rem);
-  left: 50%;
-  margin: 0;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  padding: 0.3rem 0.9rem;
-  border-radius: 999px;
-  background: var(--success-bg);
+.dashboard__milestone {
+  display: block;
+  margin-top: 0.15rem;
   color: var(--success);
-  font-size: 0.9rem;
   font-weight: 600;
-}
-.dashboard__fade-leave-active {
-  transition: opacity 0.6s;
-}
-.dashboard__fade-leave-to {
-  opacity: 0;
 }
 .dashboard__history {
   align-self: center;

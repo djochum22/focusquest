@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { advanceBackendClock, expect, test } from '../support/fixtures'
 import { Companion } from '../support/companion'
 import { FRONTEND_URL } from '../support/env'
-import { openSettingsSection, setUpAccount } from '../support/flows'
+import { chooseDuration, openSettingsSection, setUpAccount } from '../support/flows'
 
 // The companion reports every 2 seconds and the web app checks every 5: a change on the backend shows
 // in the session screen within about 10 seconds.
@@ -31,10 +31,9 @@ async function expectCompanionConnected(page: Page): Promise<void> {
 async function startCameraSession(page: Page): Promise<void> {
   await page.goto(FRONTEND_URL)
   await page.getByLabel('Category').selectOption('WRITING')
-  await page.getByLabel('Duration (minutes)').fill('30')
+  await chooseDuration(page, 30)
   await expect(page.getByLabel('Verify with camera')).toBeChecked()   // the default once turned on
-  await page.getByRole('button', { name: 'Create session' }).click()
-  await page.getByRole('button', { name: 'Start session' }).click()
+  await page.getByRole('button', { name: 'Start focusing' }).click()
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
 }
 

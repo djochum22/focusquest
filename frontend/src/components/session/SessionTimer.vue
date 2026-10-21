@@ -11,6 +11,8 @@ const props = defineProps<{
   receivedAt: number
   /** True only while the session is ACTIVE. A paused timer stays frozen at the server's figure. */
   running: boolean
+  /** What the browser tab says while the timer is stopped, e.g. "Paused". */
+  stoppedLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -54,12 +56,34 @@ const progress = computed(() =>
 watch(remaining, (value, previous) => {
   if (value === 0 && previous > 0 && props.running) emit('elapsed')
 })
+
+/**
+ * Past the planned time the student is assumed to be in flow: the clock keeps going, counting the
+ * time beyond the plan, and Complete waits beside Pause rather than taking over.
+ */
+const reached = computed(() => props.plannedSeconds > 0 && remaining.value === 0)
+const clockText = computed(() => (reached.value ? `+${formatClock(overtime.value)}` : formatClock(remaining.value)))
+
+// The browser tab carries the time too, for a student who has switched to their work.
+const APP_TITLE = 'FocusQuest'
+watch(
+  [clockText, () => props.running, () => props.stoppedLabel],
+  () => {
+    document.title = `${props.running ? clockText.value : (props.stoppedLabel ?? 'Paused')} · ${APP_TITLE}`
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => (document.title = APP_TITLE))
 </script>
 
 <template>
-  <div class="timer" :class="{ 'timer--paused': !running }">
-    <p class="timer__clock" role="timer" aria-label="Time remaining">{{ formatClock(remaining) }}</p>
-    <p v-if="overtime > 0" class="timer__overtime">+{{ formatClock(overtime) }} overtime</p>
+  <div class="timer" :class="{ 'timer--paused': !running, 'timer--reached': reached }">
+    <!-- Said once when the planned time is reached; the clock itself is not announced every second. -->
+    <p class="timer__reached" role="status">{{ reached ? 'Planned time reached' : '' }}</p>
+    <!-- The time itself is the timer's content, so screen readers read it rather than a label. -->
+    <p class="timer__clock">
+      <span class="visually-hidden">{{ reached ? 'Time beyond the plan: ' : 'Time remaining: ' }}</span><span role="timer">{{ clockText }}</span>
+    </p>
     <div
       class="timer__bar"
       role="progressbar"
@@ -87,14 +111,16 @@ watch(remaining, (value, previous) => {
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
-.timer--paused .timer__clock {
-  color: var(--text-muted);
-}
-.timer__overtime {
+.timer__reached {
+  min-height: 1.35rem;
   margin: 0;
   color: var(--success);
+  font-size: 0.9rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+}
+/* Paused reads as resting: the figures step back, the state pill above says why. */
+.timer--paused .timer__clock {
+  color: var(--text-muted);
 }
 .timer__bar {
   width: 100%;
@@ -107,6 +133,9 @@ watch(remaining, (value, previous) => {
   height: 100%;
   background: var(--accent);
   transition: width 0.25s linear;
+}
+.timer--reached .timer__fill {
+  background: var(--success);
 }
 .timer--paused .timer__fill {
   background: var(--text-muted);

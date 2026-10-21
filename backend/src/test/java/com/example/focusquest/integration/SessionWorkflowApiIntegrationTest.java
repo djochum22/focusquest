@@ -63,16 +63,20 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
         postAs(token, SESSIONS + "/" + id + "/pause")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAUSED"))
-                .andExpect(jsonPath("$.activeFocusSeconds").value(600));
+                .andExpect(jsonPath("$.activeFocusSeconds").value(600))
+                .andExpect(jsonPath("$.uncreditedStreakSeconds").value(600));   // credited only on resume
         getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(true));
 
         advance(60);
         postAs(token, SESSIONS + "/" + id + "/resume").andExpect(jsonPath("$.status").value("ACTIVE"));
         getAs(token, SESSIONS + "/current")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id));
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.uncreditedStreakSeconds").value(0));
+        advance(5 * 60);
+        getAs(token, SESSIONS + "/current").andExpect(jsonPath("$.uncreditedStreakSeconds").value(5 * 60));   // the running segment
 
-        advance(20 * 60);
+        advance(15 * 60);
         postAs(token, SESSIONS + "/" + id + "/complete")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))

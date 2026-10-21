@@ -147,6 +147,15 @@ so that I can commit to focused work.
 - Given the user confirms the session,  
   when the session is created,  
   then the session is in the PLANNED state.
+- Given the user is on the session-creation screen,  
+  when the user picks a duration,  
+  then 25, 50 and 90 minutes are one tap each, and any other length can be typed under "Custom".
+- Given the user started a session from this browser before,  
+  when the session-creation screen opens,  
+  then it starts from the category and duration used last; the first time, the category is Studying.
+- Given the user is about to start a session,  
+  when today's daily target is not reached,  
+  then the screen says, without a tooltip, that websites stay blocked until the target is reached, even after the session ends.
 
 ## **US-021: Configure blocked targets for a session**
 
@@ -179,6 +188,12 @@ so that blocking becomes active and my focus time begins.
 - Given a session is in the PLANNED state,  
   when the user starts the session,  
   then the session transitions to ACTIVE.
+- Given the user fills in the session-creation form,  
+  when the user selects "Start focusing",  
+  then the session is created and started in one step.
+- Given a planned session was left unstarted (after a reload, or when starting failed),  
+  when the user selects "Change details",  
+  then the planned session is deleted and the form opens with its details filled in.
 - Given the session starts,  
   when the session becomes active,  
   then the Chrome extension activates blocking for the configured targets.
@@ -209,6 +224,18 @@ so that I receive session-completion XP and the session is recorded as completed
 - Given the session is completed,  
   when the session's qualifying time is calculated,  
   then the time is added to the applicable streak period.
+- Given the session is completed,  
+  when the dashboard shows the result,  
+  then it shows the XP the completion added, the focused time and today's progress, and keeps them on screen until the user selects "Plan another".
+- Given a completion or an early end pushes today over the daily target,  
+  when the dashboard shows the result,  
+  then it names the streak day reached ("Day 1 of your streak"); short of the target, it says how many minutes more would start or keep the streak.
+- Given a running session reaches its planned time,  
+  when the timer reaches zero,  
+  then it says "Planned time reached" once (also to screen readers) and keeps counting the time beyond the plan, with Complete offered beside Pause.
+- Given a session is running or paused,  
+  when the user looks at the browser tab,  
+  then its title shows the time left, the time beyond the plan, or "Paused".
 
 ## **Epic 5: Pausing and resuming sessions**
 
@@ -279,6 +306,12 @@ so that I can stop the commitment before completion.
 - Given the session is abandoned,  
   when session-completion XP is considered,  
   then no completion XP is awarded.
+- Given a session is running or paused,  
+  when the dashboard offers to abandon it,  
+  then the action is a quiet "End early" link that asks for confirmation, stating the time kept toward today's target and whether websites unblock now or how many minutes are left.
+- Given the session is abandoned with time that counts toward today's target,  
+  when the dashboard returns to the start page,  
+  then it says how many minutes counted toward today.
 
 ## **US-051: Release blocking after daily streak completion**
 
@@ -679,6 +712,9 @@ so that I know how close I am to completing my daily or weekly target.
 - Given the user views the dashboard,  
   when the current streak period is loaded,  
   then the application displays the target minutes and the current qualifying minutes.
+- Given a session that counts toward the daily target is running,  
+  when the user views the dashboard,  
+  then today's progress includes the session's time so far, although the backend credits it only at pause, resume and end.
 - Given the streak period is completed,  
   when the user views the streak,  
   then the application displays the completed status and streak count.

@@ -20,8 +20,10 @@ function mountTimer(props: Partial<InstanceType<typeof SessionTimer>['$props']> 
 const clock = (wrapper: ReturnType<typeof mountTimer>) => wrapper.get('[role="timer"]').text()
 
 describe('SessionTimer', () => {
-  it('shows the planned time before anything has elapsed', () => {
-    expect(clock(mountTimer())).toBe('10:00')
+  it('shows the planned time before anything has elapsed, and says nothing yet', () => {
+    const wrapper = mountTimer()
+    expect(clock(wrapper)).toBe('10:00')
+    expect(wrapper.get('[role="status"]').text()).toBe('')
   })
 
   it('counts down from the moment the figures arrived', async () => {
@@ -59,18 +61,29 @@ describe('SessionTimer', () => {
 
     await vi.advanceTimersByTimeAsync(10_000)
 
-    expect(clock(wrapper)).toBe('00:00')
+    expect(clock(wrapper)).toBe('+00:07')   // 597 s in, 10 s later: 7 s beyond the plan
+    expect(wrapper.get('[role="status"]').text()).toBe('Planned time reached')
     expect(wrapper.emitted('elapsed')).toHaveLength(1)
   })
 
-  it('shows overtime past the planned time without emitting again', async () => {
+  it('keeps counting past the planned time, in the clock, without emitting again', async () => {
     const wrapper = mountTimer({ activeSeconds: 600 })
 
     await vi.advanceTimersByTimeAsync(7_000)
 
-    expect(clock(wrapper)).toBe('00:00')
-    expect(wrapper.text()).toContain('+00:07 overtime')
+    expect(clock(wrapper)).toBe('+00:07')
     expect(wrapper.emitted('elapsed')).toBeUndefined()
+  })
+
+  it('puts the time in the browser tab, and the state while stopped', async () => {
+    const wrapper = mountTimer({ activeSeconds: 60 })
+    expect(document.title).toBe('09:00 · FocusQuest')
+
+    await wrapper.setProps({ running: false, stoppedLabel: 'Paused' })
+    expect(document.title).toBe('Paused · FocusQuest')
+
+    wrapper.unmount()
+    expect(document.title).toBe('FocusQuest')
   })
 
   it('stops its interval when unmounted', async () => {
