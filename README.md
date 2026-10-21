@@ -185,6 +185,22 @@ database, so they must not run in parallel.
 - `SecurityConfigurationIntegrationTest`: authentication on every route, token attacks, CORS,
   headers, and that no secret reaches the logs.
 
+## Design tooling (Claude Code)
+
+The redesign uses [Impeccable](https://github.com/pbakaus/impeccable), a design skill for Claude
+Code. The skill and its agents are checked in under `.claude/`; the engine binary and the hook
+settings are not. On a new machine, from the repo root:
+
+```bash
+npx impeccable install --providers=claude --scope=project   # engine, hooks in .claude/settings.local.json
+npx impeccable update                                       # later, to refresh
+```
+
+Then in Claude Code: `/impeccable init` writes `PRODUCT.md`, `/impeccable document` writes
+`DESIGN.md`, and `/impeccable critique`, `distill`, `polish` and the rest work on any view. The hook
+runs Impeccable's design checks after each UI file edit. `npx impeccable telemetry off` turns off
+its anonymous usage counts.
+
 ## Troubleshooting
 
 - **Port 8080 already in use**: stop the other process, or set `FOCUSQUEST_PORT` (the extension
