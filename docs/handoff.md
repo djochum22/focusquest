@@ -4,11 +4,13 @@ Start here. The details live in two longer notes:
 - `docs/platform_roadmap.md`: the container, every browser, the desktop app
 - `docs/camera_roadmap.md`: camera verification
 
-## Dashboard redesign: in progress (21 October 2026)
+## Dashboard redesign: done, merged into master (21 October 2026)
 
-The dashboard (`frontend/src/views/DashboardView.vue` and the session components) is being reworked with the Impeccable design skill (`.claude/skills/impeccable/`). Product context is in `PRODUCT.md`, the design system in `DESIGN.md`.
+The dashboard (`frontend/src/views/DashboardView.vue` and the session components) was reworked in five rounds with the Impeccable design skill (`.claude/skills/impeccable/`). Product context is in `PRODUCT.md`, the design system in `DESIGN.md`.
 
-**State:** three rounds of fixes are done. All three are committed on the branch **`dashboard-redesign`** (not merged into master yet). Continue on that branch. Critique scores so far: 24 → 30 → 27 out of 40 (the last from a stricter reviewer). Each critique report is in `.impeccable/critique/`; round three worked through the latest one (`2026-10-21T12-44-00Z__…`).
+**State:** all five rounds are done and fast-forwarded into **master** (the `dashboard-redesign` branch can be deleted); master was not pushed to GitHub yet. Critique scores: 24 → 30 → 27 → 28 → 28 → 27 out of 40 (each later run used a fresh, stricter reviewer). Every report is in `.impeccable/critique/`. The rounds are recorded below, newest last, followed by the optional follow-ups.
+
+**To see it in the desktop app** (the one in /Applications, which bundles its own copy of FocusQuest): rebuild it with `npm run build` in `desktop/` and install the new app (see `desktop/README.md`). The web app on port 8080 picks it up once its copy is rebuilt.
 
 **Round three, done (21 October 2026):**
 
