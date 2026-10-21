@@ -141,7 +141,7 @@ The architecture should follow these principles:
 - PostgreSQL for a later multi-user or deployed version.
 - Flyway migrations from the beginning so database evolution is repeatable.
 
-**Camera verification (planned)**
+**Camera verification**
 
 Camera verification (requirements specification, section 21) runs in a separate local program, the vision sidecar:
 

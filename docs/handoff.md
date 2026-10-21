@@ -1,4 +1,4 @@
-# Handoff: what to do next (15 October 2026)
+# Handoff: what to do next (21 October 2026)
 
 Start here. The details live in two longer notes:
 - `docs/platform_roadmap.md`: the container, every browser, the desktop app
@@ -6,43 +6,30 @@ Start here. The details live in two longer notes:
 
 ## Where things stand
 
+Everything planned is done. Nothing is waiting, for the user or for Claude; the lists below are optional.
+
 - **Desktop app (platform step 4): done on macOS.** `desktop/` is a Tauri app: a window on FocusQuest and a menu bar icon. It uses the Docker copy when that is running, otherwise starts its own, and quits blocked Mac apps while blocking is on. Tried live: Calculator was quit. Build it with `npm run build` in `desktop/`; see `desktop/README.md`.
 - **Camera accuracy (C1d): done.** The `accuracy` command is built, away warns again, getting up no longer counts as looking away, and after calibrating again the looking-away margin stays at 5° (2 false seconds in 4½ minutes, no false warnings). Phone detection is weak and left as it is.
-- **Every browser (platform step 3):** Chromium and Firefox done. Safari, as its own small app "FocusQuest for Safari": connected 21 October 2026; blocking not yet checked (step 6 below).
+- **Every browser (platform step 3): done.** Chromium and Firefox; Safari, as its own small app "FocusQuest for Safari", connects and blocks (tried by the user 21 October 2026). Connecting needed two fixes: the bridge's match patterns, and a browser event Safari lacks (`docs/platform_roadmap.md`, "Safari").
 
-Nothing is waiting right now. Everything below is for later.
+The desktop app's window is not Safari and runs no browser extension, so its Settings never shows the browser extension as connected; that is expected.
 
-*21 October 2026: steps 1 to 5 are done. The Apple ID and its certificate are in Xcode (Xcode 27 saves no team until the certificate is made, so step 1 now ends with making one), and the app is signed with team P3NCC9658P. Connecting needed two fixes (the bridge's patterns, and a browser event Safari lacks; see `docs/platform_roadmap.md`, "Safari"). Next: step 6.*
+## Safari after a change
 
-*The desktop app's window is not Safari and runs no browser extension, so its Settings never shows the browser extension as connected; that is expected.*
+After the extension's code changes, in a terminal:
 
-## Later, for you
+```bash
+cd ~/Desktop/Code/focusquest/extension
+npm run build:safari
+open "safari-build/FocusQuest for Safari.app"
+```
 
-### Try Safari (about 10 minutes)
+It should say **Signing with team …** (team P3NCC9658P, the Apple ID in Xcode). If it says **No Apple ID team found**: Xcode, **Settings**, **Accounts**, select the Apple ID, **Manage Certificates…**, **+**, **Apple Development**. Then check in Safari's **Settings**, **Extensions** that **FocusQuest** is still ticked and allowed on all websites, and reload http://localhost:8080.
 
-Only when you want to use Safari. FocusQuest for Safari is a small app that carries the extension: Safari takes extensions only inside an app.
+## Optional, for you
 
-1. **Add your Apple ID to Xcode** (done 21 October 2026): open Xcode, then **Settings**, **Accounts**, **+**, **Apple ID**, and sign in. It is free and publishes nothing. Without it, Safari forgets the extension each time it restarts.
-
-   **Then make its certificate**: in the same **Accounts** pane, select your Apple ID, click **Manage Certificates…**, then **+** at the bottom left, **Apple Development**, and **Done**.
-2. **Build the app** (done 21 October 2026), in a terminal:
-
-   ```bash
-   cd ~/Desktop/Code/focusquest/extension
-   npm run build:safari
-   ```
-
-   It should say **Signing with team …**. If it says **No Apple ID team found**, the certificate in step 1 is missing.
-3. **Open the app once** (done 21 October 2026; again after each rebuild): `extension/safari-build/FocusQuest for Safari.app` (in Finder, or `open "safari-build/FocusQuest for Safari.app"` from the same terminal).
-4. **Turn the extension on** (done 21 October 2026): in Safari, **Settings**, **Extensions**, tick **FocusQuest**, and allow it on all websites (it needs that to block sites).
-5. **Check it connects** (done 21 October 2026, after two fixes): in Safari, open http://localhost:8080 and sign in. **Settings**, **Browser extension** should say **Connected** within a few seconds.
-6. **Check it blocks**: visit one of your blocked sites. It should show FocusQuest's "This site is blocked" page.
-
-Then tell Claude what happened at each step: something like "Read docs/handoff.md. I tried Safari: steps 1 to 4 worked, step 5 said …". If a step fails, a screenshot or the exact message helps.
-
-### Optional: the extension's options page (5 minutes)
-
-Only needed if FocusQuest ever runs somewhere other than port 8080. Steps in `docs/platform_roadmap.md`, "Waiting on the user", item 2.
+- **The extension's options page** (5 minutes): only needed if FocusQuest ever runs somewhere other than port 8080. Steps in `docs/platform_roadmap.md`, "Waiting on the user", item 2.
+- **Camera labelling in different light**, if you want the accuracy numbers to cover daylight and lamps (`docs/camera_roadmap.md`, "Start here").
 
 ### Decided, nothing to do
 
@@ -51,6 +38,12 @@ Only needed if FocusQuest ever runs somewhere other than port 8080. Steps in `do
 
 **Remember:** quit the desktop app before starting Docker. If the app opened while Docker was down, it runs its own copy on port 8080 and keeps it; if `http://localhost:8080` then stops answering after Docker starts, run `orb restart docker`. After FocusQuest is updated, press Cmd+R in the desktop app's window to load the new version.
 
-## Later, for Claude
+## Optional, for Claude (only after the user says go)
 
-1. **Safari**: fix whatever step 6 turns up: whether Safari's `declarativeNetRequest` redirects to the blocked page (`docs/platform_roadmap.md`, "Safari"). To look inside Safari from the terminal, the user ticks **Allow JavaScript from Apple Events** (Safari **Settings**, **Developer**), and opens the extension's options page for code that needs the extension's rights.
+1. **Edge and Brave** by hand: load `extension/dist/` unpacked.
+2. **Wording**: the backend comments and some docs still say "Chrome extension" where any browser is meant.
+3. **Signing and notarising the desktop app**, so it opens on another Mac without a warning (needs a paid Apple Developer account).
+4. From the requirements: a `BlockingOverride` record with a reason (section on overrides), and `GET /api/focus-sessions/{id}`.
+5. A better way of seeing a phone in hand (camera finding 3).
+
+**Looking inside Safari from the terminal** (how its connection was fixed): the user ticks **Allow JavaScript from Apple Events** (Safari **Settings**, **Developer**); then `osascript -e 'tell application "Safari" to do JavaScript "…" in (first tab of first window whose URL contains "localhost:8080")'`. For code that needs the extension's own rights, the user opens the extension's options page (Safari **Settings**, **Extensions**, **FocusQuest**, **Settings**) and the same command runs there.

@@ -29,7 +29,7 @@ The application helps users complete focused work by combining:
 - Daily and weekly time-based streaks.
 - XP, levels, and later gems.
 - Session history and progress statistics.
-- Optional camera verification that the user is on task, processed only on the user's computer (planned; see section 21).
+- Optional camera verification that the user is on task, processed only on the user's computer (built after the MVP; see section 21).
 
 ### Central product distinction
 
@@ -56,11 +56,11 @@ The MVP should:
 
 Potential future directions include:
 
-- Desktop-application blocking.
-- Support for additional browsers.
-- Multiple operating systems.
+- Desktop-application blocking (built for macOS in October 2026, in the desktop app).
+- Support for additional browsers (built in October 2026: Chromium browsers, Firefox and Safari).
+- Multiple operating systems (the desktop app is built with Tauri so Windows stays open).
 - Cloud synchronization.
-- Camera-verified focus sessions (the next planned feature; see section 21).
+- Camera-verified focus sessions (built in October 2026; see section 21).
 - Social groups and accountability.
 - More advanced quests, rewards, and skill categories.
 - Mobile-device integrations.
@@ -97,7 +97,7 @@ Potential future directions include:
 
 ### Explicitly outside the initial MVP
 
-- Computer vision and phone detection. They are planned as an opt-in feature after the MVP (section 21).
+- Computer vision and phone detection. They were built after the MVP as an opt-in feature (section 21).
 - Automatic judgment of whether the user is productive. Camera verification reports observable signals, such as the user being away or holding a phone, not a judgment of productivity.
 - Cloud video processing.
 - Facial recognition.
@@ -1169,9 +1169,9 @@ Detailed user stories and acceptance criteria will be created next. They should 
 - Test local data backup and restoration.
 - Test Chrome extension behavior.
 
-## 21\. Camera verification (planned)
+## 21\. Camera verification
 
-Camera verification is the next planned feature after the MVP. During a session, a camera checks that the user is doing what the session's task category implies, for example reading a book or facing the screen instead of a phone. It is opt-in, and every frame is processed on the user's own computer.
+Camera verification was built after the MVP (October 2026). During a session, a camera checks that the user is doing what the session's task category implies, for example reading a book or facing the screen instead of a phone. It is opt-in, and every frame is processed on the user's own computer.
 
 ### How it works
 
