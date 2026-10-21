@@ -64,6 +64,24 @@ open src-tauri/target/release/bundle/macos/FocusQuest.app
 changing the backend or the web app. The app is about 120 MB. It is not signed: built on this Mac it
 opens as is; copied to another, right-click it and choose **Open** the first time.
 
+If `npm run build` stops at "failed to run cargo metadata", that terminal cannot find Rust: run
+`source "$HOME/.cargo/env"` (or open a new terminal) and build again.
+
+### Updating the installed app
+
+After a build, quit FocusQuest and replace the copy in /Applications. This works from any folder,
+and deletes the old app only once the new build is there. `ditto` merges into an existing app and
+never deletes, so the old one is removed first rather than copied over. Data in
+`~/Library/Application Support/FocusQuest` is not touched.
+
+```bash
+NEW=~/Desktop/Code/focusquest/desktop/src-tauri/target/release/bundle/macos/FocusQuest.app
+[ -d "$NEW" ] && rm -rf /Applications/FocusQuest.app && ditto "$NEW" /Applications/FocusQuest.app && open /Applications/FocusQuest.app
+```
+
+Open it from /Applications as above, so Open at Login keeps working. macOS may ask again whether
+FocusQuest may control Google Chrome.
+
 For working on the app itself, `npm run dev` runs it without bundling (after `npm run backend` once,
 if FocusQuest is not already running).
 
