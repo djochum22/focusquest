@@ -3,7 +3,7 @@ import { computed, onMounted, useTemplateRef } from 'vue'
 import type { FocusSession } from '../../types/session'
 import type { StreakProgress } from '../../types/streak'
 import { formatMinutes } from '../../utils/duration'
-import { levelProgressPercent } from '../../utils/streak'
+import { finishLine, levelProgressPercent } from '../../utils/streak'
 import AppButton from '../common/AppButton.vue'
 import StreakFlame from '../streak/StreakFlame.vue'
 import TodayProgress from '../streak/TodayProgress.vue'
@@ -24,12 +24,25 @@ const props = defineProps<{
   milestone?: string | null
   /** The session just pushed today over the target: the streak day is the news, set as a stat. */
   milestoneReached?: boolean
+  /** A session of this length would finish today's target; offered as the next step. Null for none. */
+  finishMinutes?: number | null
+  /** A request is in flight. */
+  busy?: boolean
 }>()
 
-const emit = defineEmits<{ next: [] }>()
+const emit = defineEmits<{
+  next: []
+  /** Start the session that finishes today's target. */
+  finish: []
+}>()
 
 const focused = computed(() => formatMinutes(props.session.activeFocusSeconds - props.session.offTaskSeconds))
 const task = computed(() => props.session.taskDescription)
+
+/** Offering a session to finish today, the line names that session, so the two figures agree. */
+const todayLine = computed(() =>
+  props.finishMinutes ? finishLine(props.finishMinutes, props.streakLength) : props.milestone,
+)
 
 const levelPercent = computed(() =>
   props.level ? levelProgressPercent(props.level.totalXp, props.level.levelStartXp, props.level.nextLevelXp) : 0,
@@ -80,13 +93,18 @@ onMounted(() => head.value?.focus())
     <TodayProgress v-if="today" :progress="today" :streak-length="streakLength" :hide-streak="milestoneReached">
       <!-- What the day's target means for websites: free now, or blocked until the rest is done. -->
       <template v-if="today.status !== 'COMPLETED'" #default>
-        <span class="muted">{{ milestone ? `${milestone}. ` : '' }}Websites stay blocked until then.</span>
+        <span class="muted">{{ todayLine ? `${todayLine}. ` : '' }}Websites stay blocked until then.</span>
       </template>
       <template v-else #default>
         <span class="complete__free">Websites are unblocked for the rest of today.</span>
       </template>
     </TodayProgress>
-    <AppButton size="large" @click="emit('next')">Plan another</AppButton>
+    <!-- Short of the target, the next step is the one the line above names: finish the day. -->
+    <template v-if="finishMinutes">
+      <AppButton size="large" :disabled="busy" @click="emit('finish')">Finish today · {{ finishMinutes }} min</AppButton>
+      <AppButton variant="link" :disabled="busy" @click="emit('next')">Plan another</AppButton>
+    </template>
+    <AppButton v-else size="large" @click="emit('next')">Plan another</AppButton>
   </section>
 </template>
 
@@ -137,7 +155,7 @@ onMounted(() => head.value?.focus())
 .complete__level-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--accent-secondary);
+  background: var(--accent);
 }
 .complete__level-text {
   margin: 0;

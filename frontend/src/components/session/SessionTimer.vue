@@ -13,8 +13,8 @@ const props = defineProps<{
   running: boolean
   /** What the browser tab says while the timer is stopped, e.g. "Paused". */
   stoppedLabel?: string
-  /** A quiet line above the clock until the planned time is reached, e.g. when Complete opens. */
-  waitingLabel?: string
+  /** Say above the clock, while it runs toward the plan, at what time of day the plan is reached. */
+  showEnd?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -64,6 +64,10 @@ watch(remaining, (value, previous) => {
  * time beyond the plan, and Complete waits beside Pause rather than taking over.
  */
 const reached = computed(() => props.plannedSeconds > 0 && remaining.value === 0)
+/** The time of day the planned time will be reached, as the clock stands now. */
+const endsAt = computed(() =>
+  new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(now.value + remaining.value * 1000),
+)
 const clockText = computed(() => (reached.value ? `+${formatClock(overtime.value)}` : formatClock(remaining.value)))
 
 // The browser tab carries the time too, for a student who has switched to their work.
@@ -83,7 +87,7 @@ onBeforeUnmount(() => (document.title = APP_TITLE))
   <div class="timer" :class="{ 'timer--paused': !running, 'timer--reached': reached }">
     <!-- Said once when the planned time is reached; the clock itself is not announced every second. -->
     <p class="timer__status" :class="{ 'timer__status--reached': reached }" role="status">
-      {{ reached ? 'Planned time reached' : (running ? waitingLabel : '') }}
+      {{ reached ? 'Planned time reached' : (running && showEnd ? `Ends ${endsAt}` : '') }}
     </p>
     <!-- The time itself is the timer's content, so screen readers read it rather than a label. -->
     <p class="timer__clock">

@@ -23,7 +23,7 @@ import { loadCompletionSummary, saveCompletionSummary } from '../utils/completio
 import { formatMinutes } from '../utils/duration'
 import { clearUnfinishedSession, loadUnfinishedSession, saveUnfinishedSession } from '../utils/sessionDefaults'
 import { isOverridable, planReached } from '../utils/sessionState'
-import { endEarlyOutcome, sessionCountsToward, targetLine } from '../utils/streak'
+import { endEarlyOutcome, finishTodayMinutes, sessionCountsToward, targetLine } from '../utils/streak'
 
 const session = useSessionStore()
 const offTask = useOffTaskStore()
@@ -200,17 +200,50 @@ function askToEnd() {
   confirming.value = 'abandon'
 }
 
+/** Only a running session can be completed, so a paused or interrupted one resumes first. */
+async function finishCurrent(current: FocusSession) {
+  if (current.status !== 'ACTIVE') await session.resume(current.id)
+  await session.complete(current.id)
+}
+
 async function confirmAbandon() {
   const current = session.current
-  if (current) {
-    await perform(async () => {
-      if (!finishInstead.value) return session.abandon(current.id)
-      // Only a running session can be completed, so a paused or interrupted one resumes first.
-      if (current.status !== 'ACTIVE') await session.resume(current.id)
-      await session.complete(current.id)
-    })
-  }
+  if (current) await perform(() => (finishInstead.value ? finishCurrent(current) : session.abandon(current.id)))
   confirming.value = null
+}
+
+async function resumeAndComplete() {
+  const current = session.current
+  if (current) await perform(() => finishCurrent(current))
+}
+
+/**
+ * After a completion that leaves today's target a little short, the next session is offered whole:
+ * the same task, category and camera choice, for exactly the minutes that finish the day. Only when
+ * that session would count toward today, or it would not finish anything.
+ */
+const finishToday = computed(() => {
+  const ended = completed.value
+  const daily = streak.daily
+  if (!ended || !daily || !sessionCountsToward(daily, ended)) return null
+  return finishTodayMinutes(daily)
+})
+
+async function startFinishToday() {
+  const ended = completed.value
+  const minutes = finishToday.value
+  if (!ended || minutes === null) return
+  await perform(async () => {
+    await session.createSession({
+      taskMode: ended.taskMode,
+      taskCategory: ended.taskCategory,
+      taskDescription: ended.taskDescription,
+      plannedFocusMinutes: minutes,
+      cameraVerification: ended.cameraVerification,
+    })
+    await session.startPlanned()
+    session.dismissLastEnded()
+  })
 }
 
 /** Override applies to the abandoned session that is still holding blocking, not a running one. */
@@ -282,6 +315,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :received-at="session.receivedAt"
         :busy="session.busy"
         @resume="perform(() => session.resume(session.current!.id))"
+        @complete="resumeAndComplete"
         @abandon="askToEnd"
       >
         <TodayProgress
@@ -310,7 +344,10 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         :streak-length="streak.dailyStreak"
         :milestone="milestone"
         :milestone-reached="reachedNow"
+        :finish-minutes="finishToday"
+        :busy="session.busy"
         @next="session.dismissLastEnded()"
+        @finish="startFinishToday"
       />
 
       <template v-else>

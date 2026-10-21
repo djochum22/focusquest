@@ -2,6 +2,7 @@ import type { FocusSession, TaskCategory, TaskMode } from '../types/session'
 import type { StreakPeriodStatus, StreakPeriodType, StreakProgress } from '../types/streak'
 import { formatMinutes } from './duration'
 import { CATEGORY_LABELS } from './sessionLabels'
+import { MIN_PLANNED_FOCUS_MINUTES } from './validation'
 
 export const PERIOD_LABELS: Record<StreakPeriodType, string> = {
   DAILY: 'Daily',
@@ -33,6 +34,20 @@ export function progressPercent(progress: StreakProgress): number {
 /** Seconds still needed to reach the target; zero once it is reached. */
 export function remainingSeconds(progress: StreakProgress): number {
   return Math.max(0, targetSeconds(progress) - progress.qualifyingSeconds)
+}
+
+/** Below this many minutes, the time left on today's target is offered as a session of its own. */
+const FINISH_TODAY_BELOW_MINUTES = 25
+
+/**
+ * The length of the session that would finish today's target (at least the shortest session
+ * allowed), when that is less than the shortest preset; null once reached or while still far off.
+ */
+export function finishTodayMinutes(daily: StreakProgress): number | null {
+  if (daily.status === 'COMPLETED') return null
+  const left = Math.ceil(remainingSeconds(daily) / 60)
+  if (left <= 0 || left >= FINISH_TODAY_BELOW_MINUTES) return null
+  return Math.max(MIN_PLANNED_FOCUS_MINUTES, left)
 }
 
 /** Which sessions count toward a streak, in words. */
@@ -79,6 +94,17 @@ export function targetLine(daily: StreakProgress, streakLength: number, reachedN
   return streakLength > 0
     ? `${left} min more today keeps your ${streakLength}-day streak`
     : `${left} min more today starts a streak`
+}
+
+/**
+ * The line beside an offer to finish today with a session of `minutes`. It names that session
+ * rather than the bare remainder, which can be shorter than the shortest session allowed
+ * ("4 min more" beside a 5 min button).
+ */
+export function finishLine(minutes: number, streakLength: number): string {
+  return streakLength > 0
+    ? `A ${minutes} min session finishes today and keeps your ${streakLength}-day streak`
+    : `A ${minutes} min session finishes today and starts your streak`
 }
 
 /**

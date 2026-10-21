@@ -66,7 +66,7 @@ const canComplete = computed(() => props.session.remainingFocusSeconds <= 0)
       :active-seconds="netActiveSeconds"
       :received-at="timerReceivedAt"
       :running="counting"
-      :waiting-label="canComplete ? undefined : 'Complete opens when the time is up'"
+      :show-end="!canComplete"
       @elapsed="emit('elapsed')"
     />
     <p v-if="offTaskSeconds > 0" class="muted active__hint" data-testid="off-task-total">

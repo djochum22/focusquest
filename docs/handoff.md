@@ -36,7 +36,29 @@ Checked: 623 frontend unit tests, all 11 end-to-end tests (two needed updating: 
 
 Checked: 626 frontend unit tests, all 11 end-to-end tests, types and lint; screenshots light 1280 and dark 390.
 
-Then run `/impeccable critique` again.
+**Critique after round four (21 October 2026): 28/40** (trend 24 → 30 → 27 → 28 → 28). Report: `.impeccable/critique/2026-10-21T17-39-05Z__…`. Detector clean apart from the known `cream-palette`; the /streaks contrast failure is gone.
+
+**Decided by the user:** one more round, then stop and merge `dashboard-redesign` into master. Override blocking stays on the dashboard. A completion short of the target leads with "Finish today · N min".
+
+**Round five (the last), done (21 October 2026):**
+
+1. **harden:** a duration chosen from the "finishes today's target" option is no longer saved as the next default; the one before it is kept. The rule for that duration is now one function, `finishTodayMinutes` in `utils/streak.ts`.
+2. **clarify:** paused past the plan, Complete (resume, then complete) is the main pill, Resume secondary, no End early.
+3. **delight:** a completion that counted and leaves today under 25 min short leads with "Finish today · N min" (same task, category, camera choice); "Plan another" is a link.
+4. **colorize:** today's target is speculum blue on every screen (reed green once reached); the completion screen's level bar takes the XP's green.
+5. **quieter:** the running status line is "Ends 7:58 PM" instead of "Complete opens when the time is up".
+
+Checked: 629 frontend unit tests, all 11 end-to-end tests, types and lint; screenshots light 1280 and dark 390.
+
+**Final critique (21 October 2026): 27/40** (trend 24 → 30 → 27 → 28 → 28 → 27). Report: `.impeccable/critique/2026-10-21T18-17-46Z__…`. Detector clean apart from the known `cream-palette`. Its two P1s were fixed before the merge:
+- After a short completion the line named the remainder ("4 min more") beside "Finish today · 5 min"; it now names the offered session (`finishLine` in `utils/streak.ts`).
+- The task-free note in the form was dropped; the line under Start already says whether the session counts.
+
+**Optional follow-ups (the user's priority first):**
+1. **Completion summary across devices:** the summary and "Continue" are kept in the browser's `localStorage`, so finishing in the desktop window shows a bare start page in Chrome. Needs the server to remember whether the latest completion summary was dismissed (a small backend change). `/impeccable harden`.
+2. Start page after an early end: Continue as the main pill, the form folded behind "Plan something else". `/impeccable layout`.
+3. Today's bar at low values: the label outside the bar while the fill is small (at 0 min it reads like an empty tag). `/impeccable bolder`.
+4. Keys for Pause and Complete; the daily +10 XP bonus shown as its own line on completion.
 
 **Seeing it without touching real data:** the review rounds used the isolated end-to-end stack, not the app on port 8080:
 

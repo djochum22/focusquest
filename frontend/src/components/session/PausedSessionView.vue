@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import AppButton from '../common/AppButton.vue'
 import InfoTip from '../common/InfoTip.vue'
 import SessionMeta from './SessionMeta.vue'
@@ -6,7 +7,7 @@ import SessionTimer from './SessionTimer.vue'
 import type { FocusSession } from '../../types/session'
 import { formatMinutes } from '../../utils/duration'
 
-defineProps<{
+const props = defineProps<{
   session: FocusSession
   receivedAt: number
   busy: boolean
@@ -14,8 +15,16 @@ defineProps<{
 
 const emit = defineEmits<{
   resume: []
+  /** Paused past the plan: resume and complete in one step. */
+  complete: []
   abandon: []
 }>()
+
+/**
+ * Paused after the planned time was reached, the session is finished in all but name: Complete
+ * leads, Resume is there for one who wants more, and ending early (which would forfeit the XP) is gone.
+ */
+const reached = computed(() => props.session.remainingFocusSeconds <= 0)
 </script>
 
 <template>
@@ -39,10 +48,15 @@ const emit = defineEmits<{
       stopped-label="Paused"
     />
     <div class="paused__actions">
-      <AppButton size="large" :disabled="busy" @click="emit('resume')">Resume</AppButton>
+      <AppButton v-if="reached" size="large" :disabled="busy" @click="emit('complete')">Complete</AppButton>
+      <AppButton size="large" :variant="reached ? 'secondary' : 'primary'" :disabled="busy" @click="emit('resume')">
+        Resume
+      </AppButton>
     </div>
     <slot />
-    <AppButton variant="link" class="paused__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
+    <AppButton v-if="!reached" variant="link" class="paused__leave" :disabled="busy" @click="emit('abandon')">
+      End early
+    </AppButton>
   </section>
 </template>
 

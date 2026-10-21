@@ -7,7 +7,7 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { useStreakStore } from '../../stores/streakStore'
 import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
 import { CATEGORY_LABELS } from '../../utils/sessionLabels'
-import { blockingSentence, remainingSeconds } from '../../utils/streak'
+import { blockingSentence, finishTodayMinutes } from '../../utils/streak'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
 import TodayProgress from '../streak/TodayProgress.vue'
@@ -41,10 +41,8 @@ const greeting = computed(() => {
 const choice = ref<{ taskMode: TaskMode; taskCategory: TaskCategory } | null>(null)
 const blockingNote = computed(() => blockingSentence(streak.daily, session.planned ?? choice.value))
 
-/** Minutes still needed today, for the form to offer as a duration that finishes the target. */
-const minutesToTarget = computed(() =>
-  streak.daily && streak.daily.status !== 'COMPLETED' ? Math.ceil(remainingSeconds(streak.daily) / 60) : null,
-)
+/** A session length that would finish today's target, for the form to offer. */
+const minutesToTarget = computed(() => (streak.daily ? finishTodayMinutes(streak.daily) : null))
 
 // Only decides whether the form offers the camera; without it the form simply does not.
 onMounted(() => {

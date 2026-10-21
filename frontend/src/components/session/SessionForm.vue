@@ -23,7 +23,7 @@ const props = defineProps<{
   cameraByDefault?: boolean
   /** Details to start from, e.g. a planned session being changed; otherwise the last ones used. */
   initial?: CreateSessionRequest | null
-  /** Minutes still needed for today's target; null once it is reached or while unknown. */
+  /** The session length that would finish today's target (`finishTodayMinutes`); null for none. */
   finishMinutes?: number | null
 }>()
 const emit = defineEmits<{
@@ -68,13 +68,13 @@ watch(
 const customDuration = ref(!(PRESET_MINUTES as readonly number[]).includes(initialMinutes))
 
 /**
- * When today's target is closer than the shortest preset, the time that finishes it is offered as
- * its own duration and chosen, unless the student has picked one or is changing a planned session:
- * the session they most likely want is the one that completes the day.
+ * When today's target is close, the time that finishes it is offered as its own duration and
+ * chosen, unless the student has picked one or is changing a planned session: the session they
+ * most likely want is the one that completes the day.
  */
 const finishPreset = computed(() =>
-  props.finishMinutes != null && props.finishMinutes > 0 && props.finishMinutes < PRESET_MINUTES[0]
-    ? Math.max(MIN_PLANNED_FOCUS_MINUTES, props.finishMinutes)
+  props.finishMinutes != null && !(PRESET_MINUTES as readonly number[]).includes(props.finishMinutes)
+    ? props.finishMinutes
     : null,
 )
 const durationTouched = ref(false)
@@ -112,9 +112,11 @@ function onSubmit() {
 
   const taskFree = form.taskMode === 'TASK_FREE'
   const category = taskFree || form.taskCategory === '' ? 'TASK_FREE' : form.taskCategory
+  // A top-up to finish today is a one-off: the next form should not open on "Custom, 5 min".
+  const finishing = !customDuration.value && form.plannedFocusMinutes === finishPreset.value
   saveSessionDefaults({
     taskCategory: category === 'TASK_FREE' ? null : category,
-    plannedFocusMinutes: form.plannedFocusMinutes,
+    plannedFocusMinutes: finishing ? null : form.plannedFocusMinutes,
   })
   emit('submit', {
     taskMode: form.taskMode,
@@ -152,9 +154,6 @@ function onSubmit() {
         <p v-if="errors.taskDescription" class="session-form__error">{{ errors.taskDescription }}</p>
       </div>
     </template>
-    <p v-else class="muted session-form__note">
-      No task needed. Task-free time counts only toward streaks set to task-free sessions.
-    </p>
 
     <div class="session-form__options">
       <FormField
@@ -349,12 +348,6 @@ function onSubmit() {
 }
 .session-form__custom input {
   width: 6rem;
-}
-.session-form__note {
-  margin: 0;
-  font-size: 0.9rem;
-  text-align: center;
-  text-wrap: balance;
 }
 .session-form__camera {
   display: flex;

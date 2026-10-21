@@ -494,7 +494,7 @@ describe('DashboardView', () => {
       wrapper.unmount()
     })
   })
-  it('offers to complete, not end early, a session paused past its planned time', async () => {
+  it('completes a session paused past its planned time in one step', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
       makeSession({ status: 'PAUSED', activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
     )
@@ -504,11 +504,7 @@ describe('DashboardView', () => {
     )
     const wrapper = await mountDashboard()
 
-    await button(wrapper, 'End early')!.trigger('click')
-    await flushPromises()
-    expect(document.body.textContent).toContain('Complete it to earn its XP.')
-    expect(button(wrapper, 'End session')).toBeUndefined()
-    await button(wrapper, 'Resume and complete')!.trigger('click')
+    await button(wrapper, 'Complete')!.trigger('click')
     await flushPromises()
 
     expect(sessionApi.abandonSession).not.toHaveBeenCalled()
@@ -606,7 +602,9 @@ describe('DashboardView', () => {
     })
     await button(wrapper, 'Complete')!.trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('3 min more today keeps your 4-day streak. Websites stay blocked until then.')
+    // 3 min are left, but the shortest session is 5: the line names the session it offers.
+    expect(wrapper.text()).toContain('A 5 min session finishes today and keeps your 4-day streak. Websites stay blocked until then.')
+    expect(wrapper.text()).not.toContain('3 min more')
     wrapper.unmount()
 
     setActivePinia(createPinia())
@@ -647,6 +645,51 @@ describe('DashboardView', () => {
     const wrapper = await mountDashboard()
 
     expect(wrapper.text()).not.toContain("finishes today's target")
+    wrapper.unmount()
+  })
+  it('offers to finish today straight from a completion that falls a little short', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(
+      makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 }),
+    )
+    vi.mocked(sessionApi.createSession).mockResolvedValue(makeSession({ id: 2, status: 'PLANNED' }))
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 2 }))
+    const wrapper = await mountDashboard()
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3420 }), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    await button(wrapper, 'Complete')!.trigger('click')
+    await flushPromises()
+
+    expect(button(wrapper, 'Plan another')!.classes()).toContain('app-button--link')
+    await button(wrapper, 'Finish today · 5 min')!.trigger('click')
+    await flushPromises()
+
+    expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      taskDescription: 'Write the report', taskCategory: 'WRITING', plannedFocusMinutes: 5,
+    }))
+    expect(wrapper.text()).not.toContain('Session complete')
+    expect(button(wrapper, 'Pause')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('does not remember a duration chosen only to finish today', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3420 }), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    localStorage.setItem('focusquest.lastSession', JSON.stringify({ taskCategory: 'WRITING', plannedFocusMinutes: 50 }))
+    vi.mocked(sessionApi.createSession).mockResolvedValue(makeSession({ id: 2, status: 'PLANNED' }))
+    vi.mocked(sessionApi.startSession).mockResolvedValue(makeSession({ id: 2 }))
+    const wrapper = await mountDashboard()
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({ plannedFocusMinutes: 5 }))
+    expect(JSON.parse(localStorage.getItem('focusquest.lastSession')!).plannedFocusMinutes).toBe(50)
     wrapper.unmount()
   })
 })

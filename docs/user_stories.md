@@ -159,9 +159,6 @@ so that I can commit to focused work.
 - Given the session type or category chosen on the form does not count toward today's daily target,  
   when the user is about to start it,  
   then the screen says "This session won't count toward today's target" instead of suggesting the session will lift the blocking.
-- Given the user selects "Task-free",  
-  when the form changes,  
-  then it says in plain text, not behind an info tip, that task-free time counts only toward streaks set to task-free sessions.
 - Given the user is on the session-creation screen with a keyboard and a wide screen,  
   when it opens,  
   then the cursor is in the task field; on a touch screen nothing is focused, so no keyboard pops up.
@@ -244,7 +241,7 @@ so that I receive session-completion XP and the session is recorded as completed
   then it says the target is reached and that the streak starts (or reaches its next day) when the session ends, instead of "No streak yet".
 - Given a running session has not reached its planned time,  
   when the user looks for Complete,  
-  then a quiet line above the clock says Complete opens when the time is up.
+  then a quiet line above the clock says at what time of day the planned time is reached ("Ends 7:58 PM").
 - Given a running session reaches its planned time,  
   when the timer reaches zero,  
   then it says "Planned time reached" once (also to screen readers) and keeps counting the time beyond the plan; Complete becomes the main button, Pause the secondary one, and "End early" is no longer offered.
@@ -342,6 +339,15 @@ so that I can stop the commitment before completion.
 - Given a session is running or paused,  
   when today's progress is shown under it,  
   then it is a quiet line over a thin blue bar, so the session's own timer leads; when a counting session crosses the target, the line saying the streak follows is announced to screen readers.
+- Given a session is paused after reaching its planned time,  
+  when the dashboard shows it,  
+  then Complete is the main button (it resumes and completes in one step), Resume is secondary, and End early is not offered.
+- Given a completed session counted toward today and left the daily target less than 25 minutes away,  
+  when the completion screen shows,  
+  then its main button is "Finish today · N min", which starts that session with the same task, category and camera choice, and the line above names that same session ("A 5 min session finishes today and starts your streak"); "Plan another" is a quiet link.
+- Given the user starts a session with the "finishes today's target" duration,  
+  when the next form opens,  
+  then it does not start from that duration; the duration used before it is kept as the default.
 - Given the session is abandoned with time that counts toward today's target,  
   when the dashboard returns to the start page,  
   then it says how many minutes counted toward today.

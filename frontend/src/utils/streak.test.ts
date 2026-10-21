@@ -4,6 +4,8 @@ import { makeSession } from '../test-utils/sessions'
 import {
   blockingSentence,
   endEarlyOutcome,
+  finishLine,
+  finishTodayMinutes,
   levelProgressPercent,
   progressPercent,
   remainingSeconds,
@@ -186,5 +188,19 @@ describe('blockingSentence', () => {
     expect(blockingSentence(daily, { taskMode: 'TASK_REQUIRED', taskCategory: 'WRITING' })).toMatch(/^Websites stay blocked until/)
     expect(blockingSentence(daily, { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE' })).toMatch(/^This session won't count/)
     expect(blockingSentence(daily, null)).toMatch(/^Websites stay blocked until/)
+  })
+})
+
+describe('finishTodayMinutes and finishLine', () => {
+  it('offers the remainder, at least the shortest session, only when it is under 25 min', () => {
+    expect(finishTodayMinutes(makeProgress({ targetMinutes: 30, qualifyingSeconds: 26 * 60 }))).toBe(5)
+    expect(finishTodayMinutes(makeProgress({ targetMinutes: 30, qualifyingSeconds: 10 * 60 }))).toBe(20)
+    expect(finishTodayMinutes(makeProgress({ targetMinutes: 30, qualifyingSeconds: 0 }))).toBeNull()
+    expect(finishTodayMinutes(makeProgress({ status: 'COMPLETED' }))).toBeNull()
+  })
+
+  it('names the session it offers, so the figure matches the button', () => {
+    expect(finishLine(5, 0)).toBe('A 5 min session finishes today and starts your streak')
+    expect(finishLine(5, 4)).toBe('A 5 min session finishes today and keeps your 4-day streak')
   })
 })

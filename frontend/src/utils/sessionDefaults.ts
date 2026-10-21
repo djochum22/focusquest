@@ -29,7 +29,7 @@ export function saveSessionDefaults(defaults: SessionDefaults): void {
     const previous = loadSessionDefaults()
     localStorage.setItem(KEY, JSON.stringify({
       taskCategory: defaults.taskCategory ?? previous.taskCategory,
-      plannedFocusMinutes: defaults.plannedFocusMinutes,
+      plannedFocusMinutes: defaults.plannedFocusMinutes ?? previous.plannedFocusMinutes,
     }))
   } catch {
     // Storage blocked: the next form simply starts from its defaults.

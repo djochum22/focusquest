@@ -22,11 +22,11 @@ describe('ActiveSessionView', () => {
     })
   }
 
-  it('cannot be completed before the planned time is reached, and says when it can', () => {
+  it('cannot be completed before the planned time is reached, and says when that will be', () => {
     const wrapper = mountActive({ remainingFocusSeconds: 600 })
 
     expect(labelled(wrapper, 'Complete')).toBeUndefined()
-    expect(wrapper.text()).toContain('Complete opens when the time is up')
+    expect(wrapper.text()).toMatch(/Ends \d/)
     wrapper.unmount()
   })
 
@@ -39,7 +39,7 @@ describe('ActiveSessionView', () => {
     expect(labelled(wrapper, 'Pause').classes()).toContain('app-button--secondary')
     // Ending early past the plan would only forfeit the XP already earned.
     expect(labelled(wrapper, 'End early')).toBeUndefined()
-    expect(wrapper.text()).not.toContain('Complete opens')
+    expect(wrapper.text()).not.toMatch(/Ends \d/)
     await complete.trigger('click')
     expect(wrapper.emitted('complete')).toHaveLength(1)
     wrapper.unmount()
@@ -91,6 +91,16 @@ describe('PausedSessionView', () => {
 
     expect(wrapper.emitted('resume')).toHaveLength(1)
     expect(wrapper.emitted('abandon')).toHaveLength(1)
+  })
+
+  it('leads with Complete when paused past the plan, and no longer offers to end early', async () => {
+    const wrapper = mountPaused({ remainingFocusSeconds: 0 })
+
+    expect(labelled(wrapper, 'Complete').classes()).toContain('app-button--primary')
+    expect(labelled(wrapper, 'Resume').classes()).toContain('app-button--secondary')
+    expect(labelled(wrapper, 'End early')).toBeUndefined()
+    await labelled(wrapper, 'Complete').trigger('click')
+    expect(wrapper.emitted('complete')).toHaveLength(1)
   })
 
   it('mentions earlier pauses only when there were some', () => {

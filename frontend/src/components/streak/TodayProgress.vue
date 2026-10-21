@@ -61,8 +61,9 @@ const liveNote = computed(() =>
 </script>
 
 <template>
-  <!-- Beside a running or paused session the timer leads: today is a quiet line over a thin bar, in
-       the secondary blue, with its figures beside the bar rather than on it. -->
+  <!-- Today is speculum blue on every screen (reed green once reached), so it never reads as the
+       session's own green. Beside a running or paused session the timer leads: today is a quiet
+       line over a thin bar, with its figures beside the bar rather than on it. -->
   <div v-if="compact" class="today today--compact">
     <div class="today__line">
       <span>
@@ -96,7 +97,7 @@ const liveNote = computed(() =>
         :percent="percent"
         label="Today's target"
         :value-text="`${formatMinutes(seconds)} of ${progress.targetMinutes} minutes`"
-        :tone="reached ? 'success' : 'accent'"
+        :tone="reached ? 'success' : 'secondary'"
       >
         <template v-if="reached">Today's target reached</template>
         <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
