@@ -46,7 +46,8 @@ const toNextLevel = computed(() => Math.max(0, props.nextLevelXp - props.xp))
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent-secondary) 18%, transparent);
-  color: var(--accent-secondary);
+  /* Text colour, not the blue: blue on its own tint falls short of 4.5:1. */
+  color: var(--text);
   font-weight: 700;
 }
 .stat__value {

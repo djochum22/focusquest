@@ -21,7 +21,7 @@ const emit = defineEmits<{
   <section class="stage interrupted" aria-label="Interrupted session">
     <SessionMeta :session="session" status="Interrupted">
       <template #info>
-        <InfoTip>
+        <InfoTip label="Why was the session interrupted?">
           The browser extension stopped checking in, so the time after its last check-in could not be
           verified and was not counted. The time before it still counts toward your streak. The session no
           longer keeps websites blocked until you resume; your daily target still does until it is reached.

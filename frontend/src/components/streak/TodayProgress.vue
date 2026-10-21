@@ -61,7 +61,35 @@ const liveNote = computed(() =>
 </script>
 
 <template>
-  <div class="today" :class="{ 'today--compact': compact }">
+  <!-- Beside a running or paused session the timer leads: today is a quiet line over a thin bar, in
+       the secondary blue, with its figures beside the bar rather than on it. -->
+  <div v-if="compact" class="today today--compact">
+    <div class="today__line">
+      <span>
+        <template v-if="reached">Today's target reached</template>
+        <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
+      </span>
+      <span v-if="!hideStreak && !(reachedLive && streakLength === 0)" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
+        <StreakFlame v-if="streakLength > 0" class="today__flame" />
+        {{ streakText }}
+      </span>
+    </div>
+    <div
+      class="today__thin"
+      role="progressbar"
+      aria-label="Today's target"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :aria-valuenow="percent"
+      :aria-valuetext="`${formatMinutes(seconds)} of ${progress.targetMinutes} minutes`"
+    >
+      <div class="today__thin-fill" :class="{ 'today__thin-fill--reached': reached }" :style="{ width: `${percent}%` }" />
+    </div>
+    <!-- Always present, so screen readers announce the line when a running session crosses the target. -->
+    <p class="today__note today__note--news" role="status">{{ reachedLive ? liveNote : '' }}</p>
+  </div>
+
+  <div v-else class="today">
     <div class="today__row">
       <ProgressBar
         class="today__bar"
@@ -74,13 +102,12 @@ const liveNote = computed(() =>
         <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
       </ProgressBar>
       <!-- The streak sits beside the bar, never on it, so the fill edge cannot cut through it. -->
-      <span v-if="!hideStreak && !(reachedLive && streakLength === 0)" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
+      <span v-if="!hideStreak" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
         <StreakFlame v-if="streakLength > 0" class="today__flame" />
         {{ streakText }}
       </span>
     </div>
     <p v-if="$slots.default" class="today__note"><slot /></p>
-    <p v-else-if="reachedLive" class="today__note today__note--news">{{ liveNote }}</p>
   </div>
 </template>
 
@@ -108,18 +135,48 @@ const liveNote = computed(() =>
   font-weight: 600;
   white-space: nowrap;
 }
-.today__streak--none {
+.today__line .today__streak {
+  color: var(--text);
+}
+.today__streak--none,
+.today__line .today__streak--none {
   color: var(--text-muted);
   font-weight: 400;
 }
 .today__flame {
   color: var(--notice);
 }
-.today--compact :deep(.bar) {
-  height: 1.25rem;
+.today__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
-.today--compact :deep(.bar__text) {
-  font-size: 0.8rem;
+.today__thin {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+.today__thin-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-secondary);
+  transition: width 0.3s;
+}
+.today__thin-fill--reached {
+  background: var(--success);
+}
+/* The live line keeps its place in the page while empty, out of sight and out of the layout. */
+.today__note:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 .today__note {
   margin: 0;

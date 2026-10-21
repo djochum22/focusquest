@@ -7,7 +7,7 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { useStreakStore } from '../../stores/streakStore'
 import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
 import { CATEGORY_LABELS } from '../../utils/sessionLabels'
-import { blockingSentence } from '../../utils/streak'
+import { blockingSentence, remainingSeconds } from '../../utils/streak'
 import AppButton from '../common/AppButton.vue'
 import ErrorMessage from '../common/ErrorMessage.vue'
 import TodayProgress from '../streak/TodayProgress.vue'
@@ -41,6 +41,11 @@ const greeting = computed(() => {
 const choice = ref<{ taskMode: TaskMode; taskCategory: TaskCategory } | null>(null)
 const blockingNote = computed(() => blockingSentence(streak.daily, session.planned ?? choice.value))
 
+/** Minutes still needed today, for the form to offer as a duration that finishes the target. */
+const minutesToTarget = computed(() =>
+  streak.daily && streak.daily.status !== 'COMPLETED' ? Math.ceil(remainingSeconds(streak.daily) / 60) : null,
+)
+
 // Only decides whether the form offers the camera; without it the form simply does not.
 onMounted(() => {
   camera.fetch().catch(() => {})
@@ -70,12 +75,12 @@ async function onStart() {
   }
 }
 
-/** "Continue: Essay draft · 18 min": the task if it had one, otherwise its category. */
-const continueLabel = computed(() => {
+/** What the session ended early was: its task if it had one, otherwise its category, and the time it had left. */
+const continueDetail = computed(() => {
   const next = props.unfinished
   if (!next) return null
-  const what = next.taskDescription ?? (next.taskMode === 'TASK_FREE' ? 'task-free session' : CATEGORY_LABELS[next.taskCategory])
-  return `Continue: ${what} · ${next.plannedFocusMinutes} min`
+  const what = next.taskDescription ?? (next.taskMode === 'TASK_FREE' ? 'Task-free session' : CATEGORY_LABELS[next.taskCategory])
+  return `${what} · ${next.plannedFocusMinutes} min`
 })
 
 function onChange() {
@@ -100,7 +105,7 @@ function onChange() {
       <AppButton size="large" :loading="session.busy" @click="onStart">
         {{ session.busy ? 'Starting…' : 'Start focusing' }}
       </AppButton>
-      <p class="planner__blocking">{{ blockingNote }} <slot name="blocking" /></p>
+      <p class="planner__blocking">{{ blockingNote }}</p>
       <AppButton variant="link" :disabled="session.busy" @click="onChange">Change details</AppButton>
     </div>
   </section>
@@ -114,26 +119,28 @@ function onChange() {
       <template v-if="$slots.today" #default><slot name="today" /></template>
     </TodayProgress>
     <ErrorMessage :message="submitError" />
-    <AppButton
-      v-if="unfinished && continueLabel"
+    <!-- A quiet second way to start, not a boxed one: the action, and below it what it carries on. -->
+    <button
+      v-if="unfinished && continueDetail"
+      type="button"
       class="planner__continue"
-      variant="secondary"
-      size="small"
       :disabled="session.busy"
       @click="onSubmit(unfinished)"
     >
-      {{ continueLabel }}
-    </AppButton>
+      <span class="planner__continue-action">Continue where you left off</span>
+      <span class="planner__continue-detail">{{ continueDetail }}</span>
+    </button>
     <SessionForm
       :submitting="session.busy"
       :camera-available="camera.settings?.enabled ?? false"
       :camera-by-default="camera.settings?.verifyNewSessionsByDefault ?? false"
       :initial="changing"
+      :finish-minutes="minutesToTarget"
       @submit="onSubmit"
       @choice="choice = $event"
     >
       <template #note>
-        <p class="planner__blocking">{{ blockingNote }} <slot name="blocking" /></p>
+        <p class="planner__blocking">{{ blockingNote }}</p>
       </template>
     </SessionForm>
   </section>
@@ -156,12 +163,38 @@ function onChange() {
   line-height: 1.15;
   text-wrap: balance;
 }
-.planner .planner__continue {
+.planner__continue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
   align-self: center;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 26rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.planner__continue-action {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.planner__continue:hover:not(:disabled) .planner__continue-action {
+  text-decoration-color: currentColor;
+}
+.planner__continue-detail {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.planner__continue:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .planner__actions {
   display: flex;

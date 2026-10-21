@@ -559,7 +559,9 @@ describe('DashboardView', () => {
     await button(wrapper, 'End session')!.trigger('click')
     await flushPromises()
 
-    await button(wrapper, 'Continue: Write the report · 18 min')!.trigger('click')
+    const carryOn = wrapper.findAll('button').find((b) => b.text().startsWith('Continue where you left off'))!
+    expect(carryOn.text()).toContain('Write the report · 18 min')
+    await carryOn.trigger('click')
     await flushPromises()
 
     expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining({
@@ -589,6 +591,62 @@ describe('DashboardView', () => {
     expect(wrapper.text()).toContain("Today's target reached")
     expect(wrapper.text()).toContain('Your streak starts when this session ends')
     expect(wrapper.text()).not.toContain('No streak yet')
+    wrapper.unmount()
+  })
+  it('says on completion whether websites are now unblocked, or how long they stay blocked', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    vi.mocked(sessionApi.completeSession).mockResolvedValue(
+      makeSession({ status: 'COMPLETED', blockingState: 'RELEASED', activeFocusSeconds: 1500 }),
+    )
+    const wrapper = await mountDashboard()
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3420 }), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    await button(wrapper, 'Complete')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('3 min more today keeps your 4-day streak. Websites stay blocked until then.')
+    wrapper.unmount()
+
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(
+      makeSession({ activeFocusSeconds: 1500, remainingFocusSeconds: 0 }),
+    )
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily(), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    const reached = await mountDashboard()
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3600, status: 'COMPLETED' }), weekly: null, dailyStreak: 5,
+      weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    await button(reached, 'Complete')!.trigger('click')
+    await flushPromises()
+    expect(reached.text()).toContain('Websites are unblocked for the rest of today.')
+    reached.unmount()
+  })
+
+  it('offers, and chooses, the duration that finishes today\'s target when it is close', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    vi.mocked(streakApi.fetchCurrentStreaks).mockResolvedValue({
+      daily: makeDaily({ qualifyingSeconds: 3420 }), weekly: null, dailyStreak: 4, weeklyStreak: null, dailyStreakProtectedDays: 0,
+    })
+    const wrapper = await mountDashboard()
+
+    const finish = wrapper.find<HTMLInputElement>('input[name="duration"][value="5"]')
+    expect(finish.exists()).toBe(true)
+    expect(finish.element.checked).toBe(true)
+    expect(wrapper.text()).toContain("5 min finishes today's target")
+    wrapper.unmount()
+  })
+
+  it('offers no extra duration while today\'s target is still far off', async () => {
+    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.text()).not.toContain("finishes today's target")
     wrapper.unmount()
   })
 })

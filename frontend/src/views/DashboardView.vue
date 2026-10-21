@@ -321,19 +321,18 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
               <strong v-if="reachedNow && milestone" class="dashboard__milestone">{{ milestone }}</strong>
             </span>
           </template>
-          <!-- The session ended early is what holds the blocking now; the one way out joins the line
-               that already says websites stay blocked, rather than a second line saying it again. -->
-          <template v-if="blockingHeld" #blocking>
-            <span class="dashboard__override">
-              <InfoTip label="Can I unblock websites now?">
-                Overriding unblocks them for the rest of today, at an XP penalty.
-              </InfoTip>
-              <AppButton variant="link" :disabled="session.busy" @click="confirming = 'override'">
-                Override blocking
-              </AppButton>
-            </span>
-          </template>
         </SessionPlanner>
+        <!-- The way out of blocking held by a session ended early. The line under Start already says
+             websites stay blocked, so this adds only the action, down here, away from Start. -->
+        <p v-if="blockingHeld" class="dashboard__override">
+          <AppButton variant="link" :disabled="session.busy" @click="confirming = 'override'">
+            Override blocking
+          </AppButton>
+          <InfoTip label="About overriding blocking">
+            Your last session ended early, so websites stay blocked until today's target is reached.
+            Overriding unblocks them for the rest of today, at an XP penalty.
+          </InfoTip>
+        </p>
         <!-- History is reached from here rather than the main navigation. -->
         <RouterLink :to="{ name: 'history' }" class="dashboard__history">Session history →</RouterLink>
       </template>
@@ -343,7 +342,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
       :open="confirming === 'abandon'"
       :title="finishInstead ? 'You reached the planned time' : 'End this session early?'"
       :confirm-label="finishInstead ? (session.current?.status === 'ACTIVE' ? 'Complete session' : 'Resume and complete') : 'End session'"
-      cancel-label="Keep focusing"
+      :cancel-label="session.current?.status === 'ACTIVE' ? 'Keep focusing' : 'Keep the session'"
       :danger="!finishInstead"
       :loading="session.busy"
       @confirm="confirmAbandon"
@@ -395,9 +394,10 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
   text-underline-offset: 3px;
 }
 .dashboard__override {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
-  white-space: nowrap;
+  margin: 1rem 0 0;
 }
 </style>

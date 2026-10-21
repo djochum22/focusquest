@@ -78,8 +78,12 @@ onMounted(() => head.value?.focus())
       <span class="complete__day">Day {{ Math.max(1, streakLength) }}</span> of your streak
     </p>
     <TodayProgress v-if="today" :progress="today" :streak-length="streakLength" :hide-streak="milestoneReached">
-      <template v-if="milestone && !milestoneReached" #default>
-        <span class="muted">{{ milestone }}</span>
+      <!-- What the day's target means for websites: free now, or blocked until the rest is done. -->
+      <template v-if="today.status !== 'COMPLETED'" #default>
+        <span class="muted">{{ milestone ? `${milestone}. ` : '' }}Websites stay blocked until then.</span>
+      </template>
+      <template v-else #default>
+        <span class="complete__free">Websites are unblocked for the rest of today.</span>
       </template>
     </TodayProgress>
     <AppButton size="large" @click="emit('next')">Plan another</AppButton>
@@ -159,6 +163,10 @@ onMounted(() => head.value?.focus())
   color: var(--text);
   font-size: 1.75rem;
   line-height: 1.1;
+}
+.complete__free {
+  color: var(--success);
+  font-weight: 600;
 }
 .complete > :deep(.today) {
   align-self: stretch;

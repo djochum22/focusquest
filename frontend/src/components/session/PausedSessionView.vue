@@ -22,7 +22,7 @@ const emit = defineEmits<{
   <section class="stage paused" aria-label="Paused session">
     <SessionMeta :session="session" status="Paused">
       <template #info>
-        <InfoTip>
+        <InfoTip label="About pausing">
           The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
           streak progress until you resume.
           <template v-if="session.finalizedPausedSeconds > 0">

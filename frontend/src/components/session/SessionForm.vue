@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
 import AppButton from '../common/AppButton.vue'
 import InfoTip from '../common/InfoTip.vue'
 import FormField from '../common/FormField.vue'
@@ -23,6 +23,8 @@ const props = defineProps<{
   cameraByDefault?: boolean
   /** Details to start from, e.g. a planned session being changed; otherwise the last ones used. */
   initial?: CreateSessionRequest | null
+  /** Minutes still needed for today's target; null once it is reached or while unknown. */
+  finishMinutes?: number | null
 }>()
 const emit = defineEmits<{
   submit: [request: CreateSessionRequest]
@@ -64,6 +66,27 @@ watch(
   { immediate: true },
 )
 const customDuration = ref(!(PRESET_MINUTES as readonly number[]).includes(initialMinutes))
+
+/**
+ * When today's target is closer than the shortest preset, the time that finishes it is offered as
+ * its own duration and chosen, unless the student has picked one or is changing a planned session:
+ * the session they most likely want is the one that completes the day.
+ */
+const finishPreset = computed(() =>
+  props.finishMinutes != null && props.finishMinutes > 0 && props.finishMinutes < PRESET_MINUTES[0]
+    ? Math.max(MIN_PLANNED_FOCUS_MINUTES, props.finishMinutes)
+    : null,
+)
+const durationTouched = ref(false)
+watch(
+  finishPreset,
+  (minutes) => {
+    if (minutes === null || durationTouched.value || props.initial) return
+    customDuration.value = false
+    form.plannedFocusMinutes = minutes
+  },
+  { immediate: true },
+)
 const errors = ref<FieldErrors<SessionForm>>({})
 const taskId = useId()
 const minutesId = useId()
@@ -78,6 +101,7 @@ onMounted(() => {
 })
 
 function pickPreset(minutes: number) {
+  durationTouched.value = true
   customDuration.value = false
   form.plannedFocusMinutes = minutes
 }
@@ -150,6 +174,16 @@ function onSubmit() {
       <fieldset class="session-form__duration">
         <legend class="session-form__legend">Duration (min)</legend>
         <div class="pills pills--small">
+          <label v-if="finishPreset">
+            <input
+              type="radio"
+              name="duration"
+              :value="finishPreset"
+              :checked="!customDuration && form.plannedFocusMinutes === finishPreset"
+              @change="pickPreset(finishPreset)"
+            />
+            {{ finishPreset }}<span class="visually-hidden"> min, finishes today's target</span>
+          </label>
           <label v-for="minutes in PRESET_MINUTES" :key="minutes">
             <input
               type="radio"
@@ -161,7 +195,7 @@ function onSubmit() {
             {{ minutes }}<span class="visually-hidden"> min</span>
           </label>
           <label>
-            <input v-model="customDuration" type="radio" name="duration" :value="true" />
+            <input v-model="customDuration" type="radio" name="duration" :value="true" @change="durationTouched = true" />
             Custom
           </label>
         </div>
@@ -178,6 +212,9 @@ function onSubmit() {
           />
           <span class="muted">min</span>
         </div>
+        <p v-if="finishPreset" class="session-form__finish-note" aria-hidden="true">
+          {{ finishPreset }} min finishes today's target
+        </p>
         <p v-if="errors.plannedFocusMinutes" class="session-form__error session-form__error--left">
           {{ errors.plannedFocusMinutes }}
         </p>
@@ -189,7 +226,7 @@ function onSubmit() {
         <input v-model="useCamera" type="checkbox" @change="cameraTouched = true" />
         Verify with camera
       </label>
-      <InfoTip>The camera checks that you stay on task. Off-task time does not count toward the session.</InfoTip>
+      <InfoTip label="About camera verification">The camera checks that you stay on task. Off-task time does not count toward the session.</InfoTip>
     </div>
 
     <div class="session-form__go">
@@ -298,6 +335,11 @@ function onSubmit() {
   margin-bottom: 0.3rem;
   font-size: 0.9rem;
   font-weight: 600;
+}
+.session-form__finish-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 .session-form__custom {
   display: flex;

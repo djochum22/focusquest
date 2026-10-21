@@ -329,10 +329,19 @@ so that I can stop the commitment before completion.
   then the confirmation offers "Complete session" (or "Resume and complete" when paused) instead, since ending would forfeit the XP already earned.
 - Given the user ended a session early today,  
   when the start page shows,  
-  then it offers "Continue: <task> · <minutes left>", which starts the same task, category and camera choice for the time it had left in one tap.
+  then it offers "Continue where you left off", with the task and the minutes it had left on a line below, which starts the same task, category and camera choice for that time in one tap.
 - Given an abandoned session still holds website blocking,  
   when the start page shows,  
-  then the one line under Start that says websites stay blocked also carries the "Override blocking" link, rather than a second line repeating it.
+  then the line under Start says websites stay blocked, and a quiet "Override blocking" link (with an info tip explaining the penalty) sits lower on the page, away from Start, rather than a second line repeating it.
+- Given a session is completed,  
+  when the completion screen shows today's target,  
+  then it says "Websites are unblocked for the rest of today." once the target is reached, or that websites stay blocked until the rest is done.
+- Given today's target is less than 25 minutes away,  
+  when the session-creation screen opens,  
+  then the time that finishes it is offered as its own duration ("5 min finishes today's target") and chosen, unless the user picks another or is changing a planned session.
+- Given a session is running or paused,  
+  when today's progress is shown under it,  
+  then it is a quiet line over a thin blue bar, so the session's own timer leads; when a counting session crosses the target, the line saying the streak follows is announced to screen readers.
 - Given the session is abandoned with time that counts toward today's target,  
   when the dashboard returns to the start page,  
   then it says how many minutes counted toward today.

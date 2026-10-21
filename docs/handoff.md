@@ -22,7 +22,21 @@ The dashboard (`frontend/src/views/DashboardView.vue` and the session components
 
 Checked: 623 frontend unit tests, all 11 end-to-end tests (two needed updating: the completion is now found as the "Session complete" region, and starting a session first dismisses a lingering summary), types and lint; screenshots in light at 1280px and dark at 390px, no sideways scroll at 390px. No backend code changed.
 
-**Next:** run `/impeccable critique` to score the dashboard again.
+**Critique after round three (21 October 2026): 28/40** (trend 24 → 30 → 27 → 28). Report: `.impeccable/critique/2026-10-21T17-24-59Z__…`. Detector: 0 source findings; `cream-palette` is the known false positive; a real 3.7:1 contrast failure on the "Level 1" chip on /streaks (outside the dashboard).
+
+**Decided by the user for round four:** fix both P1s together, take on all five issues, and keep the "Good evening / Ready to focus?" start page as it is.
+
+**Round four, done and committed (21 October 2026):**
+
+1. **The day's target.** The completion screen says "Websites are unblocked for the rest of today.", or "N min more today starts a streak. Websites stay blocked until then." When today's target is under 25 minutes away, the duration control offers the time that finishes it as a fifth segment (at least 5 min, "N min finishes today's target") and selects it unless a duration was picked.
+2. **The running screen.** Today under a running or paused session is a muted text line over a 4px speculum-blue bar (reed green once reached), so the timer leads and the fill never cuts the figures.
+3. **Continue.** "Continue where you left off" with the task and minutes on a wrapping line below; no boxed pill.
+4. **Announcements.** The mid-session streak line is an always-present live region; info tips on the dashboard have specific labels ("About pausing", "About off-task time", …).
+5. **Polish.** Override blocking moved to its own quiet line near the bottom, away from Start, with an info tip. The end-early dialog's cancel reads "Keep the session" when paused. The "Level 1" badge on /streaks uses text colour (the blue on its tint was 3.7:1). The "green sliver at 0:00" is one second of real progress, left as it is.
+
+Checked: 626 frontend unit tests, all 11 end-to-end tests, types and lint; screenshots light 1280 and dark 390.
+
+Then run `/impeccable critique` again.
 
 **Seeing it without touching real data:** the review rounds used the isolated end-to-end stack, not the app on port 8080:
 
