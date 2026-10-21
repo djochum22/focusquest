@@ -124,6 +124,31 @@ then runs without it, and `install` says so. A `run` in a terminal is not sandbo
 Moving or recreating `.venv` (or a Python upgrade that breaks it) breaks the agent; run `install`
 again.
 
+## Repair
+
+Start with `focusquest-companion status` (paired? calibrated? running in the background?) and the
+log, `tail -50 ~/Library/Logs/FocusQuest/companion.log`. Then, as the problem is:
+
+- **Not paired, or the code is refused.** Click **Pair the companion program** in Settings, then
+  `focusquest-companion pair` with the new code. The old code stops working; a background program
+  picks up the new one without restarting.
+- **Looking away is wrong, or the camera moved.** Calibrate again (**Calibrate** in Settings, or
+  `focusquest-companion calibrate`), sitting as you usually work.
+- **The camera does not open.** Check, in System Settings, **Privacy & Security**, **Camera**, that
+  it was not refused there, and that no other app has the camera.
+  `focusquest-companion cameras` lists the cameras it can see.
+- **The program itself is broken** (after a Python upgrade, or a moved `.venv`). From this folder,
+  reinstall it and the background program:
+
+  ```bash
+  focusquest-companion uninstall 2>/dev/null
+  rm -rf .venv && python3 -m venv .venv && .venv/bin/pip install -e '.[camera]'
+  .venv/bin/focusquest-companion install
+  ```
+
+  The pairing and calibration in `~/.config/focusquest/` are kept. To start over completely,
+  `focusquest-companion unpair`, and pair and calibrate again.
+
 ## Measuring accuracy
 
 To find out how often each signal is right, say what you are doing while the camera looks:

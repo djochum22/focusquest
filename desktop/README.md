@@ -85,6 +85,46 @@ FocusQuest may control Google Chrome.
 For working on the app itself, `npm run dev` runs it without bundling (after `npm run backend` once,
 if FocusQuest is not already running).
 
+## Repair
+
+Easiest first. None of these touch the data in `~/Library/Application Support/FocusQuest`, except
+the last.
+
+1. **Reload or restart.** Cmd+R in the window loads the web app again. Otherwise quit (Cmd+Q, or
+   **Quit FocusQuest** in the menu bar menu) and open it again from /Applications.
+2. **It does not start.** The window says why. For more, the bundled copy's log, and what holds
+   port 8080:
+
+   ```bash
+   tail -50 ~/Library/Logs/FocusQuest/backend.log
+   lsof -i :8080
+   ```
+
+   Docker or `bootRun` started after the app is the usual cause: quit the app, start Docker, then
+   open the app.
+3. **Apps or sites are not blocked.** Settings in the app's window should say **Desktop app:
+   Connected**. If not, Disconnect, and sign in again in that window; it connects by itself. To
+   force a new token, quit the app, delete it, and open the app again:
+
+   ```bash
+   rm ~/Library/Application\ Support/com.focusquest.desktop/desktop-token
+   ```
+
+4. **Chrome tabs are not closed.** System Settings, **Privacy & Security**, **Automation**,
+   FocusQuest: turn on Google Chrome. If FocusQuest is not listed, reset the permission, and macOS
+   asks again the next time something is blocked:
+
+   ```bash
+   tccutil reset AppleEvents com.focusquest.desktop
+   ```
+
+5. **Reinstall**, for a damaged app or Open at Login not working: build (see [Build](#build)), then
+   replace the installed app as in [Updating the installed app](#updating-the-installed-app), and
+   open it from /Applications.
+6. **Start from empty data**, as a last resort: quit the app and rename
+   `~/Library/Application Support/FocusQuest` (to `FocusQuest.bak`, say) rather than deleting it.
+   This loses the bundled copy's sessions and settings; the Docker copy's data is separate.
+
 ## Files
 
 | File | What it does |
