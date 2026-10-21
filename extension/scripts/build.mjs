@@ -40,6 +40,7 @@ const options = {
   define: {
     ...(backendUrl && { __FOCUSQUEST_BACKEND_URL__: JSON.stringify(backendUrl) }),
     ...(frontendUrl && { __FOCUSQUEST_FRONTEND_URL__: JSON.stringify(new URL(frontendUrl).origin) }),
+    __FOCUSQUEST_SAFARI__: JSON.stringify(safari),
   },
 }
 
@@ -76,13 +77,15 @@ function toFirefox(manifest) {
 
 /**
  * Safari runs the service worker, but not as a module (it needs none: the bundle has no imports), and
- * takes its id from the app the extension ships in. As in Firefox, the bridge runs on every port of
- * the web app's hosts and checks the origin itself.
+ * takes its id from the app the extension ships in. Its first try (21 October 2026) never ran the bridge
+ * on http://localhost:8080 with the port-less patterns alone, so it gets both: the bridge's patterns with
+ * their ports, and in a second entry the port-less ones, as in Firefox. The bridge checks the origin
+ * itself and starts once even when both match.
  */
 function toSafari(manifest) {
-  for (const script of manifest.content_scripts) {
-    script.matches = [...new Set(script.matches.map((pattern) => pattern.replace(/^([a-z*]+:\/\/[^/:]+):\d+/, '$1')))]
-  }
+  const [bridge] = manifest.content_scripts
+  const portless = [...new Set(bridge.matches.map((pattern) => pattern.replace(/^([a-z*]+:\/\/[^/:]+):\d+/, '$1')))]
+  manifest.content_scripts.push({ ...bridge, matches: portless })
   delete manifest.background.type
   delete manifest.key
   delete manifest.minimum_chrome_version

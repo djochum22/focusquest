@@ -28,6 +28,8 @@ FocusQuest as a Mac app: a window on FocusQuest and an icon in the menu bar. Bui
   its own (`fqd_`), which can only read what to block; Settings shows **Desktop app: Connected**,
   with Disconnect. The token is kept in `~/Library/Application Support/com.focusquest.desktop/desktop-token`.
   If FocusQuest cannot be reached, it keeps blocking what it last knew.
+  Its window runs no browser extension, so there Settings shows the browser extension as not
+  connected; websites are blocked by the extension in your browser.
 - **Suggests your apps** on the Blocking page's **Apps** tab, as you type a name: the apps in
   /Applications, /System/Applications and ~/Applications (one folder down too), and those running.
   A picked app is saved with its bundle id, so it is matched exactly; one typed by name alone is

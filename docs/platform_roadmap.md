@@ -12,7 +12,7 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 **Read `docs/handoff.md` first** (15 October 2026): the short list of what to do next, for the user and for Claude.
 
-**Where things stand (15 October 2026).** Steps 1, 2 and 4 are done on macOS; step 3 is done except Safari. Everything is committed.
+**Where things stand (15 October 2026).** Steps 1, 2 and 4 are done on macOS; step 3 is done except checking that Safari blocks (it connects since 21 October 2026). Everything is committed.
 
 | Commit | What |
 | --- | --- |
@@ -28,7 +28,7 @@ The container on :8080 is current (rebuilt 15 October 2026), with migrations V18
 
 **Waiting on the user:**
 
-1. **Try Safari, later** (the user will do it when they want Safari; steps in `docs/handoff.md`, "Try Safari"): add the Apple ID in Xcode (**Settings**, **Accounts**) and make its certificate (**Manage Certificates**, **+**, **Apple Development**), run `npm run build:safari` in `extension/` (these done 21 October 2026), open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
+1. **Finish trying Safari** (steps in `docs/handoff.md`, "Try Safari"; steps 1 to 5 done 21 October 2026, connected after two fixes, see "Safari" under step 3): check that a blocked site shows the blocked page.
 2. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
@@ -39,7 +39,7 @@ The container on :8080 is current (rebuilt 15 October 2026), with migrations V18
 
 **Next for Claude (only after the user says go):**
 
-1. **Safari**: fix whatever the user's first try in Safari turns up (built 15 October 2026; see "Step 3, Safari").
+1. **Safari**: fix whatever the blocking check turns up (connected 21 October 2026; see "Safari" under step 3).
 2. **Edge and Brave** by hand: load `extension/dist/` unpacked.
 3. Optional: the backend comments and the docs still say "Chrome extension" in places.
 4. Later: signing and notarising the desktop app, so it opens on another Mac without a warning.
@@ -70,7 +70,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | --- | --- | --- |
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
-| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari built 15 October 2026, waiting on the user's try in Safari |
+| 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Under way:** bridge, Firefox and options page done; Safari built 15 October 2026 and connected 21 October; blocking in Safari not yet checked |
 | 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, and picking apps by bundle id. Open: signing |
 
 ## Done: step 1, one app, one origin
@@ -148,11 +148,16 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 **Decided 9 October 2026:** the extension's backend address in an options page moved here from step 2. Before the bridge, `externally_connectable` fixed the web app's origins in the manifest, so an extension pointed elsewhere could not be connected; and with each computer running its own copy on 127.0.0.1:8080, nothing needs it yet.
 
-**Safari (15 October 2026; not yet tried in Safari).** Built with Xcode 27.
+**Safari (built 15 October 2026; connected in Safari 26.6 on 21 October).** Built with Xcode 27.
 - **Decided by the user:** its own small app, "FocusQuest for Safari", launched only to use Safari (the user rarely does), rather than inside the desktop app as first planned; signed with a free Apple ID in Xcode, so Safari keeps it on (the script falls back to signing for this Mac only, which needs Develop, "Allow Unsigned Extensions" at each Safari start). Firefox for every day is not needed either.
-- `node scripts/build.mjs --safari` builds `dist-safari/` (`toSafari`: no `background.type`, no `key` or `minimum_chrome_version`, no `open_in_tab`, port-less bridge patterns as in Firefox; esbuild target `safari17`). `scripts/build-safari.sh` runs `safari-web-extension-converter` into `safari-build/` each time, sets the app's id to `com.focusquest.safari` (the converter names it after the app, and an embedded extension's id must start with its app's), finds a team from `FOCUSQUEST_TEAM`, Xcode's preferences or (added 21 October 2026, as Xcode 27 saves no team there before the certificate exists) the keychain's "Apple Development" certificate, and builds with `xcodebuild`. `npm run build:safari` does both.
+- `node scripts/build.mjs --safari` builds `dist-safari/` (`toSafari`: no `background.type`, no `key` or `minimum_chrome_version`, no `open_in_tab`; the bridge in two entries, with its ports and port-less as in Firefox; esbuild target `safari17`). `scripts/build-safari.sh` runs `safari-web-extension-converter` into `safari-build/` each time, sets the app's id to `com.focusquest.safari` (the converter names it after the app, and an embedded extension's id must start with its app's), finds a team from `FOCUSQUEST_TEAM`, Xcode's preferences or (added 21 October 2026, as Xcode 27 saves no team there before the certificate exists) the keychain's "Apple Development" certificate, and builds with `xcodebuild`. `npm run build:safari` does both.
 - The manifest now has icons (`extension/icons/`, made from the web app's favicon), which the converter wanted and every browser shows.
-- **Checked:** the build, conversion and signing (with the Apple ID's team since 21 October 2026, the extension inside too); the extension's 241 tests. **Not yet checked:** anything in Safari itself, notably whether its `declarativeNetRequest` redirects to the blocked page and whether the bridge connects.
+- **Found in the user's first try (21 October 2026): not connected**, the page saying to install the extension. Checked from the terminal with Safari's "Allow JavaScript from Apple Events" (`osascript` … `do JavaScript`, in the web app's tab and in the extension's options page, which runs with the extension's rights):
+  - *The bridge did not run on `localhost:8080`* with the port-less patterns alone. `toSafari` now keeps the patterns with their ports and adds the port-less ones as a second entry; the bridge then ran (which of the two Safari honoured was not isolated). When both match, a flag in the content scripts' world starts the bridge once (`__FOCUSQUEST_SAFARI__`, Safari's build only: elsewhere a reloaded extension's copy, added to open tabs, must take over from the old one).
+  - *The worker never started:* Safari has no `webNavigation.onHistoryStateUpdated` (nor `declarativeNetRequest.ResourceType` and the other enums, used only as types here), so `registerNavigationGuard` threw and the page got an empty reply. Found by importing `background/serviceWorker.js` in the options page. The guard now registers it only where it exists (`tests/navigationGuard.test.ts`); in Safari, the open-tab guard's `tabs.onUpdated` catches single-page-app navigations.
+  - Then Settings showed **Browser extension: Connected**, and the bridge answered `{ ok: true, hasToken: true, status: "ok" }`.
+- The desktop app's window is a WebKit view, not Safari, and runs no browser extension: its Settings will not show the browser extension as connected. Sites are blocked by the extension in the browser in use; the desktop app blocks Mac apps.
+- **Checked:** the build, conversion and signing (with the Apple ID's team since 21 October 2026, the extension inside too); the extension's 243 tests; connecting, in Safari. **Not yet checked:** whether Safari's `declarativeNetRequest` redirects a blocked site to the blocked page (handoff step 6).
 
 ## Step 4 so far: the desktop app
 

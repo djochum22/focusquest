@@ -24,9 +24,13 @@ async function guard(details: NavigationDetails): Promise<void> {
   await redirectIfBlocked(details.tabId, details.url, await loadSnapshot())
 }
 
-/** Must run synchronously when the service worker starts, so events can wake it. */
+/**
+ * Must run synchronously when the service worker starts, so events can wake it. Safari has no
+ * onHistoryStateUpdated (and a worker that throws here never starts); there the open-tab guard's
+ * tabs.onUpdated, which sees every change of a tab's address, catches single-page-app navigations.
+ */
 export function registerNavigationGuard(): void {
   const onNavigation = (details: NavigationDetails) => void guard(details)
   chrome.webNavigation.onBeforeNavigate.addListener(onNavigation)
-  chrome.webNavigation.onHistoryStateUpdated.addListener(onNavigation)
+  chrome.webNavigation.onHistoryStateUpdated?.addListener(onNavigation)
 }

@@ -120,6 +120,9 @@ Safari**, a small app that carries it. Needs Xcode (not only the Command Line To
    (it needs that to block sites).
 4. After changing code, run `npm run build:safari` again and open the app again.
 
+The desktop app's window is not Safari and runs no browser extension, so its Settings does not show
+the browser extension as connected; check in Safari itself.
+
 **Signing.** With an Apple ID added in Xcode (**Settings**, **Accounts**; free, nothing is published)
 and its certificate made (select the Apple ID, **Manage Certificates**, **+**, **Apple Development**),
 the script signs with it and Safari keeps the extension on across restarts. The script finds the team
@@ -278,7 +281,7 @@ worker**). Tokens are never logged.
 | --- | --- |
 | `declarativeNetRequest` | Block by redirecting page navigations to the blocked page |
 | `host_permissions: <all_urls>` | Chrome only allows a redirect rule on sites the extension has access to, and this also lets the worker call the local backend |
-| `webNavigation` | The navigation guard (single-page navigations, URL spellings) |
+| `webNavigation` | The navigation guard (single-page navigations, URL spellings; Safari has no `onHistoryStateUpdated`, so there `tabs.onUpdated` in the open-tab guard catches single-page navigations) |
 | `storage` | Extension token, synchronized state, sync health, the FocusQuest address |
 | `alarms` | The 30-second sync, which survives the worker being shut down |
 | `scripting` | Adds the bridge to web app tabs already open when the extension is installed or reloaded, and runs it on the address set on the options page |
@@ -286,7 +289,9 @@ worker**). Tokens are never logged.
 `content_scripts` runs the bridge on the web app's default origins only (`WEB_APP_ORIGINS` in
 `src/utils/config.ts`, which must match), which is how the web app hands over the token; another
 address is added at run time. Firefox's match patterns cannot name a port, so there the bridge runs on
-every port of those hosts and checks the page's origin itself before it marks the page. The manifest's
+every port of those hosts and checks the page's origin itself before it marks the page. Safari's
+manifest has both forms, in two entries (it did not run the bridge on `localhost:8080` with the
+port-less ones alone); the bridge starts once when both match. The manifest's
 `options_ui` is the options page with the FocusQuest address. The manifest's
 `action` adds the toolbar button, badge and popup.
 
