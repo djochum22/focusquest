@@ -2,7 +2,9 @@
 
 A local-first focus app: a Spring Boot backend, a Vue web app and a browser extension that blocks
 distracting sites during a focus session, a Mac app that keeps distracting apps closed, and an
-optional camera companion program that checks you stay on task. Design documents are in [`docs/`](docs/).
+optional camera companion program that checks you stay on task. Design documents are in [`docs/`](docs/);
+who the product is for is in [`PRODUCT.md`](PRODUCT.md), and the visual design system (colours, type,
+components) in [`DESIGN.md`](DESIGN.md).
 
 | Part | Folder | Stack |
 | --- | --- | --- |
