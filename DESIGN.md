@@ -242,6 +242,7 @@ Restrained and solid: one weight (600), no gradients and no movement on hover, o
 
 ### Inputs / Fields
 - **Style:** full-width, collar-white background, 1px hairline border, 8px radius, padding 0.6rem × 0.75rem, inheriting the body font.
+- **Selects:** drawn without the native look (`appearance: none`) and given a small muted chevron, so they have the same height in every browser. Safari and the desktop app otherwise draw a shorter macOS control, and the category select no longer lines up with the duration switch beside it.
 - **Label:** above the control in Label type; an optional InfoTip sits beside the label, outside it.
 - **Focus:** 2px drake-green outline with a 2px offset, shared by every input, select, button and link.
 - **Error:** border turns chestnut (`aria-invalid`), and a Small chestnut message appears below.

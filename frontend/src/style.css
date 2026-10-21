@@ -111,6 +111,24 @@ select {
   font: inherit;
 }
 
+/*
+ * Selects drop the native look so every browser honours the padding above: WebKit (Safari and the
+ * desktop app) otherwise draws a shorter macOS control. The arrow is two gradients, so it follows
+ * the theme's colours.
+ */
+select {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) 50%,
+    calc(100% - 0.8rem) 50%;
+  background-size: 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+}
+
 /* Placeholders are hints, but they still need to be readable: Chromium's default grey is not on dusk. */
 ::placeholder {
   color: var(--text-muted);
