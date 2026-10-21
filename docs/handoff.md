@@ -8,7 +8,7 @@ Start here. The details live in two longer notes:
 
 The dashboard (`frontend/src/views/DashboardView.vue` and the session components) was reworked in five rounds with the Impeccable design skill (`.claude/skills/impeccable/`). Product context is in `PRODUCT.md`, the design system in `DESIGN.md`.
 
-**State:** all five rounds are done and fast-forwarded into **master** (the `dashboard-redesign` branch can be deleted); master was not pushed to GitHub yet. Critique scores: 24 → 30 → 27 → 28 → 28 → 27 out of 40 (each later run used a fresh, stricter reviewer). Every report is in `.impeccable/critique/`. The rounds are recorded below, newest last, followed by the optional follow-ups.
+**State:** all five rounds are done and fast-forwarded into **master** and pushed to GitHub; the `dashboard-redesign` branch is deleted. Critique scores: 24 → 30 → 27 → 28 → 28 → 27 out of 40 (each later run used a fresh, stricter reviewer). Every report is in `.impeccable/critique/`. The rounds are recorded below, newest last, followed by the optional follow-ups.
 
 **To see it in the desktop app** (the one in /Applications, which bundles its own copy of FocusQuest): rebuild it with `npm run build` in `desktop/` and install the new app (see `desktop/README.md`). The web app on port 8080 picks it up once its copy is rebuilt.
 
