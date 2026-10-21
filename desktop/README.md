@@ -62,7 +62,7 @@ open src-tauri/target/release/bundle/macos/FocusQuest.app
 `scripts/prepare-backend.sh` builds the boot jar (backend and web app) and a JRE cut down with
 `jlink` into `src-tauri/resources/backend/` (about 110 MB, not committed). Run it again after
 changing the backend or the web app. The app is about 120 MB. It is not signed: built on this Mac it
-opens as is; copied to another, right-click it and choose **Open** the first time.
+opens as is; for another Mac, see [Giving it to someone else](#giving-it-to-someone-else).
 
 If `npm run build` stops at "failed to run cargo metadata", that terminal cannot find Rust: run
 `source "$HOME/.cargo/env"` (or open a new terminal) and build again.
@@ -81,6 +81,27 @@ NEW=~/Desktop/Code/focusquest/desktop/src-tauri/target/release/bundle/macos/Focu
 
 Open it from /Applications as above, so Open at Login keeps working. macOS may ask again whether
 FocusQuest may control Google Chrome.
+
+### Giving it to someone else
+
+The app carries everything it runs on, so the other Mac needs no Java, Rust, Node or Docker. It
+does need Apple Silicon (M1 or newer; the build is arm64 only) and macOS 12 or newer. Zip it with
+`ditto`, not the Finder's Compress, so the bundled JRE stays intact (about 90 MB):
+
+```bash
+ditto -c -k --keepParent src-tauri/target/release/bundle/macos/FocusQuest.app ~/Desktop/FocusQuest.zip
+```
+
+They unzip it and move FocusQuest.app to /Applications. As it is not signed, macOS refuses to open
+it the first time (right-click, **Open** no longer gets past this since macOS 15): open it once,
+then in System Settings, **Privacy & Security**, click **Open Anyway**. Or, in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/FocusQuest.app
+```
+
+It starts with empty data and its own account, and asks to control Google Chrome as above. Each
+new version is sent and let through the same way.
 
 For working on the app itself, `npm run dev` runs it without bundling (after `npm run backend` once,
 if FocusQuest is not already running).
