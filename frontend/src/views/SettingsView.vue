@@ -87,8 +87,9 @@ const extensionError = ref<string | null>(null)
 const desktopError = ref<string | null>(null)
 
 onMounted(() => {
-  void extension.refresh()
+  // The desktop app's window runs no browser extension: it blocks websites itself.
   if (desktop.inDesktopApp) void desktop.refresh().catch(() => {})
+  else void extension.refresh()
   // Only needed to know whether the time zone is locked; the backend has the last word.
   session.fetchCurrent().catch(() => {})
 })
@@ -266,7 +267,7 @@ async function onConfirmDelete() {
         </form>
       </SettingsSection>
 
-      <SettingsSection title="Browser extension">
+      <SettingsSection v-if="!desktop.inDesktopApp" title="Browser extension">
         <template #summary>
           <span :class="{ 'settings__ok': extension.connection === 'connected' }">{{ EXTENSION_SUMMARY[extension.connection] }}</span>
         </template>
@@ -315,11 +316,22 @@ async function onConfirmDelete() {
           <span v-else-if="desktop.connection === 'problem'">
             The desktop app cannot reach FocusQuest right now. It keeps blocking what it last knew.
           </span>
-          <span v-else>Not connected. Blocked apps are not closed until it is.</span>
+          <span v-else>Not connected. Blocked apps and websites are not closed until it is.</span>
           <InfoTip>
-            The desktop app quits your blocked apps while blocking is on, the same times websites are
-            blocked. Its sign-in can only read what to block. Disconnecting stops it closing apps.
+            While blocking is on, the desktop app quits your blocked apps and sends Chrome tabs on
+            blocked websites to a FocusQuest page. Its sign-in can only read what to block and your current session.
+            Disconnecting stops it closing anything.
           </InfoTip>
+        </p>
+        <p v-if="desktop.chrome === 'denied'" class="settings__text settings__status">
+          <span>FocusQuest is not allowed to control Chrome, so blocked websites stay open there.</span>
+          <InfoTip>
+            Open System Settings, Privacy &amp; Security, Automation. Under FocusQuest, turn on Google
+            Chrome. Chrome may need to be open for it to be listed.
+          </InfoTip>
+        </p>
+        <p v-else-if="desktop.chrome === 'error'" class="settings__text settings__status">
+          <span>The desktop app could not look at Chrome's tabs last time it tried.</span>
         </p>
         <ErrorMessage :message="desktopError" />
         <div class="settings__actions">
@@ -388,8 +400,8 @@ async function onConfirmDelete() {
             <span class="settings__data-name">
               Restore from a backup
               <InfoTip>
-                Replace everything in FocusQuest with an exported file. Your sign-in and browser extension
-                connection stay as they are. Restoring is not possible while website blocking is active.
+                Replace everything in FocusQuest with an exported file. Your sign-in and connected apps
+                stay as they are. Restoring is not possible while website blocking is active.
               </InfoTip>
             </span>
             <input

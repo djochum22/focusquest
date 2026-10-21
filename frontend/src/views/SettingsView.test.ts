@@ -9,6 +9,7 @@ import * as sessionApi from '../api/sessionApi'
 import * as settingsApi from '../api/settingsApi'
 import { useAuthStore } from '../stores/authStore'
 import { downloadJson } from '../utils/download'
+import * as desktopBridge from '../utils/desktopBridge'
 import * as bridge from '../utils/extensionBridge'
 import { setAutoConnectOff } from '../utils/extensionOptOut'
 import { makeSession } from '../test-utils/sessions'
@@ -21,6 +22,10 @@ vi.mock('../api/extensionApi')
 vi.mock('../api/sessionApi')
 vi.mock('../utils/extensionBridge')
 vi.mock('../utils/download')
+vi.mock('../utils/desktopBridge', async (original) => ({
+  ...(await original<typeof import('../utils/desktopBridge')>()),
+  isInDesktopApp: vi.fn(() => false),
+}))
 
 async function mountView() {
   const router = createRouter({
@@ -72,6 +77,15 @@ beforeEach(async () => {
 })
 
 describe('SettingsView', () => {
+  it('leaves out the browser extension inside the desktop app, which blocks websites itself', async () => {
+    vi.mocked(desktopBridge.isInDesktopApp).mockReturnValue(true)
+    const { wrapper } = await mountView()
+
+    const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())
+    expect(titles).toEqual(['Account', 'Desktop app', 'Camera verification', 'Session history', 'Your data'])
+    expect(bridge.getExtensionState).not.toHaveBeenCalled()
+  })
+
   it('shows each area as a closed row with its status, opening on click', async () => {
     const { wrapper } = await mountView()
     const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())

@@ -123,7 +123,7 @@ class ExtensionTokenIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
-    void desktopTokenOnlyReadsTheBlockingState() throws Exception {
+    void desktopTokenOnlyReadsTheBlockingStateAndTheCurrentSession() throws Exception {
         String userToken = setUpAccount("doug", "UTC");
         String desktopToken = issueDesktopToken(userToken);
 
@@ -131,9 +131,10 @@ class ExtensionTokenIntegrationTest extends ApiIntegrationTest {
         getAs(desktopToken, "/api/extension/blocking-state")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.blockedApps").isArray());
+        // For its blocked page; nothing is enforced on a new account, so there is no session to show.
+        getAs(desktopToken, "/api/extension/current-session").andExpect(status().is2xxSuccessful());
         // It does not check in for sessions as the extension does, and reaches nothing else.
         postJsonAs(desktopToken, "/api/extension/heartbeat", "{}").andExpect(status().isForbidden());
-        getAs(desktopToken, "/api/extension/current-session").andExpect(status().isForbidden());
         getAs(desktopToken, "/api/auth/me").andExpect(status().isForbidden());
         getAs(desktopToken, "/api/blocked-apps").andExpect(status().isForbidden());
         postAs(desktopToken, "/api/auth/desktop-token").andExpect(status().isForbidden());

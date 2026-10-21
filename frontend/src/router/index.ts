@@ -5,6 +5,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     /** Reachable without signing in. Routes are protected unless this is set. */
     public?: boolean
+    /** Shown to anyone, signed in or not, with no redirect either way. */
+    standalone?: boolean
   }
 }
 
@@ -22,6 +24,12 @@ const router = createRouter({
       name: 'setup',
       component: () => import('../views/SetupView.vue'),
       meta: { public: true },
+    },
+    {
+      path: '/blocked',
+      name: 'blocked',
+      component: () => import('../views/BlockedView.vue'),
+      meta: { standalone: true },
     },
     {
       path: '/',

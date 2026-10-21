@@ -163,7 +163,7 @@ The MVP does not require separate roles or multi-user permissions.
 
 ### Future desktop direction
 
-Desktop-application blocking is built with Tauri v2, chosen over Electron and native Swift on 8 October 2026 because it keeps Windows, iOS and Android open. The Mac app (`desktop/`, 15 October 2026) opens FocusQuest in a window, using the copy already running on 127.0.0.1:8080 or starting the one bundled inside it, and quits blocked apps at the same times websites are blocked: until the day's focus target is reached, and during any session. A blocked app is asked to quit as Cmd+Q does, so it can still ask to save, and a notification says why. Windows, iOS and Android remain future work (see `docs/platform_roadmap.md`).
+Desktop-application blocking is built with Tauri v2, chosen over Electron and native Swift on 8 October 2026 because it keeps Windows, iOS and Android open. The Mac app (`desktop/`, 15 October 2026) opens FocusQuest in a window, using the copy already running on 127.0.0.1:8080 or starting the one bundled inside it, and quits blocked apps at the same times websites are blocked: until the day's focus target is reached, and during any session. A blocked app is asked to quit as Cmd+Q does, so it can still ask to save, and a notification says why. Since 21 October 2026 it also closes blocked websites in Chrome, by the same rules as the browser extension (subdomains, path prefixes, the most specific rule wins, allowlist wins a tie): a Chrome tab on a blocked site is sent to the web app's blocked page within about a second. This needs the user to allow FocusQuest to control Chrome once (macOS Automation). The app opens at login, so blocking is on whenever the Mac is. Windows, iOS and Android remain future work (see `docs/platform_roadmap.md`).
 
 ## 6\. Local-first architecture
 
@@ -988,7 +988,7 @@ GET /api/extension/current-session
 
 POST /api/extension/heartbeat
 
-The extension polls these with its own token (`fqx_`), which reaches only `/api/extension/**`. The desktop app has a token of its own (`fqd_`), which only reads `GET /api/extension/blocking-state`. The web app issues both and hands them over, so the user never copies one. See the technical architecture (section 10) for the response shapes.
+The extension polls these with its own token (`fqx_`), which reaches only `/api/extension/**`. The desktop app has a token of its own (`fqd_`), which only reads `GET /api/extension/blocking-state` and `GET /api/extension/current-session`. The web app issues both and hands them over, so the user never copies one. See the technical architecture (section 10) for the response shapes.
 
 ### Errors
 

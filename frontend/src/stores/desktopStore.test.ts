@@ -8,7 +8,11 @@ import { useDesktopStore } from './desktopStore'
 vi.mock('../api/desktopApi')
 vi.mock('../utils/desktopBridge')
 
-const state = (hasToken: boolean, status: 'never-synced' | 'ok' | 'unauthorized' | 'offline') => ({ hasToken, status })
+const state = (
+  hasToken: boolean,
+  status: 'never-synced' | 'ok' | 'unauthorized' | 'offline',
+  chrome: bridge.ChromeAccess = 'idle',
+) => ({ hasToken, status, chrome })
 
 beforeEach(() => {
   localStorage.clear()
@@ -90,5 +94,15 @@ describe('desktopStore', () => {
     await store.refresh()
 
     expect(store.connection).toBe('problem')
+  })
+
+  it('says when it is not allowed to look at Chrome', async () => {
+    vi.mocked(bridge.getDesktopState).mockResolvedValue(state(true, 'ok', 'denied'))
+    const store = useDesktopStore()
+
+    await store.refresh()
+
+    expect(store.connection).toBe('connected')
+    expect(store.chrome).toBe('denied')
   })
 })

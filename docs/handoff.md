@@ -8,11 +8,13 @@ Start here. The details live in two longer notes:
 
 Everything planned is done. Nothing is waiting, for the user or for Claude; the lists below are optional.
 
-- **Desktop app (platform step 4): done on macOS.** `desktop/` is a Tauri app: a window on FocusQuest and a menu bar icon. It uses the Docker copy when that is running, otherwise starts its own, and quits blocked Mac apps while blocking is on. Tried live: Calculator was quit. Build it with `npm run build` in `desktop/`; see `desktop/README.md`.
+- **Desktop app (platform step 4): done on macOS.** `desktop/` is a Tauri app: a window on FocusQuest and a menu bar icon. It uses the Docker copy when that is running, otherwise starts its own, and quits blocked Mac apps while blocking is on. Tried live: Calculator was quit. Since 21 October 2026 it also closes blocked websites in Chrome (Apple events; macOS asks once to allow it) and opens at login. Build it with `npm run build` in `desktop/`; see `desktop/README.md`.
+
+**For the semester (decided 21 October 2026):** the user runs the desktop app alone, from /Applications, and browses in Chrome; Docker stays off and is not needed. The app's own copy keeps its data in `~/Library/Application Support/FocusQuest`, separate from Docker's volume (Export and Restore in Settings move data between them).
 - **Camera accuracy (C1d): done.** The `accuracy` command is built, away warns again, getting up no longer counts as looking away, and after calibrating again the looking-away margin stays at 5° (2 false seconds in 4½ minutes, no false warnings). Phone detection is weak and left as it is.
 - **Every browser (platform step 3): done.** Chromium and Firefox; Safari, as its own small app "FocusQuest for Safari", connects and blocks (tried by the user 21 October 2026). Connecting needed two fixes: the bridge's match patterns, and a browser event Safari lacks (`docs/platform_roadmap.md`, "Safari").
 
-The desktop app's window is not Safari and runs no browser extension, so its Settings never shows the browser extension as connected; that is expected.
+The desktop app's window is not Safari and runs no browser extension, so since 21 October 2026 its Settings leaves the browser extension out (at the user's request) and the web app does not try to connect one there.
 
 ## Safari after a change
 

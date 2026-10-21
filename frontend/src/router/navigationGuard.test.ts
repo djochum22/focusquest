@@ -27,6 +27,7 @@ function buildRouter() {
       { path: '/setup', name: 'setup', component: stub, meta: { public: true } },
       { path: '/', name: 'dashboard', component: stub },
       { path: '/history', name: 'history', component: stub },
+      { path: '/blocked', name: 'blocked', component: stub, meta: { standalone: true } },
     ],
   })
   router.beforeEach(authGuard)
@@ -41,6 +42,15 @@ beforeEach(() => {
 })
 
 describe('authGuard', () => {
+  it('shows a standalone page whether or not anyone is signed in', async () => {
+    const router = buildRouter()
+
+    await router.push('/blocked?site=youtube.com')
+
+    expect(router.currentRoute.value.name).toBe('blocked')
+    expect(authApi.fetchSetupStatus).not.toHaveBeenCalled()
+  })
+
   it('redirects unauthenticated users to login, remembering where they were headed', async () => {
     const router = buildRouter()
 

@@ -10,10 +10,12 @@ const auth = useAuthStore()
 const router = useRouter()
 
 // Every signed-in page uses the shell, so this is where an installed but unconnected extension, or
-// the desktop app around this page, is connected without the user having to do anything.
+// the desktop app around this page, is connected without the user having to do anything. The desktop
+// app's window runs no browser extension, so there only the app itself is connected.
 onMounted(() => {
-  void useExtensionStore().autoConnect()
-  void useDesktopStore().autoConnect()
+  const desktop = useDesktopStore()
+  if (desktop.inDesktopApp) void desktop.autoConnect()
+  else void useExtensionStore().autoConnect()
 })
 
 async function onLogout() {

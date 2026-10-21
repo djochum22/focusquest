@@ -61,9 +61,9 @@ public class SecurityConfig {
                         // it gives full read and write access to the database, password hash included.
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
-                    // The desktop app's token (ROLE_DESKTOP) only reads what to block; it does not check in for
-                    // sessions as the extension does.
-                    auth.requestMatchers(HttpMethod.GET, "/api/extension/blocking-state")
+                    // The desktop app's token (ROLE_DESKTOP) only reads what to block, and the session and streak
+                    // progress its blocked page shows; it does not check in for sessions as the extension does.
+                    auth.requestMatchers(HttpMethod.GET, "/api/extension/blocking-state", "/api/extension/current-session")
                             .hasAnyRole("USER", "EXTENSION", "DESKTOP");
                     // The extension's own token (ROLE_EXTENSION) reaches only the endpoints it synchronizes with.
                     auth.requestMatchers("/api/extension/**").hasAnyRole("USER", "EXTENSION");

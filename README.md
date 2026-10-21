@@ -121,8 +121,9 @@ To restore, stop the app and unpack it into the volume the same way: `tar xzf
 
 ## Run the desktop app (macOS)
 
-FocusQuest in its own window with a menu bar icon, which also quits your blocked Mac apps (the
-**Apps** tab on the Blocking page) while blocking is on. If FocusQuest is already running on
+FocusQuest in its own window with a menu bar icon. While blocking is on it quits your blocked Mac
+apps (the **Apps** tab on the Blocking page) and closes your blocked websites in Chrome, so with
+Chrome you need neither Docker nor the browser extension. It opens at login. If FocusQuest is already running on
 port 8080 (Docker or `bootRun`) it uses that; otherwise it starts the copy bundled inside it, with
 its own data in `~/Library/Application Support/FocusQuest`.
 
@@ -133,7 +134,10 @@ npm run build
 open src-tauri/target/release/bundle/macos/FocusQuest.app
 ```
 
-Sign in inside its window once: it connects itself, and Settings shows **Desktop app: Connected**.
+To keep it, drag `FocusQuest.app` into /Applications and open it from there. Sign in inside its
+window once: it connects itself, and Settings shows **Desktop app: Connected**. The first time
+Chrome is open while something is blocked, macOS asks whether FocusQuest may control Google
+Chrome; click **OK**.
 Quit the app before starting Docker, or the app's own copy keeps port 8080. More in
 [`desktop/README.md`](desktop/README.md).
 

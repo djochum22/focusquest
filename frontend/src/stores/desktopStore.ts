@@ -1,7 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as desktopApi from '../api/desktopApi'
-import { disconnectDesktop, getDesktopState, isInDesktopApp, sendTokenToDesktop } from '../utils/desktopBridge'
+import {
+  disconnectDesktop,
+  getDesktopState,
+  isInDesktopApp,
+  sendTokenToDesktop,
+  type ChromeAccess,
+  type DesktopState,
+} from '../utils/desktopBridge'
 import { isAutoConnectOff, setAutoConnectOff } from '../utils/extensionOptOut'
 import { classify, type ExtensionConnection } from './extensionStore'
 
@@ -12,13 +19,19 @@ import { classify, type ExtensionConnection } from './extensionStore'
  */
 export const useDesktopStore = defineStore('desktop', () => {
   const connection = ref<ExtensionConnection>('unknown')
+  const chrome = ref<ChromeAccess>('idle')
   const working = ref(false)
   const isConnected = computed(() => connection.value === 'connected')
   const inDesktopApp = isInDesktopApp()
   let autoConnectTried = false
 
+  function apply(state: DesktopState | null): void {
+    connection.value = classify(state)
+    chrome.value = state?.chrome ?? 'idle'
+  }
+
   async function refresh(): Promise<void> {
-    connection.value = classify(await getDesktopState())
+    apply(await getDesktopState())
   }
 
   /** Issues a fresh desktop token and gives it to the app. */
@@ -28,7 +41,7 @@ export const useDesktopStore = defineStore('desktop', () => {
     try {
       const { token } = await desktopApi.issueDesktopToken()
       const state = await sendTokenToDesktop(token)
-      connection.value = classify(state)
+      apply(state)
       if (state === null) {
         await desktopApi.revokeDesktopToken().catch(() => {})
         throw new Error('This page is not open in the FocusQuest desktop app.')
@@ -46,7 +59,7 @@ export const useDesktopStore = defineStore('desktop', () => {
     try {
       setAutoConnectOff(true, 'desktop')
       await desktopApi.revokeDesktopToken()
-      connection.value = classify(await disconnectDesktop())
+      apply(await disconnectDesktop())
     } finally {
       working.value = false
     }
@@ -64,5 +77,5 @@ export const useDesktopStore = defineStore('desktop', () => {
     }
   }
 
-  return { connection, working, isConnected, inDesktopApp, refresh, connect, disconnect, autoConnect }
+  return { connection, chrome, working, isConnected, inDesktopApp, refresh, connect, disconnect, autoConnect }
 })

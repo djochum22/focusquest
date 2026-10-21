@@ -22,6 +22,7 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 | `413abbb` | Step 4, part 1: blocked apps in the backend and on the Blocking page |
 | `47aca31` | Step 4, part 3: the desktop app quits blocked apps (desktop token, V19); tried live, Calculator was quit |
 | `5a3c646` | Step 4, part 4: picking apps by bundle id in the desktop app |
+| (21 October 2026) | Step 4, part 5: the desktop app closes blocked websites in Chrome, and opens at login |
 
 The container on :8080 is current (rebuilt 15 October 2026), with migrations V18 and V19 applied to the real volume. The desktop app is built at `desktop/src-tauri/target/release/bundle/macos/FocusQuest.app` and connected to it.
 
@@ -72,7 +73,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 | 1 | One app, one origin: the backend serves the built web app | Done |
 | 2 | Container: Dockerfile and docker-compose | Done |
 | 3 | Every browser: a bridge without `externally_connectable`, a Firefox build, Safari | **Done:** bridge, Firefox, options page; Safari built 15 October 2026, connects and blocks since 21 October |
-| 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, and picking apps by bundle id. Open: signing |
+| 4 | Tauri desktop app, with Mac app blocking | **Done** on macOS: blocked apps, the shell, enforcement, picking apps by bundle id, blocked websites in Chrome, opening at login. Open: signing |
 
 ## Done: step 1, one app, one origin
 
@@ -157,7 +158,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - *The bridge did not run on `localhost:8080`* with the port-less patterns alone. `toSafari` now keeps the patterns with their ports and adds the port-less ones as a second entry; the bridge then ran (which of the two Safari honoured was not isolated). When both match, a flag in the content scripts' world starts the bridge once (`__FOCUSQUEST_SAFARI__`, Safari's build only: elsewhere a reloaded extension's copy, added to open tabs, must take over from the old one).
   - *The worker never started:* Safari has no `webNavigation.onHistoryStateUpdated` (nor `declarativeNetRequest.ResourceType` and the other enums, used only as types here), so `registerNavigationGuard` threw and the page got an empty reply. Found by importing `background/serviceWorker.js` in the options page. The guard now registers it only where it exists (`tests/navigationGuard.test.ts`); in Safari, the open-tab guard's `tabs.onUpdated` catches single-page-app navigations.
   - Then Settings showed **Browser extension: Connected**, and the bridge answered `{ ok: true, hasToken: true, status: "ok" }`.
-- The desktop app's window is a WebKit view, not Safari, and runs no browser extension: its Settings will not show the browser extension as connected. Sites are blocked by the extension in the browser in use; the desktop app blocks Mac apps.
+- The desktop app's window is a WebKit view, not Safari, and runs no browser extension: since 21 October 2026 its Settings leaves the browser extension section out, and `AppShell` connects only the desktop app there. Sites are blocked by the extension in the browser in use; the desktop app blocks Mac apps, and since 21 October 2026 also blocked sites in Chrome (step 4, part 5).
 - **Checked:** the build, conversion and signing (with the Apple ID's team since 21 October 2026, the extension inside too); the extension's 243 tests; connecting and blocking, in Safari (tried by the user 21 October 2026: a blocked site showed the blocked page).
 
 ## Step 4 so far: the desktop app
@@ -185,6 +186,8 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 - **Web app:** `utils/desktopBridge.ts` (`@tauri-apps/api`), `api/desktopApi.ts`, `stores/desktopStore.ts` (as the extension's store, sharing `classify` and the opt-out, now per client), connected from `AppShell` on every signed-in page; a **Desktop app** row in Settings, shown only inside the app.
 - **Checked:** `cargo test` (9, plus one reading this Mac's running apps), the backend's tests, the web app's (583); against the bundled backend on a spare port, a desktop token read the blocked apps and was refused on the heartbeat. Tried live by the user (Docker rebuilt): Calculator was quit while blocking was on. Found on the way: an app opened while Docker was down keeps its own copy on port 8080 after Docker comes back, and OrbStack's forwarding of 8080 then stayed broken until `orb restart docker`. Quit the app before starting Docker.
 - Matching was by name alone until part 4 below.
+
+**Part 5, websites in Chrome and opening at login (21 October 2026).** The user works in the desktop app for the semester, browses in Chrome only, and wanted the app itself to block websites. Offered: watching browser tabs (chosen), or `/etc/hosts` through a helper running as administrator (domains only, every browser). `websites.rs` ports the extension's matcher and precedence; `chrome.rs` reads tab ids and addresses with `osascript -l JavaScript` (Chrome 155 gives ids as text) and sets a blocked tab's address by id, so a window brought forward meanwhile cannot send the wrong tab away; `lib.rs` does this in the one-second loop while Chrome runs and something is blocked. The tab goes to the web app's new `/blocked` page (a standalone route, shown signed in or not), which shows, like the extension's, the task, the time left counting down and today's streak as a progress bar; the desktop app reads them from `GET /api/extension/current-session`, which `ROLE_DESKTOP` may now read, and passes them in the address. The Automation permission's state reaches Settings through `desktop_status`. `tauri-plugin-autostart` opens the app at login from its first run, with **Open at Login** in the menu bar menu. Not covered: Firefox and Safari (the extension still does those), and quitting the app ends blocking, as for apps.
 
 **Part 4, picking apps (15 October 2026, `5a3c646`).** Inside the desktop app, the Apps tab's name field suggests this Mac's apps (a `<datalist>`, the user's preference for no extra panels), from a fourth command, `installed_apps`: the `.app` bundles in /Applications, /System/Applications and ~/Applications, one folder down too, read with `NSBundle`, plus the running ones, each bundle id once. `appRequest` sends the bundle id of an installed app with the typed name; an edit keeps the app's own while the name stays, so an app saved by name alone gets its id when edited in the desktop app. In a browser nothing changes. Tests: `utils/blockedApps.test.ts`, `AppForm` in `BlockingComponents.test.ts`, `apps.rs` (`cargo test -- --ignored` lists this Mac's apps).
 - **View, Reload (Cmd+R)** added 15 October 2026: the window keeps the web app it loaded, so after Docker was rebuilt with a fix, the user's window still ran the old code (Calibrate stayed disabled) and had no way to reload short of restarting the app.

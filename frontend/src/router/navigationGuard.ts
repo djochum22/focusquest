@@ -14,10 +14,12 @@ export function safeRedirectTarget(value: unknown): string | null {
 /**
  * - Protected routes require a live session; otherwise the user is sent to login and brought back
  *   to the page they wanted afterwards.
+ * - Standalone routes (the blocked page) are shown to anyone, as they are.
  * - Public routes (login, setup) bounce already-signed-in users to the dashboard. Otherwise the
  *   backend decides which of the two is shown: setup until the account exists, login afterwards.
  */
 export const authGuard: NavigationGuard = async (to: RouteLocationNormalized) => {
+  if (to.meta.standalone) return true
   const auth = useAuthStore()
 
   if (to.meta.public) {

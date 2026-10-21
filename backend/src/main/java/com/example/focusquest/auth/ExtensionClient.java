@@ -9,7 +9,7 @@ public enum ExtensionClient {
     /** The browser extension: {@code fqx_} tokens, ROLE_EXTENSION, every {@code /api/extension/**} route. */
     BROWSER("fqx_", "ROLE_EXTENSION"),
 
-    /** The desktop app: {@code fqd_} tokens, ROLE_DESKTOP, which only reads the blocking state (SecurityConfig). */
+    /** The desktop app: {@code fqd_} tokens, ROLE_DESKTOP, which only reads the blocking state and the current session (SecurityConfig). */
     DESKTOP("fqd_", "ROLE_DESKTOP");
 
     private final String tokenPrefix;

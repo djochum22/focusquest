@@ -826,6 +826,42 @@ so that I cannot switch to them instead.
   when the user tries to edit or delete a blocked app,  
   then the change is refused, as for blocked sites.
 
+## **US-162: Close blocked websites in Chrome from the desktop app**
+
+As a user who works in the desktop app and browses in Chrome,  
+I want the desktop app to close blocked websites in Chrome,  
+so that I do not need the browser extension for them to be blocked.
+
+**Acceptance criteria:**
+
+- Given blocking is on and Chrome is open,  
+  when a tab shows a blocked site,  
+  then within about a second it shows FocusQuest's blocked page, saying which site and why, with the session's task and time left and a progress bar for today's streak, and a notification says the same.
+- Given an allowlist rule more specific than the block rule (allow `example.com/docs` inside block `example.com`),  
+  when the user opens a page under it,  
+  then it stays open.
+- Given the user has not allowed FocusQuest to control Chrome,  
+  when they open Settings in the desktop app,  
+  then it says blocked websites stay open in Chrome and how to allow it.
+- Given Chrome is closed,  
+  when blocking is on,  
+  then the desktop app does not open it.
+
+## **US-163: The desktop app opens at login**
+
+As a user,  
+I want FocusQuest to open when I log in,  
+so that blocking is on without my remembering to start it.
+
+**Acceptance criteria:**
+
+- Given the desktop app has been opened once,  
+  when the user logs in again,  
+  then it opens by itself.
+- Given the user unticks **Open at Login** in the menu bar menu,  
+  when they log in again,  
+  then it does not open, until they tick it again.
+
 ## **US-161: Connect the desktop app**
 
 As a user,  

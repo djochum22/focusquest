@@ -5,7 +5,11 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/authStore'
 import AppShell from './AppShell.vue'
 
-vi.mock('../../stores/extensionStore', () => ({ useExtensionStore: () => ({ autoConnect: vi.fn() }) }))
+const extensionAutoConnect = vi.fn()
+const desktopAutoConnect = vi.fn()
+const desktop = { inDesktopApp: false, autoConnect: desktopAutoConnect }
+vi.mock('../../stores/extensionStore', () => ({ useExtensionStore: () => ({ autoConnect: extensionAutoConnect }) }))
+vi.mock('../../stores/desktopStore', () => ({ useDesktopStore: () => desktop }))
 
 async function mountShell() {
   const router = createRouter({
@@ -25,9 +29,26 @@ async function mountShell() {
 beforeEach(() => {
   sessionStorage.clear()
   setActivePinia(createPinia())
+  vi.clearAllMocks()
+  desktop.inDesktopApp = false
 })
 
 describe('AppShell', () => {
+  it('connects the browser extension in a browser', async () => {
+    await mountShell()
+
+    expect(extensionAutoConnect).toHaveBeenCalled()
+    expect(desktopAutoConnect).not.toHaveBeenCalled()
+  })
+
+  it('connects only the desktop app inside it, which runs no browser extension', async () => {
+    desktop.inDesktopApp = true
+    await mountShell()
+
+    expect(desktopAutoConnect).toHaveBeenCalled()
+    expect(extensionAutoConnect).not.toHaveBeenCalled()
+  })
+
   it('names the pages in the navigation, starting with Focus', async () => {
     const { wrapper } = await mountShell()
 
