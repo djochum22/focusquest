@@ -120,8 +120,11 @@ Safari**, a small app that carries it. Needs Xcode (not only the Command Line To
    (it needs that to block sites).
 4. After changing code, run `npm run build:safari` again and open the app again.
 
-**Signing.** With an Apple ID added in Xcode (**Settings**, **Accounts**; free, nothing is published),
-the script signs with its personal certificate and Safari keeps the extension on across restarts.
+**Signing.** With an Apple ID added in Xcode (**Settings**, **Accounts**; free, nothing is published)
+and its certificate made (select the Apple ID, **Manage Certificates**, **+**, **Apple Development**),
+the script signs with it and Safari keeps the extension on across restarts. The script finds the team
+in Xcode's preferences or, failing that, in the certificate (Xcode 27 saves the team only once the
+certificate exists).
 Without one the app is signed for this Mac only, and Safari lists the extension only while
 **Develop**, **Allow Unsigned Extensions** is on (the Develop menu appears with **Settings**,
 **Advanced**, **Show features for web developers**); Safari turns that off each time it starts.

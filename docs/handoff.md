@@ -12,21 +12,25 @@ Start here. The details live in two longer notes:
 
 Nothing is waiting right now. Everything below is for later.
 
+*21 October 2026: steps 1 and 2 are done. The Apple ID and its certificate are in Xcode (Xcode 27 saves no team until the certificate is made, so step 1 now ends with making one), and `npm run build:safari` signed the app with team P3NCC9658P, the extension inside it too. The extension's 241 tests pass. Next: step 3.*
+
 ## Later, for you
 
 ### Try Safari (about 10 minutes)
 
 Only when you want to use Safari. FocusQuest for Safari is a small app that carries the extension: Safari takes extensions only inside an app.
 
-1. **Add your Apple ID to Xcode**: open Xcode, then **Settings**, **Accounts**, **+**, **Apple ID**, and sign in. It is free and publishes nothing. Without it, Safari forgets the extension each time it restarts.
-2. **Build the app**, in a terminal:
+1. **Add your Apple ID to Xcode** (done 21 October 2026): open Xcode, then **Settings**, **Accounts**, **+**, **Apple ID**, and sign in. It is free and publishes nothing. Without it, Safari forgets the extension each time it restarts.
+
+   **Then make its certificate**: in the same **Accounts** pane, select your Apple ID, click **Manage Certificates…**, then **+** at the bottom left, **Apple Development**, and **Done**.
+2. **Build the app** (done 21 October 2026), in a terminal:
 
    ```bash
    cd ~/Desktop/Code/focusquest/extension
    npm run build:safari
    ```
 
-   It should say **Signing with team …**. If it says **No Apple ID in Xcode**, step 1 did not take.
+   It should say **Signing with team …**. If it says **No Apple ID team found**, the certificate in step 1 is missing.
 3. **Open the app once**: `extension/safari-build/FocusQuest for Safari.app` (in Finder, or `open "safari-build/FocusQuest for Safari.app"` from the same terminal).
 4. **Turn the extension on**: in Safari, **Settings**, **Extensions**, tick **FocusQuest**, and allow it on all websites (it needs that to block sites).
 5. **Check it connects**: in Safari, open http://localhost:8080 and sign in. **Settings**, **Browser extension** should say **Connected** within a few seconds.

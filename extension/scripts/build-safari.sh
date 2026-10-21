@@ -6,7 +6,8 @@
 # Signing: with the free certificate of the Apple ID added in Xcode (Settings, Accounts), Safari keeps
 # the extension on across restarts. Without one the app is signed for this Mac only, and Safari shows
 # the extension only while Develop, "Allow Unsigned Extensions" is on, which it turns off at each start.
-# FOCUSQUEST_TEAM picks the team; otherwise the first one Xcode knows is used.
+# FOCUSQUEST_TEAM picks the team; otherwise the first one Xcode's preferences list, or else the team of
+# an "Apple Development" certificate in the keychain (Xcode 27 saves the team only once one exists).
 set -euo pipefail
 
 extension="$(cd "$(dirname "$0")/.." && pwd)"
@@ -48,11 +49,19 @@ except Exception:
     print("")
 ')}"
 
+# The certificate's organisational unit is its team.
+if [[ -z "$team" ]]; then
+  team="$(security find-certificate -c "Apple Development" -p 2>/dev/null \
+    | openssl x509 -noout -subject -nameopt multiline 2>/dev/null \
+    | sed -n -E 's/^ *organizationalUnitName *= *([A-Z0-9]+)$/\1/p' | head -1)"
+fi
+
 if [[ -n "$team" ]]; then
   echo "Signing with team $team (Apple ID in Xcode)."
   signing=(CODE_SIGN_STYLE=Automatic "DEVELOPMENT_TEAM=$team" -allowProvisioningUpdates)
 else
-  echo "No Apple ID in Xcode: signing for this Mac only. Safari needs Develop, \"Allow Unsigned Extensions\" after each start."
+  echo "No Apple ID team found: signing for this Mac only. Safari needs Develop, \"Allow Unsigned Extensions\" after each start."
+  echo "To sign: Xcode, Settings, Accounts, select the Apple ID, Manage Certificates, +, Apple Development; then build again."
   signing=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=)
 fi
 

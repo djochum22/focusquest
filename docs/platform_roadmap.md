@@ -24,11 +24,11 @@ The camera work has its own note, `docs/camera_roadmap.md`.
 
 The container on :8080 is current (rebuilt 15 October 2026), with migrations V18 and V19 applied to the real volume. The desktop app is built at `desktop/src-tauri/target/release/bundle/macos/FocusQuest.app` and connected to it.
 
-**Tools on this Mac (15 October 2026):** Rust 1.99 with rustup (`~/.cargo/bin`; a new shell picks it up). Xcode 27 is installed and selected (`xcode-select -p` gives `/Applications/Xcode.app/Contents/Developer`). No Apple ID in Xcode yet, so no signing certificate.
+**Tools on this Mac (15 October 2026):** Rust 1.99 with rustup (`~/.cargo/bin`; a new shell picks it up). Xcode 27 is installed and selected (`xcode-select -p` gives `/Applications/Xcode.app/Contents/Developer`). Apple ID and its "Apple Development" certificate added in Xcode 21 October 2026 (team P3NCC9658P; Xcode 27 saves no team until the certificate exists).
 
 **Waiting on the user:**
 
-1. **Try Safari, later** (the user will do it when they want Safari; steps in `docs/handoff.md`, "Try Safari"): add the Apple ID in Xcode (**Settings**, **Accounts**), run `npm run build:safari` in `extension/`, open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
+1. **Try Safari, later** (the user will do it when they want Safari; steps in `docs/handoff.md`, "Try Safari"): add the Apple ID in Xcode (**Settings**, **Accounts**) and make its certificate (**Manage Certificates**, **+**, **Apple Development**), run `npm run build:safari` in `extension/` (these done 21 October 2026), open `extension/safari-build/FocusQuest for Safari.app` once, turn the extension on in Safari's **Settings**, **Extensions** (allowed on all websites), and check that Settings in the web app says **Browser extension: Connected** and that a blocked site is blocked.
 2. **Try the options page** (5 minutes; it is committed, but the user has not tried it yet). Reload the extension: **Reload** in `about:debugging` for Firefox, or in `chrome://extensions` for Chrome. Then:
    1. Click the toolbar icon, then **Change the FocusQuest address**.
    2. Try a bad address (it should be refused), then `127.0.0.1:8080`, then **Use this computer**.
@@ -150,9 +150,9 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 **Safari (15 October 2026; not yet tried in Safari).** Built with Xcode 27.
 - **Decided by the user:** its own small app, "FocusQuest for Safari", launched only to use Safari (the user rarely does), rather than inside the desktop app as first planned; signed with a free Apple ID in Xcode, so Safari keeps it on (the script falls back to signing for this Mac only, which needs Develop, "Allow Unsigned Extensions" at each Safari start). Firefox for every day is not needed either.
-- `node scripts/build.mjs --safari` builds `dist-safari/` (`toSafari`: no `background.type`, no `key` or `minimum_chrome_version`, no `open_in_tab`, port-less bridge patterns as in Firefox; esbuild target `safari17`). `scripts/build-safari.sh` runs `safari-web-extension-converter` into `safari-build/` each time, sets the app's id to `com.focusquest.safari` (the converter names it after the app, and an embedded extension's id must start with its app's), finds a team from Xcode's preferences or `FOCUSQUEST_TEAM`, and builds with `xcodebuild`. `npm run build:safari` does both.
+- `node scripts/build.mjs --safari` builds `dist-safari/` (`toSafari`: no `background.type`, no `key` or `minimum_chrome_version`, no `open_in_tab`, port-less bridge patterns as in Firefox; esbuild target `safari17`). `scripts/build-safari.sh` runs `safari-web-extension-converter` into `safari-build/` each time, sets the app's id to `com.focusquest.safari` (the converter names it after the app, and an embedded extension's id must start with its app's), finds a team from `FOCUSQUEST_TEAM`, Xcode's preferences or (added 21 October 2026, as Xcode 27 saves no team there before the certificate exists) the keychain's "Apple Development" certificate, and builds with `xcodebuild`. `npm run build:safari` does both.
 - The manifest now has icons (`extension/icons/`, made from the web app's favicon), which the converter wanted and every browser shows.
-- **Checked:** the build, conversion and signing (ad hoc, for now); the extension's 241 tests. **Not yet checked:** anything in Safari itself, notably whether its `declarativeNetRequest` redirects to the blocked page and whether the bridge connects.
+- **Checked:** the build, conversion and signing (with the Apple ID's team since 21 October 2026, the extension inside too); the extension's 241 tests. **Not yet checked:** anything in Safari itself, notably whether its `declarativeNetRequest` redirects to the blocked page and whether the bridge connects.
 
 ## Step 4 so far: the desktop app
 
@@ -186,7 +186,8 @@ Later, not in these two weeks: Windows, iOS and Android apps.
 
 ## Later steps (planned)
 
-**Step 3: every browser (days 5–8).** The bridge, the API namespace and the Firefox manifest are done (see "Step 3 so far"); the options page, testing and Safari are open.
+**Step 3: every browser (days 5–8).**
+*Built by 15 October 2026 except trying Safari in Safari; "Step 3 so far" says what was built and where it differs from this plan (Safari ships in its own small app, "FocusQuest for Safari", rather than inside the desktop app).*
 - **The bridge.** Firefox and Safari have no `externally_connectable`. Replace it with a content script injected on the web app's origin, talking to the page through `window.postMessage`. Code to change:
   - `frontend/src/utils/extensionBridge.ts`
   - `onMessageExternal` in `extension/src/background/serviceWorker.ts`
@@ -200,7 +201,7 @@ Later, not in these two weeks: Windows, iOS and Android apps.
   - a minimum version of 128 or later
   - packaging with `web-ext`
 - **Testing.** Try Edge and Brave by hand. The e2e suite stays on Chromium, and Firefox gets a manual checklist.
-- **Safari.** Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle.
+- **Safari.** Convert the build with `xcrun safari-web-extension-converter`. It must ship inside a Mac app, so it goes into the step 4 bundle (changed: its own small app, by the user's choice).
 
 **Step 4: Tauri desktop app (days 9–14).**
 *Built on 15 October 2026; "Step 4 so far" says what was built and where it differs from this plan (the blocked apps live on the Blocking page rather than in Settings, and the backend is a bundled resource rather than a Tauri sidecar).*
