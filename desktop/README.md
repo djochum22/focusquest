@@ -163,3 +163,10 @@ the last.
 | `src-tauri/icons/` | Made from `frontend/public/favicon.svg`; `tray.png` is the menu bar icon, black on transparent for macOS to tint |
 
 Tests: `cargo test` in `src-tauri/` (also run by `scripts/test-all.sh`); `cargo test -- --ignored` also reads this Mac's running apps and, with Chrome open, its tabs.
+
+## Pair Companion
+If you meant the camera companion (vision/), the fixes are:
+
+Pair again: in Settings, click Pair the companion program, then run focusquest-companion pair. The new code replaces the old one.
+Calibrate again after moving the camera or switching to another one.
+Reinstall: in vision/, run rm -rf .venv && python3 -m venv .venv && .venv/bin/pip install -e '.[camera]'
