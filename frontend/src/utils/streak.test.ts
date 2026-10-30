@@ -6,6 +6,7 @@ import {
   endEarlyOutcome,
   finishLine,
   finishTodayMinutes,
+  minutesLeftToday,
   levelProgressPercent,
   progressPercent,
   remainingSeconds,
@@ -194,6 +195,24 @@ describe('blockingSentence', () => {
     expect(blockingSentence(daily, { taskMode: 'TASK_REQUIRED', taskCategory: 'WRITING' })).toMatch(/^Websites stay blocked until/)
     expect(blockingSentence(daily, { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE' })).toMatch(/^This session won't count/)
     expect(blockingSentence(daily, null)).toMatch(/^Websites stay blocked until/)
+  })
+})
+
+describe('minutesLeftToday', () => {
+  it('is the whole target before any time is done, then what is left', () => {
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 30, qualifyingSeconds: 0 }))).toBe(30)
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 30, qualifyingSeconds: 6 * 60 }))).toBe(24)
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 120, qualifyingSeconds: 0 }))).toBe(120)
+  })
+
+  it('rounds part of a minute up, and is never shorter than the shortest session', () => {
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 30, qualifyingSeconds: 6 * 60 + 1 }))).toBe(24)
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 30, qualifyingSeconds: 27 * 60 }))).toBe(5)
+  })
+
+  it('is null once the target is reached', () => {
+    expect(minutesLeftToday(makeProgress({ status: 'COMPLETED' }))).toBeNull()
+    expect(minutesLeftToday(makeProgress({ targetMinutes: 30, qualifyingSeconds: 30 * 60 }))).toBeNull()
   })
 })
 

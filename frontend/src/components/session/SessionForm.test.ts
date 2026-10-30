@@ -21,6 +21,45 @@ beforeEach(() => localStorage.clear())
 const submitted = (wrapper: Wrapper) => wrapper.emitted('submit') ?? []
 
 describe('SessionForm', () => {
+  describe('the time that finishes today', () => {
+    const mountFinishing = (finishMinutes: number) =>
+      mount(SessionForm, { props: { submitting: false, finishMinutes } })
+    const durations = (wrapper: Wrapper) =>
+      wrapper.findAll('input[name="duration"]').map((input) => input.attributes('value'))
+    const checked = (wrapper: Wrapper, value: string) => (preset(wrapper, value).element as HTMLInputElement).checked
+
+    it.each([[30], [24], [120]])('offers %i min as its own duration', (minutes) => {
+      const wrapper = mountFinishing(minutes)
+
+      expect(durations(wrapper)[0]).toBe(String(minutes))
+      expect(wrapper.text()).toContain(`${minutes} min finishes today's target`)
+    })
+
+    it('adds no second pill when a preset already is that time, but still says so', () => {
+      const wrapper = mountFinishing(25)
+
+      expect(durations(wrapper).filter((value) => value === '25')).toHaveLength(1)
+      expect(wrapper.text()).toContain("25 min finishes today's target")
+    })
+
+    it('chooses it when the target is close, but not when it is far off', () => {
+      expect(checked(mountFinishing(24), '24')).toBe(true)
+      localStorage.clear()
+      const far = mountFinishing(30)
+      expect(checked(far, '30')).toBe(false)
+      expect(checked(far, '25')).toBe(true)
+    })
+
+    it('selects and submits it when picked', async () => {
+      const wrapper = mountFinishing(30)
+      await preset(wrapper, '30').setValue()
+
+      await submit(wrapper)
+
+      expect(submitted(wrapper)[0]![0]).toMatchObject({ plannedFocusMinutes: 30 })
+    })
+  })
+
   describe('validation', () => {
     it('starts on Studying the first time, so a first session needs no category choice', async () => {
       const wrapper = mountForm()

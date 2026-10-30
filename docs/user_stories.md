@@ -150,6 +150,9 @@ so that I can commit to focused work.
 - Given the user is on the session-creation screen,  
   when the user picks a duration,  
   then 25, 50 and 90 minutes are one tap each, and any other length can be typed under "Custom".
+- Given today's target is not reached and the session would count toward it,  
+  when the user picks a duration,  
+  then the time that finishes the target is one tap too (the whole target before any time is done, otherwise what is left, and at least 5 minutes). Under 25 minutes it is chosen already.
 - Given the user started a session from this browser before,  
   when the session-creation screen opens,  
   then it starts from the category and duration used last; the first time, the category is Studying.

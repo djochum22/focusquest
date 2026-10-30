@@ -6,6 +6,7 @@ import FormField from '../common/FormField.vue'
 import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
 import { loadSessionDefaults, saveSessionDefaults } from '../../utils/sessionDefaults'
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from '../../utils/sessionLabels'
+import { FINISH_TODAY_BELOW_MINUTES } from '../../utils/streak'
 import {
   hasErrors,
   MIN_PLANNED_FOCUS_MINUTES,
@@ -23,7 +24,7 @@ const props = defineProps<{
   cameraByDefault?: boolean
   /** Details to start from, e.g. a planned session being changed; otherwise the last ones used. */
   initial?: CreateSessionRequest | null
-  /** The session length that would finish today's target (`finishTodayMinutes`); null for none. */
+  /** The session length that would finish today's target (`minutesLeftToday`); null for none. */
   finishMinutes?: number | null
 }>()
 const emit = defineEmits<{
@@ -68,9 +69,9 @@ watch(
 const customDuration = ref(!(PRESET_MINUTES as readonly number[]).includes(initialMinutes))
 
 /**
- * When today's target is close, the time that finishes it is offered as its own duration and
- * chosen, unless the student has picked one or is changing a planned session: the session they
- * most likely want is the one that completes the day.
+ * The time that finishes today's target is always offered as its own duration. When the target is
+ * close it is also chosen, unless the student has picked one or is changing a planned session: the
+ * session they most likely want is the one that completes the day.
  */
 const finishPreset = computed(() =>
   props.finishMinutes != null && !(PRESET_MINUTES as readonly number[]).includes(props.finishMinutes)
@@ -82,6 +83,7 @@ watch(
   finishPreset,
   (minutes) => {
     if (minutes === null || durationTouched.value || props.initial) return
+    if (minutes >= FINISH_TODAY_BELOW_MINUTES && minutes !== form.plannedFocusMinutes) return
     customDuration.value = false
     form.plannedFocusMinutes = minutes
   },
@@ -211,8 +213,9 @@ function onSubmit() {
           />
           <span class="muted">min</span>
         </div>
-        <p v-if="finishPreset" class="session-form__finish-note" aria-hidden="true">
-          {{ finishPreset }} min finishes today's target
+        <!-- Beside its own pill, the pill's hidden text has already said this to a screen reader. -->
+        <p v-if="finishMinutes" class="session-form__finish-note" :aria-hidden="finishPreset ? 'true' : undefined">
+          {{ finishMinutes }} min finishes today's target
         </p>
         <p v-if="errors.plannedFocusMinutes" class="session-form__error session-form__error--left">
           {{ errors.plannedFocusMinutes }}

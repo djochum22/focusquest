@@ -640,11 +640,13 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
-  it('offers no extra duration while today\'s target is still far off', async () => {
+  it('offers the time left today while the target is far off, without choosing it', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
     const wrapper = await mountDashboard()
 
-    expect(wrapper.text()).not.toContain("finishes today's target")
+    expect(wrapper.text()).toContain("finishes today's target")
+    const chosen = wrapper.findAll<HTMLInputElement>('input[name="duration"]').filter((input) => input.element.checked)
+    expect(chosen.map((input) => input.attributes('value'))).toEqual(['25'])
     wrapper.unmount()
   })
   it('offers to finish today straight from a completion that falls a little short', async () => {

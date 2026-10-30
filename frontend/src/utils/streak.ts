@@ -36,18 +36,23 @@ export function remainingSeconds(progress: StreakProgress): number {
   return Math.max(0, targetSeconds(progress) - progress.qualifyingSeconds)
 }
 
-/** Below this many minutes, the time left on today's target is offered as a session of its own. */
-const FINISH_TODAY_BELOW_MINUTES = 25
+/** Below this many minutes, the time left on today's target is the session most likely wanted. */
+export const FINISH_TODAY_BELOW_MINUTES = 25
 
 /**
- * The length of the session that would finish today's target (at least the shortest session
- * allowed), when that is less than the shortest preset; null once reached or while still far off.
+ * The length of the session that would finish today's target, at least the shortest session
+ * allowed; the whole target before any time is done. Null once it is reached.
  */
-export function finishTodayMinutes(daily: StreakProgress): number | null {
+export function minutesLeftToday(daily: StreakProgress): number | null {
   if (daily.status === 'COMPLETED') return null
   const left = Math.ceil(remainingSeconds(daily) / 60)
-  if (left <= 0 || left >= FINISH_TODAY_BELOW_MINUTES) return null
-  return Math.max(MIN_PLANNED_FOCUS_MINUTES, left)
+  return left <= 0 ? null : Math.max(MIN_PLANNED_FOCUS_MINUTES, left)
+}
+
+/** `minutesLeftToday`, only when the target is close enough to suggest finishing it; null while far off. */
+export function finishTodayMinutes(daily: StreakProgress): number | null {
+  const left = minutesLeftToday(daily)
+  return left !== null && left < FINISH_TODAY_BELOW_MINUTES ? left : null
 }
 
 /** Which sessions count toward a streak, in words. */
