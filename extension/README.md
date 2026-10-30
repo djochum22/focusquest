@@ -246,7 +246,7 @@ Use the web app (http://localhost:8080) to create and start the session (step 2)
    | `https://www.youtube.com/feed/subscriptions` | Loads (allowlist beats the broader block) |
    | `https://reddit.com/r/%41ll` or `https://reddit.com//r/all` | Blocked page (odd spellings of a blocked path) |
 
-   The blocked page shows the site, the rule that matched, your task, the time remaining and today's
+   The blocked page shows the site, the rule that matched, your task, the time remaining (none for a stopwatch) and today's
    streak progress. Its **Go back** button leaves it.
 
 5. **Ask Chrome directly** which rule applies to a URL (worker console). An empty `matchedRules` means
