@@ -210,6 +210,27 @@ so that blocking becomes active and my focus time begins.
   when time passes,  
   then the application tracks active focus time separately from paused time.
 
+## **US-032: Focus with a stopwatch**
+
+As a user,  
+I want to run a stopwatch instead of a timer,  
+so that I can count whatever time I manage without committing to a length.
+
+**Acceptance criteria:**
+
+- Given the user is on the session-creation screen,  
+  when the user picks Stopwatch,  
+  then no duration is asked for, and the choice is remembered for the next session.
+- Given a stopwatch session is running,  
+  when the user looks at it,  
+  then the clock counts up with no progress bar, and Pause and Stop are offered.
+- Given a stopwatch session is running or paused,  
+  when the user stops it,  
+  then it completes at any length, its focused time counts toward today, and it earns XP for each whole minute focused.
+- Given a stopwatch session is paused,  
+  when the time is counted,  
+  then the pause adds nothing.
+
 ## **US-031: Complete a focus session**
 
 As a user,  

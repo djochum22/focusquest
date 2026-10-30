@@ -1,4 +1,4 @@
-import type { CreateSessionRequest, FocusSession, TaskCategory } from '../types/session'
+import type { CreateSessionRequest, FocusSession, TaskCategory, TimerMode } from '../types/session'
 import { SELECTABLE_CATEGORIES } from './sessionLabels'
 import { MIN_PLANNED_FOCUS_MINUTES } from './validation'
 
@@ -11,6 +11,7 @@ const KEY = 'focusquest.lastSession'
 export interface SessionDefaults {
   taskCategory: TaskCategory | null
   plannedFocusMinutes: number | null
+  timerMode: TimerMode
 }
 
 export function loadSessionDefaults(): SessionDefaults {
@@ -18,9 +19,9 @@ export function loadSessionDefaults(): SessionDefaults {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Record<keyof SessionDefaults, unknown>>
     const category = SELECTABLE_CATEGORIES.find((c) => c === saved.taskCategory) ?? null
     const minutes = Number.isInteger(saved.plannedFocusMinutes) ? (saved.plannedFocusMinutes as number) : null
-    return { taskCategory: category, plannedFocusMinutes: minutes }
+    return { taskCategory: category, plannedFocusMinutes: minutes, timerMode: saved.timerMode === 'STOPWATCH' ? 'STOPWATCH' : 'COUNTDOWN' }
   } catch {
-    return { taskCategory: null, plannedFocusMinutes: null }
+    return { taskCategory: null, plannedFocusMinutes: null, timerMode: 'COUNTDOWN' }
   }
 }
 
@@ -30,6 +31,7 @@ export function saveSessionDefaults(defaults: SessionDefaults): void {
     localStorage.setItem(KEY, JSON.stringify({
       taskCategory: defaults.taskCategory ?? previous.taskCategory,
       plannedFocusMinutes: defaults.plannedFocusMinutes ?? previous.plannedFocusMinutes,
+      timerMode: defaults.timerMode,
     }))
   } catch {
     // Storage blocked: the next form simply starts from its defaults.
@@ -48,6 +50,7 @@ export function saveUnfinishedSession(session: FocusSession): void {
     taskCategory: session.taskCategory,
     taskDescription: session.taskDescription,
     plannedFocusMinutes: Math.max(MIN_PLANNED_FOCUS_MINUTES, Math.ceil(session.remainingFocusSeconds / 60)),
+    timerMode: session.timerMode,
     cameraVerification: session.cameraVerification,
   }
   try {

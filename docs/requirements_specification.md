@@ -322,6 +322,10 @@ The session shall support the following states:
 
 Completed sessions are terminal and cannot be edited.
 
+### Stopwatch sessions
+
+A session can be a stopwatch instead of counting down (`timerMode`). It has no planned length (`plannedFocusMinutes` is 0) and no minimum, and can be stopped at any time. Stopping completes it: its active time counts toward streak progress like any session's, and it earns XP for each whole minute focused rather than a planned length, so under a minute earns none. Pausing, website blocking, camera checks and the computer sleeping work as for a countdown. Sessions from before this, and backups without a mode, are countdowns.
+
 ### Session time model
 
 The system should track:
@@ -739,6 +743,7 @@ The initial product concept includes XP and levels inspired by gamified applicat
 - Completed sessions receive completion XP.
 - Abandoned sessions do not receive completion XP.
 - Paused time does not generate separate XP.
+- A stopwatch session earns XP for the whole minutes it focused, net of off-task time.
 - Overtime does not automatically generate additional XP.
 - Duplicate XP awards must be prevented.
 

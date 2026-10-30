@@ -41,7 +41,8 @@ onUnmounted(() => clearInterval(ticking))
 
 const timer = computed(() => {
   const remaining = seconds('remaining')
-  if (remaining === null) return null
+  // Nothing to count down: a stopwatch has no plan, and a session past its plan has none left.
+  if (remaining === null || remaining <= 0) return null
   if (status.value === 'ACTIVE') return formatClock(remaining - (now.value - loadedAt) / 1000)
   if (status.value === 'PAUSED') return formatClock(remaining)
   return null

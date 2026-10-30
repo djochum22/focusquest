@@ -751,6 +751,53 @@ class SessionServiceTest {
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
     }
 
+    // --- stopwatch ---
+
+    private FocusSession startStopwatch() {
+        FocusSession session = sessionService.createSession(user, null, TaskMode.TASK_FREE, TaskCategory.TASK_FREE, 25,
+                null, TimerMode.STOPWATCH);
+        stubLookup(session);
+        when(focusSessionRepository.findFirstByUserAndStatusIn(any(), any())).thenReturn(Optional.empty());
+        return sessionService.startSession(SESSION_ID);
+    }
+
+    @Test
+    void aStopwatchHasNoPlannedLengthWhateverIsSent() {
+        assertThat(startStopwatch().getPlannedFocusMinutes()).isZero();
+    }
+
+    @Test
+    void aStopwatchCanBeStoppedAtAnyTimeAndPaysForTheWholeMinutesFocused() {
+        FocusSession session = startStopwatch();
+        advanceClockBy(7 * 60 + 30);
+
+        sessionService.completeSession(SESSION_ID);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(session.getOvertimeSeconds()).isZero();
+        verify(streakService).recordContribution(eq(session), eq(450L), any(), any());
+        verify(progressionService).awardSessionCompletion(user, SESSION_ID, 7);
+    }
+
+    @Test
+    void aStopwatchDoesNotPayForItsPauses() {
+        FocusSession session = startStopwatch();
+        advanceClockBy(5 * 60);
+        pauseAndCaptureOpenPause(session);
+        advanceClockBy(10 * 60);
+        sessionService.resumeSession(SESSION_ID);
+
+        sessionService.completeSession(SESSION_ID);
+
+        verify(progressionService).awardSessionCompletion(user, SESSION_ID, 5);
+    }
+
+    @Test
+    void aCountdownStillNeedsTheMinimumLength() {
+        assertThatThrownBy(() -> sessionService.createSession(user, null, TaskMode.TASK_FREE, TaskCategory.TASK_FREE, 4,
+                null, TimerMode.COUNTDOWN)).isInstanceOf(ResponseStatusException.class);
+    }
+
     // --- the computer sleeping ---
 
     /** The session has focused for 60s when the lid closes, and it wakes an hour later. */

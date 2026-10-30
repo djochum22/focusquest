@@ -27,7 +27,7 @@ const title = computed(() => {
   <div class="meta">
     <h2 class="meta__task">{{ title }}</h2>
     <p class="meta__line muted">
-      {{ CATEGORY_LABELS[session.taskCategory] }} · {{ session.plannedFocusMinutes }} min planned
+      {{ CATEGORY_LABELS[session.taskCategory] }} · {{ session.timerMode === 'STOPWATCH' ? 'Stopwatch' : `${session.plannedFocusMinutes} min planned` }}
       <template v-if="session.cameraVerification"> · Checked by camera</template>
     </p>
     <div v-if="statusLine" class="meta__status">

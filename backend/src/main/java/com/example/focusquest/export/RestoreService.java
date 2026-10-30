@@ -23,6 +23,7 @@ import com.example.focusquest.session.FocusSessionRepository;
 import com.example.focusquest.session.SessionPause;
 import com.example.focusquest.session.SessionPauseRepository;
 import com.example.focusquest.session.SessionStatus;
+import com.example.focusquest.session.TimerMode;
 import com.example.focusquest.streak.StreakConfiguration;
 import com.example.focusquest.streak.StreakConfigurationRepository;
 import com.example.focusquest.streak.StreakContribution;
@@ -248,7 +249,9 @@ public class RestoreService {
                 running ? BlockingState.TECHNICAL_RELEASE : session.blockingState(),
                 session.startedAt(), session.completedAt(), session.abandonedAt(), session.overrideUsed(),
                 session.completionXpAwarded(), session.createdAt(), session.streakCreditedActiveSeconds(),
-                session.streakCreditedPausedSeconds(), session.cameraVerification(), session.offTaskSeconds());
+                session.streakCreditedPausedSeconds(), session.cameraVerification(), session.offTaskSeconds(),
+                // A backup from before there were stopwatches has no mode; all its sessions were countdowns.
+                session.timerMode() == null ? TimerMode.COUNTDOWN : session.timerMode());
     }
 
     /** Ledger entries point at a session, a period, a freeze or a level; all but a level have new ids now. */

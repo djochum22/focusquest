@@ -3,6 +3,7 @@ import type { FocusSession } from '../types/session'
 export function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
   return {
     id: 1,
+    timerMode: 'COUNTDOWN',
     taskDescription: 'Write the report',
     taskMode: 'TASK_REQUIRED',
     taskCategory: 'WRITING',

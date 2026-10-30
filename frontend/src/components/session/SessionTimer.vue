@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { formatClock } from '../../utils/duration'
 
 const props = defineProps<{
-  /** Planned focus time in seconds. */
+  /** Planned focus time in seconds; 0 for a stopwatch, which just counts up with no bar. */
   plannedSeconds: number
   /** Active focus time in seconds as the server reported it at `receivedAt`. */
   activeSeconds: number
@@ -68,7 +68,15 @@ const reached = computed(() => props.plannedSeconds > 0 && remaining.value === 0
 const endsAt = computed(() =>
   new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(now.value + remaining.value * 1000),
 )
-const clockText = computed(() => (reached.value ? `+${formatClock(overtime.value)}` : formatClock(remaining.value)))
+const hasPlan = computed(() => props.plannedSeconds > 0)
+const clockText = computed(() => {
+  if (!hasPlan.value) return formatClock(activeNow.value)
+  return reached.value ? `+${formatClock(overtime.value)}` : formatClock(remaining.value)
+})
+const clockLabel = computed(() => {
+  if (!hasPlan.value) return 'Time focused: '
+  return reached.value ? 'Time beyond the plan: ' : 'Time remaining: '
+})
 
 // The browser tab carries the time too, for a student who has switched to their work.
 const APP_TITLE = 'FocusQuest'
@@ -91,9 +99,10 @@ onBeforeUnmount(() => (document.title = APP_TITLE))
     </p>
     <!-- The time itself is the timer's content, so screen readers read it rather than a label. -->
     <p class="timer__clock">
-      <span class="visually-hidden">{{ reached ? 'Time beyond the plan: ' : 'Time remaining: ' }}</span><span role="timer">{{ clockText }}</span>
+      <span class="visually-hidden">{{ clockLabel }}</span><span role="timer">{{ clockText }}</span>
     </p>
     <div
+      v-if="hasPlan"
       class="timer__bar"
       role="progressbar"
       aria-label="Session progress"

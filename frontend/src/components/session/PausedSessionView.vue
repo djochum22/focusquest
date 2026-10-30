@@ -48,7 +48,7 @@ const reached = computed(() => props.session.remainingFocusSeconds <= 0)
       stopped-label="Paused"
     />
     <div class="paused__actions">
-      <AppButton v-if="reached" size="large" :disabled="busy" @click="emit('complete')">Complete</AppButton>
+      <AppButton v-if="reached" size="large" :disabled="busy" @click="emit('complete')">{{ session.timerMode === 'STOPWATCH' ? 'Stop' : 'Complete' }}</AppButton>
       <AppButton size="large" :variant="reached ? 'secondary' : 'primary'" :disabled="busy" @click="emit('resume')">
         Resume
       </AppButton>

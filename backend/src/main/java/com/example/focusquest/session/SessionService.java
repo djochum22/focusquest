@@ -93,14 +93,24 @@ public class SessionService {
         return createSession(user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, null);
     }
 
-    /**
-     * Creates a planned session. {@code cameraVerification} says whether the camera checks it; null
-     * takes the user's default. It can only be on while the user has camera verification turned on.
-     */
     @Transactional
     public FocusSession createSession(User user, String taskDescription, TaskMode taskMode,
                                        TaskCategory taskCategory, int plannedFocusMinutes, Boolean cameraVerification) {
-        if (plannedFocusMinutes < MIN_PLANNED_FOCUS_MINUTES) {
+        return createSession(user, taskDescription, taskMode, taskCategory, plannedFocusMinutes, cameraVerification,
+                TimerMode.COUNTDOWN);
+    }
+
+    /**
+     * Creates a planned session. {@code cameraVerification} says whether the camera checks it; null
+     * takes the user's default. It can only be on while the user has camera verification turned on.
+     * {@code timerMode} null is a countdown; a stopwatch has no planned length, whatever is passed.
+     */
+    @Transactional
+    public FocusSession createSession(User user, String taskDescription, TaskMode taskMode,
+                                       TaskCategory taskCategory, int plannedFocusMinutes, Boolean cameraVerification,
+                                       TimerMode timerMode) {
+        boolean stopwatch = timerMode == TimerMode.STOPWATCH;
+        if (!stopwatch && plannedFocusMinutes < MIN_PLANNED_FOCUS_MINUTES) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "plannedFocusMinutes must be at least " + MIN_PLANNED_FOCUS_MINUTES);
         }
@@ -117,8 +127,10 @@ public class SessionService {
         // A planned session has no pauses, streak credit or XP, so nothing else refers to it.
         focusSessionRepository.deleteAll(focusSessionRepository.findByUserAndStatus(user, SessionStatus.PLANNED));
         boolean useCamera = offTaskAccounting.cameraVerificationForNewSession(user, cameraVerification);
-        FocusSession session = new FocusSession(user, taskDescription, taskMode, taskCategory,
-                plannedFocusMinutes, useCamera, clockProvider.now());
+        FocusSession session = stopwatch
+                ? FocusSession.stopwatch(user, taskDescription, taskMode, taskCategory, useCamera, clockProvider.now())
+                : new FocusSession(user, taskDescription, taskMode, taskCategory,
+                        plannedFocusMinutes, useCamera, clockProvider.now());
         return focusSessionRepository.save(session);
     }
 
@@ -268,7 +280,8 @@ public class SessionService {
     /**
      * Completing a session always releases its hold on website blocking (sites stay blocked while
      * today's daily target is unmet), and pays its completion XP once,
-     * after the streak has been credited so that a streak bonus it triggers is paid first.
+     * after the streak has been credited so that a streak bonus it triggers is paid first. A stopwatch
+     * has no plan to reach, so it can always be completed, and pays for the minutes actually focused.
      */
     @Transactional
     public FocusSession completeSession(Long sessionId) {
@@ -293,7 +306,10 @@ public class SessionService {
         session.markCompleted(now);
         session.updateBlockingState(BlockingState.RELEASED);
         FocusSession saved = focusSessionRepository.save(session);
-        progressionService.awardSessionCompletion(saved.getUser(), sessionId, saved.getPlannedFocusMinutes());
+        int paidMinutes = saved.getTimerMode() == TimerMode.STOPWATCH
+                ? (int) (saved.getQualifyingSeconds() / 60)
+                : saved.getPlannedFocusMinutes();
+        progressionService.awardSessionCompletion(saved.getUser(), sessionId, paidMinutes);
         return saved;
     }
 

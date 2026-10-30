@@ -82,7 +82,7 @@ const continueDetail = computed(() => {
   const next = props.unfinished
   if (!next) return null
   const what = next.taskDescription ?? (next.taskMode === 'TASK_FREE' ? 'Task-free session' : CATEGORY_LABELS[next.taskCategory])
-  return `${what} · ${next.plannedFocusMinutes} min`
+  return `${what} · ${next.timerMode === 'STOPWATCH' ? 'Stopwatch' : `${next.plannedFocusMinutes} min`}`
 })
 
 function onChange() {
@@ -93,6 +93,7 @@ function onChange() {
     taskCategory: planned.taskCategory,
     taskDescription: planned.taskDescription,
     plannedFocusMinutes: planned.plannedFocusMinutes,
+    timerMode: planned.timerMode,
     cameraVerification: planned.cameraVerification,
   }
   void session.discardPlanned()

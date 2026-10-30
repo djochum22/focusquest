@@ -119,7 +119,7 @@ function timeRange(item: FocusSession) {
           <dt>Focus</dt>
           <dd>
             {{ formatMinutes(item.activeFocusSeconds - item.offTaskSeconds) }}
-            <span class="muted">of {{ item.plannedFocusMinutes }} min planned</span>
+            <span class="muted">{{ item.timerMode === 'STOPWATCH' ? 'on the stopwatch' : `of ${item.plannedFocusMinutes} min planned` }}</span>
           </dd>
 
           <template v-if="item.cameraVerification">

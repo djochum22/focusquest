@@ -5,6 +5,7 @@ import com.example.focusquest.session.FocusSession;
 import com.example.focusquest.session.SessionStatus;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
+import com.example.focusquest.session.TimerMode;
 
 import java.time.Instant;
 
@@ -33,7 +34,8 @@ public record SessionBackup(
         long streakCreditedActiveSeconds,
         long streakCreditedPausedSeconds,
         boolean cameraVerification,
-        long offTaskSeconds
+        long offTaskSeconds,
+        TimerMode timerMode
 ) {
 
     static SessionBackup from(FocusSession session) {
@@ -44,6 +46,6 @@ public record SessionBackup(
                 session.getAbandonedAt(), session.isOverrideUsed(), session.isCompletionXpAwarded(),
                 session.getCreatedAt(), session.getStreakCreditedActiveSeconds(),
                 session.getStreakCreditedPausedSeconds(), session.isCameraVerification(),
-                session.getOffTaskSeconds());
+                session.getOffTaskSeconds(), session.getTimerMode());
     }
 }

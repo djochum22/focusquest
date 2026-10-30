@@ -44,14 +44,15 @@ public class ExperienceService {
     }
 
     /**
-     * Awards XP for completing a session: {@code xpPerFocusMinute} for each planned minute. It is
-     * the planned length, not the time focused, that is paid, and time beyond the plan earns
-     * nothing; completing requires having focused the whole plan. Returns whether XP was newly
-     * recorded (false when this session was already rewarded).
+     * Awards XP for completing a session: {@code xpPerFocusMinute} for each minute. For a countdown
+     * that is the planned length, not the time focused, and time beyond the plan earns nothing;
+     * completing requires having focused the whole plan. For a stopwatch it is the whole minutes
+     * focused. Returns whether XP was newly recorded (false when this session was already rewarded,
+     * or there is nothing to pay).
      */
     @Transactional
-    public boolean awardSessionCompletion(User user, Long sessionId, int plannedFocusMinutes) {
-        return record(user, plannedFocusMinutes * xpPerFocusMinute, ExperienceTransactionType.SESSION_COMPLETION,
+    public boolean awardSessionCompletion(User user, Long sessionId, int minutes) {
+        return record(user, minutes * xpPerFocusMinute, ExperienceTransactionType.SESSION_COMPLETION,
                 FOCUS_SESSION_REFERENCE, sessionId);
     }
 

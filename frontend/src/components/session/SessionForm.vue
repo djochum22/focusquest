@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, useId, useTemplateRef, watch } from
 import AppButton from '../common/AppButton.vue'
 import InfoTip from '../common/InfoTip.vue'
 import FormField from '../common/FormField.vue'
-import type { CreateSessionRequest, TaskCategory, TaskMode } from '../../types/session'
+import type { CreateSessionRequest, TaskCategory, TaskMode, TimerMode } from '../../types/session'
 import { loadSessionDefaults, saveSessionDefaults } from '../../utils/sessionDefaults'
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from '../../utils/sessionLabels'
 import { FINISH_TODAY_BELOW_MINUTES } from '../../utils/streak'
@@ -47,10 +47,14 @@ watch(
 const PRESET_MINUTES = [25, 50, 90] as const
 
 const last = loadSessionDefaults()
-const initialMinutes = props.initial?.plannedFocusMinutes ?? last.plannedFocusMinutes ?? 25
+const initialMinutes = props.initial?.plannedFocusMinutes || (last.plannedFocusMinutes ?? 25)
 /** Studying the first time, since the app is for students; after that, whatever was used last. */
 const FIRST_CATEGORY = 'STUDYING'
 const initialCategory = props.initial?.taskCategory ?? last.taskCategory ?? FIRST_CATEGORY
+
+/** Counting down from a duration, or a stopwatch with none; remembered like the rest. */
+const timerMode = ref<TimerMode>(props.initial?.timerMode ?? last.timerMode)
+const stopwatch = computed(() => timerMode.value === 'STOPWATCH')
 
 const form = reactive<SessionForm>({
   taskMode: props.initial?.taskMode ?? 'TASK_REQUIRED',
@@ -109,8 +113,9 @@ function pickPreset(minutes: number) {
 }
 
 function onSubmit() {
-  errors.value = validateSession(form)
-  if (hasErrors(errors.value) || form.plannedFocusMinutes === '') return
+  // A stopwatch has no duration to get wrong, even if one was half typed before switching to it.
+  errors.value = validateSession(stopwatch.value ? { ...form, plannedFocusMinutes: MIN_PLANNED_FOCUS_MINUTES } : form)
+  if (hasErrors(errors.value) || (!stopwatch.value && form.plannedFocusMinutes === '')) return
 
   const taskFree = form.taskMode === 'TASK_FREE'
   const category = taskFree || form.taskCategory === '' ? 'TASK_FREE' : form.taskCategory
@@ -118,13 +123,15 @@ function onSubmit() {
   const finishing = !customDuration.value && form.plannedFocusMinutes === finishPreset.value
   saveSessionDefaults({
     taskCategory: category === 'TASK_FREE' ? null : category,
-    plannedFocusMinutes: finishing ? null : form.plannedFocusMinutes,
+    plannedFocusMinutes: finishing || stopwatch.value || form.plannedFocusMinutes === '' ? null : form.plannedFocusMinutes,
+    timerMode: timerMode.value,
   })
   emit('submit', {
     taskMode: form.taskMode,
     taskCategory: category,
     taskDescription: taskFree ? null : form.taskDescription.trim() || null,
-    plannedFocusMinutes: form.plannedFocusMinutes,
+    plannedFocusMinutes: stopwatch.value || form.plannedFocusMinutes === '' ? 0 : form.plannedFocusMinutes,
+    timerMode: timerMode.value,
     // Only when the camera can be used; otherwise the backend leaves it off.
     ...(props.cameraAvailable ? { cameraVerification: useCamera.value } : {}),
   })
@@ -137,6 +144,12 @@ function onSubmit() {
       <legend class="visually-hidden">Session type</legend>
       <label><input v-model="form.taskMode" type="radio" name="taskMode" value="TASK_REQUIRED" /> Working on a task</label>
       <label><input v-model="form.taskMode" type="radio" name="taskMode" value="TASK_FREE" /> Task-free</label>
+    </fieldset>
+
+    <fieldset class="session-form__mode pills">
+      <legend class="visually-hidden">Timer type</legend>
+      <label><input v-model="timerMode" type="radio" name="timerMode" value="COUNTDOWN" /> Timer</label>
+      <label><input v-model="timerMode" type="radio" name="timerMode" value="STOPWATCH" /> Stopwatch</label>
     </fieldset>
 
     <template v-if="form.taskMode === 'TASK_REQUIRED'">
@@ -172,7 +185,7 @@ function onSubmit() {
         </select>
       </FormField>
 
-      <fieldset class="session-form__duration">
+      <fieldset v-if="!stopwatch" class="session-form__duration">
         <legend class="session-form__legend">Duration (min)</legend>
         <div class="pills pills--small">
           <label v-if="finishPreset">

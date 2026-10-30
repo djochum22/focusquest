@@ -60,6 +60,43 @@ describe('SessionForm', () => {
     })
   })
 
+  describe('stopwatch', () => {
+    const pickStopwatch = (wrapper: Wrapper) => wrapper.get('input[name="timerMode"][value="STOPWATCH"]').setValue()
+
+    it('hides the duration and submits no planned length', async () => {
+      const wrapper = mountForm()
+      await pickStopwatch(wrapper)
+
+      expect(wrapper.find('input[name="duration"]').exists()).toBe(false)
+      await submit(wrapper)
+      expect(submitted(wrapper)[0]![0]).toMatchObject({ timerMode: 'STOPWATCH', plannedFocusMinutes: 0 })
+    })
+
+    it('is not held up by a duration half typed before switching', async () => {
+      const wrapper = mountForm()
+      await typeMinutes(wrapper, '')
+      await pickStopwatch(wrapper)
+
+      await submit(wrapper)
+
+      expect(submitted(wrapper)).toHaveLength(1)
+    })
+
+    it('is remembered, without losing the last duration', async () => {
+      const first = mountForm()
+      await preset(first, '50').setValue()
+      await submit(first)
+      const second = mountForm()
+      await pickStopwatch(second)
+      await submit(second)
+
+      const third = mountForm()
+      expect((third.get('input[name="timerMode"][value="STOPWATCH"]').element as HTMLInputElement).checked).toBe(true)
+      await third.get('input[name="timerMode"][value="COUNTDOWN"]').setValue()
+      expect((preset(third, '50').element as HTMLInputElement).checked).toBe(true)
+    })
+  })
+
   describe('validation', () => {
     it('starts on Studying the first time, so a first session needs no category choice', async () => {
       const wrapper = mountForm()
@@ -147,6 +184,7 @@ describe('SessionForm', () => {
           taskCategory: 'CODING',
           taskDescription: 'Refactor the parser',
           plannedFocusMinutes: 40,
+          timerMode: 'COUNTDOWN',
         },
       ])
     })
@@ -171,7 +209,7 @@ describe('SessionForm', () => {
       await submit(wrapper)
 
       expect(submitted(wrapper)[0]).toEqual([
-        { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE', taskDescription: null, plannedFocusMinutes: 25 },
+        { taskMode: 'TASK_FREE', taskCategory: 'TASK_FREE', taskDescription: null, plannedFocusMinutes: 25, timerMode: 'COUNTDOWN' },
       ])
     })
 

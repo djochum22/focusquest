@@ -74,7 +74,7 @@ const canComplete = computed(() => props.session.remainingFocusSeconds <= 0)
       <InfoTip label="About off-task time">Off-task time does not count toward the session.</InfoTip>
     </p>
     <div class="active__actions">
-      <AppButton v-if="canComplete" size="large" :disabled="busy" @click="emit('complete')">Complete</AppButton>
+      <AppButton v-if="canComplete" size="large" :disabled="busy" @click="emit('complete')">{{ session.timerMode === 'STOPWATCH' ? 'Stop' : 'Complete' }}</AppButton>
       <AppButton variant="secondary" size="large" :disabled="busy" @click="emit('pause')">Pause</AppButton>
     </div>
     <slot />

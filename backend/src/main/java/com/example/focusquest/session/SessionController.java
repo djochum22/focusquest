@@ -47,8 +47,8 @@ public class SessionController {
                                                    @Valid @RequestBody CreateSessionRequest request) {
         FocusSession session = sessionService.createSession(
                 userService.getByUsername(principal.getUsername()),
-                request.taskDescription(), request.taskMode(), request.taskCategory(), request.plannedFocusMinutes(),
-                request.cameraVerification());
+                request.taskDescription(), request.taskMode(), request.taskCategory(), request.plannedMinutesOrZero(),
+                request.cameraVerification(), request.timerMode());
         return ResponseEntity.status(HttpStatus.CREATED).body(toDto(session));
     }
 

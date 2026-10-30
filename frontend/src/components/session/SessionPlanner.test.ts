@@ -67,6 +67,7 @@ describe('SessionPlanner', () => {
       taskCategory: 'CODING',
       taskDescription: null,
       plannedFocusMinutes: 25,
+      timerMode: 'COUNTDOWN',
     })
     expect(sessionApi.startSession).toHaveBeenCalledWith(7)
     expect(useSessionStore().current?.id).toBe(7)

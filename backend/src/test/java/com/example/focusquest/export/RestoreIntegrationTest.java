@@ -18,6 +18,7 @@ import com.example.focusquest.session.SessionService;
 import com.example.focusquest.session.SessionStatus;
 import com.example.focusquest.session.TaskCategory;
 import com.example.focusquest.session.TaskMode;
+import com.example.focusquest.session.TimerMode;
 import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakFreezeService;
 import com.example.focusquest.streak.StreakPeriodStatus;
@@ -257,7 +258,7 @@ class RestoreIntegrationTest {
                                 started.plusSeconds(20))));
         sessionService.pauseSession(session.getId(), user.getUsername());
         advance(100);
-        sessionService.resumeSession(session.getId(), user.getUsername());      // settles 175 s: the phone from 60 s, warned at 65, subtracted from 125 to 300
+        sessionService.resumeSession(session.getId(), user.getUsername());      // the pause settled 175 s: the phone from 60 s, warned at 65, subtracted from 125 to 300
         sessionService.disputeOffTask(session.getId(), user.getUsername(), started.plusSeconds(10));
         advance(2000);
         sessionService.completeSession(session.getId(), user.getUsername());
@@ -280,6 +281,22 @@ class RestoreIntegrationTest {
                 .ignoringFieldsMatchingRegexes(".*\\.id", ".*\\.sessionId", ".*\\.streakPeriodId",
                         ".*\\.configurationId", ".*\\.referenceId", ".*\\.usedPeriodId")
                 .isEqualTo(backup);
+    }
+
+    @Test
+    void aStopwatchStaysAStopwatchThroughARestore() {
+        streakService.createDefaultConfiguration(user);
+        FocusSession planned = sessionService.createSession(user, "Code", TaskMode.TASK_REQUIRED,
+                TaskCategory.CODING, 0, null, TimerMode.STOPWATCH);
+        FocusSession session = sessionService.startSession(planned.getId(), user.getUsername());
+        advance(10 * 60);
+        sessionService.completeSession(session.getId(), user.getUsername());
+        LocalDataExportDto backup = exportService.exportLocalData(user);
+
+        restoreService.restore(reload(other), backup);
+
+        assertThat(exportService.exportLocalData(reload(other)).focusSessions()).singleElement()
+                .satisfies(s -> assertThat(s.timerMode()).isEqualTo(TimerMode.STOPWATCH));
     }
 
     @Test
@@ -386,7 +403,7 @@ class RestoreIntegrationTest {
                     s.qualifyingSeconds(), s.overtimeSeconds(), s.status(), s.blockingState(), s.startedAt(),
                     s.completedAt(), s.abandonedAt(), s.overrideUsed(), s.completionXpAwarded(), s.createdAt(),
                     s.streakCreditedActiveSeconds(), s.streakCreditedPausedSeconds(), s.cameraVerification(),
-                    s.offTaskSeconds()));
+                    s.offTaskSeconds(), s.timerMode()));
         }, "damaged");
     }
 

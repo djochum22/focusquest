@@ -77,6 +77,12 @@ function renderTimer(): void {
   if (session.sessionId === null) {
     timer.textContent = ''
     label.textContent = 'Sites stay blocked until today\'s streak target is reached.'
+  } else if (session.plannedFocusMinutes === 0) {
+    // A stopwatch has no plan, so nothing to count down.
+    timer.textContent = ''
+    label.textContent = session.status === 'PAUSED'
+      ? 'Stopwatch session paused, sites stay blocked.'
+      : 'Sites are blocked during this stopwatch session.'
   } else if (session.status === 'ACTIVE') {
     const elapsed = (Date.now() - receivedAt) / 1000
     timer.textContent = formatClock(session.remainingFocusSeconds - elapsed)

@@ -39,6 +39,7 @@ function makeSession(overrides: Partial<FocusSession> = {}): FocusSession {
     activeFocusSeconds: 300,
     remainingFocusSeconds: 1200,
     finalizedPausedSeconds: 0,
+    timerMode: 'COUNTDOWN',
     qualifyingSeconds: 0,
     overtimeSeconds: 0,
     status: 'ACTIVE',

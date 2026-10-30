@@ -196,6 +196,8 @@ async function perform(action: () => Promise<void>) {
  * forfeit the XP it has earned. Worked out when the dialog opens, so it does not flip while open.
  */
 const finishInstead = ref(false)
+/** A stopwatch only reaches this dialog interrupted; it has no plan, so there is nothing "early" to warn about. */
+const stoppingStopwatch = computed(() => session.current?.timerMode === 'STOPWATCH')
 function askToEnd() {
   finishInstead.value = session.current !== null && planReached(session.current, session.receivedAt)
   confirming.value = 'abandon'
@@ -386,15 +388,16 @@ onBeforeUnmount(() => {
 
     <ConfirmDialog
       :open="confirming === 'abandon'"
-      :title="finishInstead ? 'You reached the planned time' : 'End this session early?'"
-      :confirm-label="finishInstead ? (session.current?.status === 'ACTIVE' ? 'Complete session' : 'Resume and complete') : 'End session'"
+      :title="stoppingStopwatch ? 'Stop the stopwatch?' : finishInstead ? 'You reached the planned time' : 'End this session early?'"
+      :confirm-label="stoppingStopwatch ? 'Stop' : finishInstead ? (session.current?.status === 'ACTIVE' ? 'Complete session' : 'Resume and complete') : 'End session'"
       :cancel-label="session.current?.status === 'ACTIVE' ? 'Keep focusing' : 'Keep the session'"
       :danger="!finishInstead"
       :loading="session.busy"
       @confirm="confirmAbandon"
       @cancel="confirming = null"
     >
-      <p v-if="finishInstead">Complete it to earn its XP. Ending it early would earn none.</p>
+      <p v-if="stoppingStopwatch">The time on it counts, and earns its XP.</p>
+      <p v-else-if="finishInstead">Complete it to earn its XP. Ending it early would earn none.</p>
       <!-- Worked out from today's target and the session's own time, not left as an if/otherwise. -->
       <template v-else-if="endOutcome">
         <p>{{ endOutcome.kept }}</p>

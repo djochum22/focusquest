@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.example.focusquest.session.FocusSession;
 import com.example.focusquest.session.SessionService;
 import com.example.focusquest.session.TaskCategory;
@@ -210,6 +211,41 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.status").value("INTERRUPTED"))
                 .andExpect(jsonPath("$.activeFocusSeconds").value(0));
+    }
+
+    @Test
+    void aStopwatchCountsWhatWasFocusedAndPaysForIt() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+        String response = postJsonAs(token, SESSIONS, json(
+                "taskMode", "TASK_REQUIRED", "taskCategory", "WRITING", "timerMode", "STOPWATCH"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.timerMode").value("STOPWATCH"))
+                .andExpect(jsonPath("$.plannedFocusMinutes").value(0))
+                .andReturn().getResponse().getContentAsString();
+        long id = ((Number) JsonPath.read(response, "$.id")).longValue();
+
+        postAs(token, SESSIONS + "/" + id + "/start").andExpect(status().isOk());
+        advance(5 * 60);
+        postAs(token, SESSIONS + "/" + id + "/pause").andExpect(status().isOk());
+        advance(10 * 60);
+        postAs(token, SESSIONS + "/" + id + "/resume").andExpect(status().isOk());
+        advance(2 * 60 + 30);
+        postAs(token, SESSIONS + "/" + id + "/complete")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.qualifyingSeconds").value(450))
+                .andExpect(jsonPath("$.overtimeSeconds").value(0));
+
+        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(450));
+        getAs(token, "/api/me/progression").andExpect(jsonPath("$.totalXp").value(7));
+    }
+
+    @Test
+    void aCountdownStillNeedsAPlannedLength() throws Exception {
+        String token = setUpAccount("doug", "UTC");
+
+        postJsonAs(token, SESSIONS, json("taskMode", "TASK_REQUIRED", "taskCategory", "WRITING"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

@@ -1,8 +1,17 @@
-# Handoff: what to do next (21 October 2026)
+# Handoff: what to do next (30 October 2026)
 
 Start here. The details live in two longer notes:
 - `docs/platform_roadmap.md`: the container, every browser, the desktop app
 - `docs/camera_roadmap.md`: camera verification
+
+## Focus time rules: done on master, not pushed (30 October 2026)
+
+- **Paused time counts for nothing.** Pausing credits the focus so far; the pause is only a record. This replaces the "A2" decision. Past days and rewards were left as they were.
+- **The time that finishes today is always a duration pill,** not only under 25 minutes.
+- **Stopwatch sessions** (`timerMode`): count up, no plan, Stop completes them, 1 XP per whole minute focused.
+- **Closing the laptop pauses the session** (`MachineSleepWatch`, `MachineSleepJob`). Tested by freezing a directly run backend process.
+
+**Still to check by hand:** a real lid close, with the backend in Docker and with the desktop app. It relies on the backend's clock jumping on waking, and the Docker VM's clock could lag. Close the lid for 2+ minutes during a session; on waking it should be Paused with the clock stopped at about the moment it closed. Repeat with the extension connected. If Docker fails this, have the desktop app detect the gap and report it to the backend.
 
 ## Dashboard redesign: done, merged into master (21 October 2026)
 

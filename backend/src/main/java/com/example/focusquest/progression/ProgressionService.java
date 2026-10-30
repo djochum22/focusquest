@@ -22,11 +22,11 @@ public class ProgressionService {
         this.gemService = gemService;
     }
 
-    /** A session was completed: pay XP for its planned length. Safe to call again for the same session. */
+    /** A session was completed: pay XP for {@code minutes}. Safe to call again for the same session. */
     @Transactional
-    public void awardSessionCompletion(User user, Long sessionId, int plannedFocusMinutes) {
+    public void awardSessionCompletion(User user, Long sessionId, int minutes) {
         long xpBefore = experienceService.getTotalXp(user);
-        if (experienceService.awardSessionCompletion(user, sessionId, plannedFocusMinutes)) {
+        if (experienceService.awardSessionCompletion(user, sessionId, minutes)) {
             awardLevelUps(user, xpBefore);
         }
     }

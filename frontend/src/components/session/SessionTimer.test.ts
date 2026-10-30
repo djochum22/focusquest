@@ -19,6 +19,20 @@ function mountTimer(props: Partial<InstanceType<typeof SessionTimer>['$props']> 
 
 const clock = (wrapper: ReturnType<typeof mountTimer>) => wrapper.get('[role="timer"]').text()
 
+describe('SessionTimer as a stopwatch', () => {
+  it('counts up with no bar, plan or end time', () => {
+    const wrapper = mount(SessionTimer, {
+      props: { plannedSeconds: 0, activeSeconds: 125, receivedAt: Date.now(), running: false },
+    })
+
+    expect(wrapper.get('[role="timer"]').text()).toBe('02:05')
+    expect(wrapper.text()).toContain('Time focused')
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Planned time reached')
+    wrapper.unmount()
+  })
+})
+
 describe('SessionTimer', () => {
   it('shows the planned time before anything has elapsed, and says nothing yet', () => {
     const wrapper = mountTimer()

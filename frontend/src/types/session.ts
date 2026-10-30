@@ -26,11 +26,15 @@ export type SessionStatus =
 /** Mirrors the backend `BlockingState`. `null` until a session has started. */
 export type BlockingState = 'ACTIVE' | 'RELEASED' | 'OVERRIDE_USED' | 'TECHNICAL_RELEASE'
 
+export type TimerMode = 'COUNTDOWN' | 'STOPWATCH'
+
 /**
  * Mirrors the backend `FocusSessionDto`. Instants are ISO-8601 strings. The `*Seconds` values are
  * computed by the server as of `generatedAt`; the client never derives session state from them.
  */
 export interface FocusSession {
+  /** A stopwatch has no plan: `plannedFocusMinutes` and `remainingFocusSeconds` are 0. */
+  timerMode: TimerMode
   id: number
   taskDescription: string | null
   taskMode: TaskMode
@@ -53,7 +57,7 @@ export interface FocusSession {
   cameraVerification: boolean
   /** Off-task time so far, subtracted from the active time; `remainingFocusSeconds` already counts it. */
   offTaskSeconds: number
-  /** The session's time not yet credited to the streak; the backend credits at pause, resume and end. */
+  /** The session's time not yet credited to the streak; the backend credits at pause and end. */
   uncreditedStreakSeconds: number
   generatedAt: string
 }
@@ -64,6 +68,8 @@ export interface CreateSessionRequest {
   taskMode: TaskMode
   taskCategory: TaskCategory
   plannedFocusMinutes: number
+  /** Omitted for a countdown. A stopwatch ignores `plannedFocusMinutes`. */
+  timerMode?: TimerMode
   /** Omitted to use the default from the camera settings. */
   cameraVerification?: boolean
 }

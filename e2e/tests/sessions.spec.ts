@@ -119,3 +119,27 @@ test('a session whose browser goes quiet is interrupted, keeps the unmet target 
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
   await expectSiteBlocked(site)
 })
+
+test('a stopwatch counts up, and stopping it counts the focus but not the pause', async ({ page }) => {
+  await setUpAccount(page)
+  await page.getByRole('radio', { name: 'Stopwatch' }).check()
+  await expect(page.getByRole('radio', { name: /^25/ })).toBeHidden()   // no duration to choose
+  await page.getByRole('button', { name: 'Start focusing' }).click()
+
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+  await expect(page.getByText(/· Stopwatch/)).toBeVisible()
+  await expect(page.getByRole('progressbar', { name: 'Session progress' })).toBeHidden()
+
+  await advanceBackendClock(5 * 60)
+  await page.reload()
+  await expect(page.getByRole('timer')).toHaveText(/^05:0\d$/)
+  await page.getByRole('button', { name: 'Pause' }).click()
+  await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible()
+  await advanceBackendClock(10 * 60)
+  await page.reload()
+  await expect(page.getByRole('timer')).toHaveText(/^05:0\d$/)   // the pause adds nothing
+
+  await page.getByRole('button', { name: 'Stop' }).click()
+  await expect(page.getByRole('region', { name: 'Session complete' })).toBeVisible()
+  await expect(page.getByText('+5 XP')).toBeVisible()
+})

@@ -15,6 +15,33 @@ afterEach(() => {
 const labelled = (wrapper: { findAll: (s: string) => any[] }, label: string) =>
   wrapper.findAll('button').find((b) => b.text() === label)
 
+describe('a stopwatch session', () => {
+  const stopwatch = { timerMode: 'STOPWATCH', plannedFocusMinutes: 0, remainingFocusSeconds: 0 } as const
+
+  it('offers Stop and Pause, and no End early, while running', () => {
+    const wrapper = mount(ActiveSessionView, {
+      props: { session: makeSession({ ...stopwatch, status: 'ACTIVE' }), receivedAt: Date.now(), busy: false },
+    })
+
+    expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['Stop', 'Pause'])
+    expect(wrapper.text()).toContain('Stopwatch')
+    expect(wrapper.text()).not.toContain('min planned')
+    wrapper.unmount()
+  })
+
+  it('offers Stop and Resume while paused', () => {
+    const wrapper = mount(PausedSessionView, {
+      props: { session: makeSession({ ...stopwatch, status: 'PAUSED' }), receivedAt: Date.now(), busy: false },
+    })
+
+    const labels = wrapper.findAll('button').map((button) => button.text())
+    expect(labels).toContain('Stop')
+    expect(labels).toContain('Resume')
+    expect(labels).not.toContain('End early')
+    wrapper.unmount()
+  })
+})
+
 describe('ActiveSessionView', () => {
   function mountActive(sessionOverrides = {}, busy = false) {
     return mount(ActiveSessionView, {

@@ -39,7 +39,7 @@ const emit = defineEmits<{
     <div class="interrupted__actions">
       <AppButton size="large" :disabled="busy" @click="emit('resume')">Resume</AppButton>
     </div>
-    <AppButton variant="link" class="interrupted__leave" :disabled="busy" @click="emit('abandon')">End early</AppButton>
+    <AppButton variant="link" class="interrupted__leave" :disabled="busy" @click="emit('abandon')">{{ session.timerMode === 'STOPWATCH' ? 'Stop' : 'End early' }}</AppButton>
   </section>
 </template>
 

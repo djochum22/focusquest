@@ -38,6 +38,7 @@ public record FocusSessionDto(
         boolean cameraVerification,
         long offTaskSeconds,
         long uncreditedStreakSeconds,
+        TimerMode timerMode,
         Instant generatedAt
 ) {
 
@@ -66,6 +67,7 @@ public record FocusSessionDto(
                 session.isCameraVerification(),
                 offTaskSeconds,
                 session.uncreditedStreakSecondsAt(now),
+                session.getTimerMode(),
                 now);
     }
 }

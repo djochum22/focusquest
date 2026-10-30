@@ -109,6 +109,11 @@ public class FocusSession {
     @Column(name = "off_task_seconds", nullable = false)
     private long offTaskSeconds;
 
+    // A stopwatch has no planned length: plannedFocusMinutes is 0, so it can be stopped at any time.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "timer_mode", nullable = false, length = 20)
+    private TimerMode timerMode = TimerMode.COUNTDOWN;
+
     protected FocusSession() {
     }
 
@@ -135,6 +140,15 @@ public class FocusSession {
         this.createdAt = createdAt;
     }
 
+    /** A session with no planned length, stopped whenever the user likes. */
+    static FocusSession stopwatch(User user, String taskDescription, TaskMode taskMode, TaskCategory taskCategory,
+                                  boolean cameraVerification, Instant createdAt) {
+        FocusSession session = new FocusSession(user, taskDescription, taskMode, taskCategory, 0,
+                cameraVerification, createdAt);
+        session.timerMode = TimerMode.STOPWATCH;
+        return session;
+    }
+
     /**
      * Rebuilds an ended or planned session from a backup, exactly as it was recorded. Only restoring
      * a data export uses it; every other session is built by the constructor and moved on by
@@ -147,7 +161,7 @@ public class FocusSession {
                                        Instant completedAt, Instant abandonedAt, boolean overrideUsed,
                                        boolean completionXpAwarded, Instant createdAt,
                                        long streakCreditedActiveSeconds, long streakCreditedPausedSeconds,
-                                       boolean cameraVerification, long offTaskSeconds) {
+                                       boolean cameraVerification, long offTaskSeconds, TimerMode timerMode) {
         if (status == SessionStatus.ACTIVE || status == SessionStatus.PAUSED) {
             throw new IllegalArgumentException("A running session cannot be restored as running");
         }
@@ -167,6 +181,7 @@ public class FocusSession {
         session.completionXpAwarded = completionXpAwarded;
         session.streakCreditedActiveSeconds = streakCreditedActiveSeconds;
         session.streakCreditedPausedSeconds = streakCreditedPausedSeconds;
+        session.timerMode = timerMode;
         return session;
     }
 
@@ -220,6 +235,9 @@ public class FocusSession {
     }
 
     private long netOvertimeSeconds() {
+        if (timerMode == TimerMode.STOPWATCH) {
+            return 0;
+        }
         return Math.max(0, this.activeFocusSeconds - this.offTaskSeconds - this.plannedFocusMinutes * 60L);
     }
 
@@ -334,6 +352,10 @@ public class FocusSession {
 
     public TaskCategory getTaskCategory() {
         return taskCategory;
+    }
+
+    public TimerMode getTimerMode() {
+        return timerMode;
     }
 
     public int getPlannedFocusMinutes() {
