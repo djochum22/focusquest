@@ -55,6 +55,8 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // The tests move the clock by hand, which must not look like the computer sleeping.
+    systemProperty("focusquest.session.sleep-watch-enabled", "false")
 }
 
 // The web app, built by npm and served by the backend from classpath:/static/ (see WebAppConfig), so

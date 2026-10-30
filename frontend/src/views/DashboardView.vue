@@ -23,6 +23,7 @@ import { loadCompletionSummary, saveCompletionSummary } from '../utils/completio
 import { formatMinutes } from '../utils/duration'
 import { clearUnfinishedSession, loadUnfinishedSession, saveUnfinishedSession } from '../utils/sessionDefaults'
 import { isOverridable, planReached } from '../utils/sessionState'
+import { onWake } from '../utils/wakeWatch'
 import { endEarlyOutcome, finishTodayMinutes, sessionCountsToward, targetLine } from '../utils/streak'
 
 const session = useSessionStore()
@@ -264,13 +265,21 @@ function onVisibilityChange() {
   if (document.visibilityState === 'visible') resync()
 }
 
+// The backend pauses a session when the computer sleeps, and a tab left open may stay "visible"
+// throughout, so waking needs its own re-sync or the clock would count on.
+let stopWakeWatch = () => {}
+
 onMounted(() => {
   void load()
   refreshStreak()
   progression.fetch().catch(() => {})
   document.addEventListener('visibilitychange', onVisibilityChange)
+  stopWakeWatch = onWake(resync)
 })
-onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  stopWakeWatch()
+})
 </script>
 
 <template>

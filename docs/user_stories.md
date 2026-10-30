@@ -296,6 +296,24 @@ so that I can continue my focus commitment.
   when the resume is recorded,  
   then the session transitions back to ACTIVE.
 
+## **US-042: Pause when the laptop closes**
+
+As a user,  
+I want my session to pause when I close my laptop,  
+so that time away from it is not counted as focus.
+
+**Acceptance criteria:**
+
+- Given a session is ACTIVE,  
+  when the computer goes to sleep,  
+  then the session is paused as of that moment, and the time asleep counts for nothing.
+- Given a session was paused by the computer sleeping,  
+  when the computer wakes,  
+  then the session stays paused until the user resumes it, and the screen shows it paused without a reload.
+- Given the extension is watching a session,  
+  when the computer wakes,  
+  then the session is not interrupted by the extension's silence during the sleep.
+
 ## **Epic 6: Abandoning sessions and manual overrides**
 
 ## **US-050: Abandon an active or paused session**

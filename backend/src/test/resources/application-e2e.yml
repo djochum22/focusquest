@@ -22,6 +22,8 @@ focusquest:
     # check-ins, which must not count as the browser going quiet. The interruption test moves it 25
     # hours on purpose.
     heartbeat-timeout: 24h
+    # For the same reason: moving the clock must not look like the computer sleeping.
+    sleep-watch-enabled: false
 
 logging:
   level:

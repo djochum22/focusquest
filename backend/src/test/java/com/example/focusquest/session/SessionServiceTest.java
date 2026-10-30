@@ -67,14 +67,16 @@ class SessionServiceTest {
     private OffTaskAccounting offTaskAccounting;
 
     private ClockProvider clockProvider;
+    private MachineSleepWatch sleepWatch;
     private SessionService sessionService;
     private User user;
 
     @BeforeEach
     void setUp() {
         clockProvider = new ClockProvider(Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
+        sleepWatch = new MachineSleepWatch(Duration.ofSeconds(30));
         sessionService = new SessionService(focusSessionRepository, sessionPauseRepository, streakService, experienceService, progressionService, clockProvider,
-                userRepository, offTaskAccounting, HEARTBEAT_TIMEOUT);
+                userRepository, offTaskAccounting, HEARTBEAT_TIMEOUT, sleepWatch);
         user = new User("doug", "hash", "Doug", "UTC");
 
         lenient().when(focusSessionRepository.save(any(FocusSession.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -747,6 +749,91 @@ class SessionServiceTest {
         verify(streakService, never()).recordContribution(any(), anyLong(), any(), any());
         assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
         assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
+    }
+
+    // --- the computer sleeping ---
+
+    /** The session has focused for 60s when the lid closes, and it wakes an hour later. */
+    private FocusSession sleepAnHourAfterSixtySeconds() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        sleepWatch.markAwake(clockProvider.now());
+        advanceClockBy(3600);
+        return session;
+    }
+
+    @Test
+    void sleepingPausesTheSessionAtTheMomentTheComputerWentToSleep() {
+        FocusSession session = sleepAnHourAfterSixtySeconds();
+        when(focusSessionRepository.findByStatusIn(any())).thenReturn(List.of(session));
+
+        sessionService.pauseSessionsForSleep(BASE_INSTANT.plusSeconds(60));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.PAUSED);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+        verify(streakService).recordContribution(session, 60L, BASE_INSTANT.plusSeconds(60), List.of());
+        ArgumentCaptor<SessionPause> pause = ArgumentCaptor.forClass(SessionPause.class);
+        verify(sessionPauseRepository).save(pause.capture());
+        assertThat(pause.getValue().getStartedAt()).isEqualTo(BASE_INSTANT.plusSeconds(60));
+    }
+
+    @Test
+    void aRequestBeatingTheTickAfterWakingStillPausesRatherThanInterrupts() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        sleepWatch.markAwake(clockProvider.now());
+        advanceClockBy(3600);
+
+        heartbeat(session);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.PAUSED);
+        assertThat(session.getActiveFocusSeconds()).isEqualTo(60);
+        assertThat(session.getBlockingState()).isEqualTo(BlockingState.ACTIVE);
+    }
+
+    @Test
+    void aPausedSessionWatchedByTheExtensionSurvivesSleepingAndStaysPaused() {
+        FocusSession session = createAndStartSession(10);
+        advanceClockBy(60);
+        heartbeat(session);
+        pauseAndCaptureOpenPause(session);
+        sleepWatch.markAwake(clockProvider.now());
+        advanceClockBy(3600);
+
+        heartbeat(session);
+        advanceClockBy(10);
+        heartbeat(session);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.PAUSED);
+        assertThat(session.getQualifyingSeconds()).isEqualTo(60);
+    }
+
+    @Test
+    void aSessionStartedAfterWakingIsLeftRunning() {
+        FocusSession session = createAndStartSession(10);
+        when(focusSessionRepository.findByStatusIn(any())).thenReturn(List.of(session));
+
+        sessionService.pauseSessionsForSleep(BASE_INSTANT.minusSeconds(60));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+    }
+
+    @Test
+    void aShortGapIsNotSleep() {
+        FocusSession session = createAndStartSession(10);
+        sleepWatch.markAwake(clockProvider.now());
+        advanceClockBy(30);
+
+        sessionService.findCurrentSession(user);
+
+        assertThat(sleepWatch.sleptSince(clockProvider.now())).isEmpty();
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.ACTIVE);
+    }
+
+    @Test
+    void sleepCannotBeSeenBeforeTheFirstTick() {
+        assertThat(sleepWatch.sleptSince(BASE_INSTANT.plusSeconds(3600))).isEmpty();
     }
 
     // --- manual override ---

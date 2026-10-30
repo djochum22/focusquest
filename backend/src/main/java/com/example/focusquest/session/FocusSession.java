@@ -258,6 +258,11 @@ public class FocusSession {
         this.lastHeartbeatAt = now;
     }
 
+    /** Stops watching for a lapsed heartbeat until the extension next checks in. */
+    void clearHeartbeat() {
+        this.lastHeartbeatAt = null;
+    }
+
     Instant getLastHeartbeatAt() {
         return lastHeartbeatAt;
     }

@@ -387,6 +387,16 @@ When a session is interrupted:
 - Website blocking is released (`TECHNICAL_RELEASE`).
 - The user can resume the session, which enforces blocking again, or abandon it, which leaves blocking released. Only the user's latest started session can be resumed; starting a new session supersedes an interrupted one.
 
+### The computer sleeping
+
+Closing the laptop pauses the session rather than interrupting it. The backend runs on the same computer as the user, so it is suspended too; it looks at its clock every 5 seconds, and a jump of more than 30 seconds means the computer slept.
+
+- An ACTIVE session is paused as of the moment the computer went to sleep, and its focus up to then is credited. The sleep itself counts for nothing, like any pause.
+- The session stays paused on waking until the user resumes it.
+- The extension's silence during the sleep does not interrupt a session, ACTIVE or PAUSED, and watching starts again at its next check-in.
+- A session started or resumed after waking is left alone.
+- A computer kept awake, such as a closed laptop running on an external display, does not sleep, so its session keeps running.
+
 ## 9\. Pause behavior
 
 When a user pauses an active session:

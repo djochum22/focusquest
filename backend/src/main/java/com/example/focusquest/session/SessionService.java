@@ -63,6 +63,7 @@ public class SessionService {
     private final UserRepository userRepository;
     private final OffTaskAccounting offTaskAccounting;
     private final Duration heartbeatTimeout;
+    private final MachineSleepWatch machineSleepWatch;
 
     public SessionService(FocusSessionRepository focusSessionRepository,
                            SessionPauseRepository sessionPauseRepository,
@@ -72,7 +73,8 @@ public class SessionService {
                            ClockProvider clockProvider,
                            UserRepository userRepository,
                            OffTaskAccounting offTaskAccounting,
-                           @Value("${focusquest.session.heartbeat-timeout}") Duration heartbeatTimeout) {
+                           @Value("${focusquest.session.heartbeat-timeout}") Duration heartbeatTimeout,
+                           MachineSleepWatch machineSleepWatch) {
         this.focusSessionRepository = focusSessionRepository;
         this.sessionPauseRepository = sessionPauseRepository;
         this.streakService = streakService;
@@ -82,6 +84,7 @@ public class SessionService {
         this.userRepository = userRepository;
         this.offTaskAccounting = offTaskAccounting;
         this.heartbeatTimeout = heartbeatTimeout;
+        this.machineSleepWatch = machineSleepWatch;
     }
 
     @Transactional
@@ -142,9 +145,8 @@ public class SessionService {
     public Optional<FocusSession> findCurrentSession(User user) {
         Optional<FocusSession> running = focusSessionRepository.findFirstByUserAndStatusIn(user, BLOCKING_STATUSES);
         if (running.isPresent()) {
-            if (interruptIfUnverified(running.get(), clockProvider.now())) {
-                focusSessionRepository.save(running.get());
-            }
+            interruptIfUnverified(running.get(), clockProvider.now());
+            focusSessionRepository.save(running.get());
             return running;
         }
         return findLatestStartedSession(user).filter(session -> session.getStatus() == SessionStatus.INTERRUPTED);
@@ -451,6 +453,7 @@ public class SessionService {
      * at the extension's first check-in for the session.
      */
     private boolean interruptIfUnverified(FocusSession session, Instant now) {
+        machineSleepWatch.sleptSince(now).ifPresent(sleptSince -> pauseForSleep(session, sleptSince));
         Instant lastHeartbeat = session.getLastHeartbeatAt();
         boolean running = session.getStatus() == SessionStatus.ACTIVE || session.getStatus() == SessionStatus.PAUSED;
         if (!running || lastHeartbeat == null
@@ -462,6 +465,37 @@ public class SessionService {
         recordStreakContribution(session, lastHeartbeat);
         session.updateBlockingState(BlockingState.TECHNICAL_RELEASE);
         return true;
+    }
+
+    /**
+     * Pauses the running sessions because the computer went to sleep at {@code sleptSince}. Called
+     * by {@link MachineSleepJob} on the first tick after waking.
+     */
+    @Transactional
+    public void pauseSessionsForSleep(Instant sleptSince) {
+        focusSessionRepository.findByStatusIn(BLOCKING_STATUSES).forEach(session -> {
+            pauseForSleep(session, sleptSince);
+            focusSessionRepository.save(session);
+        });
+    }
+
+    /**
+     * Pauses a session as of the moment the computer went to sleep, so the sleep is not focus. It stays
+     * paused on waking until the student resumes it. A session that began or resumed after waking is
+     * left running. The extension was asleep too, so its silence says nothing: a heartbeat from before
+     * the sleep is forgotten, and the next check-in starts watching again.
+     */
+    private void pauseForSleep(FocusSession session, Instant sleptSince) {
+        if (session.getStatus() == SessionStatus.ACTIVE && session.getActiveSegmentStartedAt().isBefore(sleptSince)) {
+            session.addActiveSeconds(elapsedSeconds(session.getActiveSegmentStartedAt(), sleptSince));
+            recordStreakContribution(session, sleptSince);
+            session.enterPause();
+            sessionPauseRepository.save(new SessionPause(session, sleptSince));
+        }
+        Instant lastHeartbeat = session.getLastHeartbeatAt();
+        if (lastHeartbeat != null && !lastHeartbeat.isAfter(sleptSince)) {
+            session.clearHeartbeat();
+        }
     }
 
     /**
