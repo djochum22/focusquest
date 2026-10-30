@@ -226,11 +226,11 @@ Time during which a session is in the ACTIVE state. This contributes toward comp
 
 ### Paused time
 
-Time during which a session is in the PAUSED state. Website blocking remains active. The interval is not added to streak progress until the pause is finalized.
+Time during which a session is in the PAUSED state. Website blocking remains active. It never counts toward streak progress or rewards.
 
 ### Qualifying time
 
-Time that contributes to daily or weekly streak progress. Under the current decisions, qualifying time includes active time and finalized paused time when the session matches the streak requirements. For a session the camera checks, off-task time is subtracted from it (section 21).
+Time that contributes to daily or weekly streak progress. Qualifying time is active time when the session matches the streak requirements; paused time is not included. For a session the camera checks, off-task time is subtracted from it (section 21).
 
 ### Session completion
 
@@ -337,13 +337,13 @@ Recommended definitions:
 - activeFocusTime = time spent in ACTIVE state
 - pausedTime = finalized time spent in PAUSED state
 - wallClockTime = elapsed time since session start, excluding unresolved periods
-- qualifyingTime = activeFocusTime + finalized pausedTime
+- qualifyingTime = activeFocusTime minus settled off-task time
 
 For session completion:
 
 - activeFocusTime >= plannedFocusTime
 
-Paused time does not contribute to the required active focus duration.
+Paused time does not contribute to the required active focus duration, to qualifying time, or to any streak or reward. It is recorded only so the session's history is complete.
 
 ### Completion
 
@@ -376,13 +376,13 @@ A technical interruption may occur because of:
 - Extension failure.
 - Device shutdown.
 
-The system shall recover the session safely and shall not silently award time that cannot be verified. Unfinalized paused time shall not be added until the user resumes or finalizes the session.
+The system shall recover the session safely and shall not silently award time that cannot be verified. Paused time is never added.
 
 Decided detection: the Chrome extension checks in every 30 seconds, whether or not a session is running. A session is watched from the moment it starts or resumes if the extension checked in within the timeout before that, and otherwise from the extension's first check-in during the session. While a session is watched, a silence longer than a configurable timeout (3 minutes by default) interrupts it. The check is made on the next heartbeat, the next read of the current session, or the next session action, so a backend that was itself down is caught too. A session run without the extension is never interrupted, and neither is one started when the extension had not checked in recently (for example, after it was uninstalled).
 
 When a session is interrupted:
 
-- Time up to the extension's last check-in is kept, including a pause finalized at that moment, and is credited to the streak.
+- Active time up to the extension's last check-in is kept and credited to the streak. A pause open at that moment is closed there and adds nothing.
 - The time after the last check-in cannot be verified and is dropped.
 - Website blocking is released (`TECHNICAL_RELEASE`).
 - The user can resume the session, which enforces blocking again, or abandon it, which leaves blocking released. Only the user's latest started session can be resumed; starting a new session supersedes an interrupted one.
@@ -397,38 +397,32 @@ When a user pauses an active session:
 - Active focus time stops increasing.
 - Session-completion progress stops increasing.
 - XP is not awarded for paused time.
-- Daily and weekly streak progress does not increase immediately.
+- The active time so far is credited to the daily and weekly streak progress, so the day's total is current during the pause.
 
-### Pause finalization: A2 decision
+### Paused time counts for nothing
 
-Paused time is added to streak progress only when the pause ends or the session is finalized.
+Paused time never counts toward qualifying time, streak progress or rewards, however the pause ends. This replaces the earlier "A2" decision, under which a finished pause was added to streak progress: a daily target could then be met without focusing. Totals recorded under that rule, including XP and gems already paid, are left as they were.
 
 When the user resumes:
 
 - The pause end timestamp is recorded.
-- The pause duration is calculated.
-- The finalized pause duration is added to qualifying time.
-- The corresponding streak contribution is recorded. This credits the total time already passed in the session (the active time so far plus the pause), so the day's total is current while the session continues. When the session later ends, only the time since this credit is added.
+- The pause duration is calculated and kept on the session as a record.
 - The session returns to ACTIVE.
 
 When the user abandons or interrupts a paused session:
 
-- The open pause is closed using the finalization timestamp.
-- The finalized pause duration is added to qualifying time.
-- The qualifying time is added to the relevant streak period.
+- The open pause is closed using the finalization timestamp and its duration is kept as a record.
 - No session-completion XP is awarded.
-
-If the application remains paused for several hours, no progress is awarded during that unresolved interval. Once the pause is finalized, the recorded duration is processed according to the time-period rules.
 
 ### Pause acceptance criteria
 
 - Given an active session, pausing changes the state to PAUSED.
 - A paused session continues blocking configured websites.
-- While unresolved, a pause does not increase streak progress.
+- A pause never increases streak progress.
 - While unresolved, a pause does not increase active focus duration.
-- Resuming finalizes the pause duration.
-- Finalized paused time is added to qualifying time.
-- Abandoning while paused finalizes the open pause.
+- Pausing credits the active time so far to streak progress.
+- Resuming finalizes the pause duration and adds nothing to qualifying time or streak progress.
+- Abandoning while paused finalizes the open pause and adds nothing for it.
 - A completed session cannot be edited.
 
 ## 10\. Website and URL blocking
@@ -627,7 +621,7 @@ StreakPeriod
 - configurationSnapshotId
 - completedAt
 
-`qualifyingSeconds` and `overtimeSeconds` are tracked in seconds so that repeated small contributions (short sessions, finalized pauses) accumulate exactly instead of losing time to per-contribution minute rounding. `targetMinutes` remains a minute-granularity configuration value.
+`qualifyingSeconds` and `overtimeSeconds` are tracked in seconds so that repeated small contributions (short sessions, sessions paused several times) accumulate exactly instead of losing time to per-contribution minute rounding. `targetMinutes` remains a minute-granularity configuration value.
 
 Possible statuses:
 
@@ -1037,7 +1031,7 @@ Detailed user stories and acceptance criteria will be created next. They should 
 9. Applying an allowlist rule.
 10. Pausing a session.
 11. Resuming a session.
-12. Finalizing paused time.
+12. Excluding paused time from qualifying time.
 13. Completing a session.
 14. Abandoning a session.
 15. Releasing blocking after daily completion.
@@ -1070,7 +1064,7 @@ Detailed user stories and acceptance criteria will be created next. They should 
 ### Reliability
 
 - The application shall recover safely after restart.
-- The system shall not award unverified paused time while the application is closed.
+- The system shall not award paused time, whether or not the application is open.
 - Session transitions shall be validated by the backend or local business-logic layer.
 - Operations that award XP, gems, or streak contributions shall be idempotent.
 
@@ -1248,7 +1242,7 @@ The following decisions remain open or need more precision:
 5. Whether an abandoned session's websites remain blocked until a new session is completed or until another qualifying condition is reached. (Decided: websites are blocked every day from the start of the day until the daily target is reached, with or without a session, and throughout any running session. Abandoning a session does not change that; overriding a session abandoned today releases blocking for the rest of the day, at an XP penalty.)
 6. The exact behavior when a session crosses midnight or the end of a weekly period. (Decided: its time is split at the boundary, and each part counts toward the period it was spent in.)
 7. Whether weekly progress includes time that also completed a daily streak. (Decided: yes. Every qualifying minute counts toward both the daily and the weekly period it falls in.)
-8. Whether a paused interval spanning midnight is split across periods when finalized. (Decided: yes, the same way as active time.)
+8. Whether a paused interval spanning midnight is split across periods when finalized. (Superseded: paused time no longer counts toward any period.)
 9. Whether completion requires active focus time only, as currently recommended, or elapsed session time. (Decided: active focus time only. Once off-task detection exists, off-task time is subtracted first.)
 10. Whether the user can manually end a completed-period session without a penalty. (Decided: yes. Once the daily target is reached, abandoning a session releases blocking at once with no penalty, and the session earns no completion XP.)
 11. Whether the MVP supports an emergency release distinct from a manual override. (Decided: no. The manual override, with its XP penalty, is the only early release.)
@@ -1263,7 +1257,7 @@ The following decisions remain open or need more precision:
 
 FocusQuest is a local-first productivity web application supported by a Chrome browser extension. A single local user can create focus sessions with durations of at least five minutes, define a task and category, and block selected domains and URL paths. Users may add allowlist rules. Websites remain blocked during paused sessions.
 
-Daily and weekly streaks measure accumulated qualifying work. Daily periods use the user's local calendar day. Weekly periods run from Monday through Sunday. Qualifying time can be accumulated across multiple sessions. Paused time is counted only when the pause is finalized by resuming, abandoning, interrupting, or otherwise closing the session. An abandoned session can contribute qualifying time but awards no session-completion XP.
+Daily and weekly streaks measure accumulated qualifying work. Daily periods use the user's local calendar day. Weekly periods run from Monday through Sunday. Qualifying time can be accumulated across multiple sessions. Paused time never counts. An abandoned session can contribute qualifying time but awards no session-completion XP.
 
 A completed session rewards continued focused work. Completion XP is awarded only when the required active focus duration has been reached and the session is completed. Completed sessions are immutable. Overtime is recorded but does not increase current streak progress, carry into another period, or automatically generate additional XP.
 

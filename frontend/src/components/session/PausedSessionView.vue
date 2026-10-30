@@ -32,8 +32,8 @@ const reached = computed(() => props.session.remainingFocusSeconds <= 0)
     <SessionMeta :session="session" status="Paused">
       <template #info>
         <InfoTip label="About pausing">
-          The timer is stopped. Blocking stays on while you are paused, and paused time does not earn
-          streak progress until you resume.
+          The timer is stopped. Blocking stays on while you are paused, and paused time does not count
+          toward your session or your streak.
           <template v-if="session.finalizedPausedSeconds > 0">
             Earlier pauses: {{ formatMinutes(session.finalizedPausedSeconds) }}.
           </template>

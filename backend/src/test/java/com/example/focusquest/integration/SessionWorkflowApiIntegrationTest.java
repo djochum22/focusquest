@@ -64,7 +64,7 @@ class SessionWorkflowApiIntegrationTest extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAUSED"))
                 .andExpect(jsonPath("$.activeFocusSeconds").value(600))
-                .andExpect(jsonPath("$.uncreditedStreakSeconds").value(600));   // credited only on resume
+                .andExpect(jsonPath("$.uncreditedStreakSeconds").value(0));   // credited on pausing
         getAs(token, "/api/extension/blocking-state").andExpect(jsonPath("$.enforcementActive").value(true));
 
         advance(60);

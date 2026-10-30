@@ -262,9 +262,8 @@ public class StreakService {
     }
 
     /**
-     * Records a stretch of a session's time as streak progress: {@code activeSeconds} of focus
-     * followed by {@code pausedSeconds} of a finalized pause, ending at {@code creditedUntil}. The
-     * stretch is split at period boundaries (midnight, and Monday for weekly; see
+     * Records a stretch of a session's focus as streak progress: {@code activeSeconds} ending at
+     * {@code creditedUntil}. Paused time never counts. The stretch is split at period boundaries (midnight, and Monday for weekly; see
      * {@link #windowContaining}), so each part counts toward the period it was spent in, even one that has already ended.
      * Each part is credited once per period type (daily, weekly) that the user had configured at
      * the time and whose period the session qualifies for; a period type the user has never
@@ -273,43 +272,37 @@ public class StreakService {
      * that reaches its target is marked COMPLETED and pays its streak rewards.
      */
     @Transactional
-    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
+    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds,
                                                        Instant creditedUntil) {
-        return recordContribution(session, activeSeconds, pausedSeconds, creditedUntil, List.of());
+        return recordContribution(session, activeSeconds, creditedUntil, List.of());
     }
 
     /**
-     * As {@link #recordContribution(FocusSession, long, long, Instant)}, leaving out the off-task time
-     * settled in the active part of the stretch: {@code offTask} ranges inside it. Each period is
+     * As {@link #recordContribution(FocusSession, long, Instant)}, leaving out the off-task time
+     * settled in the stretch: {@code offTask} ranges inside it. Each period is
      * credited the active time that fell in it minus the off-task time that did.
      */
     @Transactional
-    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds, long pausedSeconds,
+    public List<StreakContribution> recordContribution(FocusSession session, long activeSeconds,
                                                        Instant creditedUntil, List<TimeRange> offTask) {
         User user = session.getUser();
-        Instant creditedFrom = creditedUntil.minusSeconds(activeSeconds + pausedSeconds);
+        Instant creditedFrom = creditedUntil.minusSeconds(activeSeconds);
         List<StreakContribution> contributions = new ArrayList<>();
         for (StreakPeriodType periodType : StreakPeriodType.values()) {
             Instant cursor = creditedFrom;
             long activeLeft = activeSeconds;
-            long pausedLeft = pausedSeconds;
-            while (activeLeft + pausedLeft > 0) {
+            while (activeLeft > 0) {
                 StreakPeriodCalculator.PeriodWindow window = windowContaining(user, periodType, cursor);
-                long inWindow = Math.min(activeLeft + pausedLeft, secondsUntil(cursor, window.end()));
-                // The active time came first and the pause after it, so the active time fills the earlier windows.
-                long active = Math.min(activeLeft, inWindow);
-                long paused = inWindow - active;
-                Instant partEnd = cursor.plusSeconds(inWindow);
-                Instant activeEnd = cursor.plusSeconds(active);
-                long offTaskInPart = offTaskSecondsBetween(offTask, cursor, activeEnd);
+                long active = Math.min(activeLeft, secondsUntil(cursor, window.end()));
+                Instant partEnd = cursor.plusSeconds(active);
+                long offTaskInPart = offTaskSecondsBetween(offTask, cursor, partEnd);
                 long netActive = Math.max(0, active - offTaskInPart);
-                if (netActive + paused > 0) {
+                if (netActive > 0) {
                     findOrCreatePeriodIfConfigured(user, periodType, window, partEnd)
-                            .flatMap(period -> applyContribution(period, session, netActive, paused))
+                            .flatMap(period -> applyContribution(period, session, netActive))
                             .ifPresent(contributions::add);
                 }
                 activeLeft -= active;
-                pausedLeft -= paused;
                 cursor = partEnd;
             }
         }
@@ -374,7 +367,7 @@ public class StreakService {
     }
 
     private Optional<StreakContribution> applyContribution(
-            StreakPeriod period, FocusSession session, long activeSeconds, long pausedSeconds) {
+            StreakPeriod period, FocusSession session, long activeSeconds) {
         if (period.getStatus() == StreakPeriodStatus.MISSED || period.getStatus() == StreakPeriodStatus.FROZEN) {
             return Optional.empty();
         }
@@ -384,9 +377,9 @@ public class StreakService {
 
         Instant now = clockProvider.now();
         StreakContribution contribution = streakContributionRepository.save(
-                new StreakContribution(period, session, activeSeconds, pausedSeconds, now));
+                new StreakContribution(period, session, activeSeconds, 0, now));
 
-        period.recordQualifyingSeconds(activeSeconds + pausedSeconds);
+        period.recordQualifyingSeconds(activeSeconds);
         boolean reachedTarget = period.getStatus() == StreakPeriodStatus.ACTIVE && period.hasReachedTarget();
         if (reachedTarget) {
             period.markCompleted(now);

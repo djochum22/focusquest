@@ -268,9 +268,9 @@ so that I can take a break while keeping websites blocked.
 - Given the session is paused,  
   when the Chrome extension is active,  
   then the extension continues blocking the configured targets.
-- Given the session is paused,  
-  when the pause is unresolved,  
-  then the application does not add the paused time to streak progress.
+- Given a session is paused,  
+  when the pause is recorded,  
+  then the active time so far is added to the applicable daily and weekly streak periods, and the paused time never is.
 
 ## **US-041: Resume a paused session**
 
@@ -285,13 +285,10 @@ so that I can continue my focus commitment.
   then the application records the pause end timestamp.
 - Given the pause is finalized,  
   when the pause duration is calculated,  
-  then the finalized paused time is added to the session's qualifying time.
-- Given the pause is finalized,  
-  when the streak contribution is updated,  
-  then the total time already passed in the session (active time so far plus the pause) is added to the applicable daily and weekly streak periods.
-- Given time was credited to the streak at resume,  
+  then it is kept as a record and adds nothing to the session's qualifying time or to streak progress.
+- Given time was credited to the streak at a pause,  
   when the session later ends,  
-  then only the time since that credit is added, so no time is counted twice.
+  then only the active time since that credit is added, so no time is counted twice.
 - Given the session is resumed,  
   when the resume is recorded,  
   then the session transitions back to ACTIVE.
@@ -314,7 +311,7 @@ so that I can stop the commitment before completion.
   then the application finalizes the pause and calculates its duration.
 - Given the session is abandoned,  
   when qualifying time is calculated,  
-  then the active and finalized paused time not already credited at a resume is added to the applicable streak period.
+  then the active time not already credited at a pause is added to the applicable streak period.
 - Given the session is abandoned,  
   when session-completion XP is considered,  
   then no completion XP is awarded.

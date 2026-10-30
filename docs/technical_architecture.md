@@ -314,7 +314,7 @@ The Spring Boot backend is responsible for:
 - Authentication and authorization.
 - Local-user setup and profile management.
 - Focus-session lifecycle management.
-- Active and paused time calculation.
+- Active and paused time calculation (only active time qualifies; paused time is kept as a record).
 - Pause finalization.
 - Session completion, abandonment, interruption, and manual override handling.
 - Streak configuration and period snapshots.

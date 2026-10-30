@@ -215,7 +215,7 @@ class OffTaskApiIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
-    void pausedTimeIsNeverSubtractedAndTheRestIsSettledOnResume() throws Exception {
+    void pausedTimeIsNeverSubtractedAndTheRestIsSettledOnPause() throws Exception {
         token = setUpAccount("doug", "UTC");
         enableCamera(true);
         long id = startCameraSession("CODING");
@@ -229,9 +229,9 @@ class OffTaskApiIntegrationTest extends ApiIntegrationTest {
         postAs(token, SESSIONS + id + "/resume")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.offTaskSeconds").value(160))       // 140 s to 300 s
-                .andExpect(jsonPath("$.qualifyingSeconds").value(300 + 400 - 160));
+                .andExpect(jsonPath("$.qualifyingSeconds").value(300 - 160));
 
-        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(540));
+        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(140));
         getAs(token, SESSIONS + id + "/off-task").andExpect(jsonPath("$.episodes[0].deductedSeconds").value(160));
     }
 
@@ -298,8 +298,8 @@ class OffTaskApiIntegrationTest extends ApiIntegrationTest {
         postJsonAs(token, SESSIONS + id + "/off-task/disputes", json("episodeStartedAt", at(60)))
                 .andExpect(status().isOk());
 
-        getAs(token, SESSIONS + "current").andExpect(jsonPath("$.qualifyingSeconds").value(700));
-        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(700));
+        getAs(token, SESSIONS + "current").andExpect(jsonPath("$.qualifyingSeconds").value(300));
+        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(300));
     }
 
     @Test

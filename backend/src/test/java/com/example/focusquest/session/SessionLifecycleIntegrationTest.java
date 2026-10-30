@@ -155,7 +155,7 @@ class SessionLifecycleIntegrationTest {
         assertThat(saved.getStatus()).isEqualTo(SessionStatus.COMPLETED);
         assertThat(saved.getBlockingState()).isEqualTo(BlockingState.RELEASED);
         StreakPeriod period = dailyPeriod();
-        assertThat(period.getQualifyingSeconds()).isEqualTo(6 * 60 + 30); // 360s active + 30s paused
+        assertThat(period.getQualifyingSeconds()).isEqualTo(6 * 60); // 360s active; the 30s pause counts for nothing
         assertThat(period.getStatus()).isEqualTo(StreakPeriodStatus.ACTIVE);
         assertThat(blockingService.findEnforcingSession(user)).isEmpty();
         BlockingSnapshot afterComplete = blockingService.getBlockingSnapshot(user);
@@ -219,7 +219,7 @@ class SessionLifecycleIntegrationTest {
         sessionService.abandonSession(session.getId(), user.getUsername());
         assertThat(reload(session).getBlockingState()).isEqualTo(BlockingState.ACTIVE);
         assertThat(enforcing()).isTrue();
-        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(60);
 
         sessionService.overrideSession(session.getId(), user.getUsername());
 
@@ -227,7 +227,7 @@ class SessionLifecycleIntegrationTest {
         assertThat(saved.getStatus()).isEqualTo(SessionStatus.ABANDONED);
         assertThat(saved.isOverrideUsed()).isTrue();
         assertThat(saved.getBlockingState()).isEqualTo(BlockingState.OVERRIDE_USED);
-        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(60);
         assertThat(enforcing()).isFalse();
 
         List<ExperienceTransaction> penalties = experienceTransactionRepository.findByUserOrderByIdAsc(user).stream()
@@ -239,7 +239,7 @@ class SessionLifecycleIntegrationTest {
 
         assertThatThrownBy(() -> sessionService.overrideSession(session.getId(), user.getUsername()))
                 .isInstanceOf(InvalidSessionStateException.class);
-        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(90);
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(60);
     }
 
     @Test
@@ -409,40 +409,39 @@ class SessionLifecycleIntegrationTest {
     }
 
     @Test
-    void resumingCreditsTheTotalTimeSoFarToTheDayTotalAndTheEndCreditsOnlyTheRest() {
+    void pausingCreditsTheFocusSoFarAndThePauseItselfNeverCounts() {
         configureDailyTarget(30);
         FocusSession session = newStartedSession(30);
         advance(100);
         sessionService.pauseSession(session.getId(), user.getUsername());
-        advance(20);
-        assertThat(streakService.findCurrentPeriod(user, StreakPeriodType.DAILY)).isEmpty(); // unresolved pause: nothing yet
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(100);
 
+        advance(20);
         sessionService.resumeSession(session.getId(), user.getUsername());
 
-        // Credited at resume, while the session is still running: 100s active + 20s paused.
         assertThat(reload(session).getStatus()).isEqualTo(SessionStatus.ACTIVE);
-        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(120);
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(100);
 
         advance(200);
         sessionService.abandonSession(session.getId(), user.getUsername());
 
-        // The end credits only the 200s since the resume: 120 + 200, not 120 + 300 + 20.
-        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(320);
+        // The end credits only the 200s since the resume: 100 + 200.
+        assertThat(dailyPeriod().getQualifyingSeconds()).isEqualTo(300);
         List<StreakContribution> contributions = streakContributionRepository.findAll().stream()
                 .filter(c -> c.getSession().getId().equals(session.getId()))
                 .toList();
         assertThat(contributions).extracting(StreakContribution::getActiveSeconds).containsExactlyInAnyOrder(100L, 200L);
-        assertThat(contributions).extracting(StreakContribution::getPausedSeconds).containsExactlyInAnyOrder(20L, 0L);
+        assertThat(contributions).extracting(StreakContribution::getPausedSeconds).containsOnly(0L);
     }
 
     @Test
-    void resumeCreditCanReachTheDailyTargetSoALaterAbandonReleasesBlocking() {
+    void pauseCreditCanReachTheDailyTargetSoALaterAbandonReleasesBlocking() {
         configureDailyTarget(5);
         FocusSession session = newStartedSession(30);
-        advance(4 * 60);
-        sessionService.pauseSession(session.getId(), user.getUsername());
+        advance(5 * 60);
+        sessionService.pauseSession(session.getId(), user.getUsername());   // 300s = the 5-minute target
         advance(60);
-        sessionService.resumeSession(session.getId(), user.getUsername());   // 240s + 60s = the 5-minute target
+        sessionService.resumeSession(session.getId(), user.getUsername());
 
         assertThat(dailyPeriod().getStatus()).isEqualTo(StreakPeriodStatus.COMPLETED);
 

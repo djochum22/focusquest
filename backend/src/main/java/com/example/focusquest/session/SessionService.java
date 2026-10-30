@@ -216,6 +216,7 @@ public class SessionService {
         requireStatus(session, SessionStatus.ACTIVE);
 
         session.addActiveSeconds(elapsedSeconds(session.getActiveSegmentStartedAt(), now));
+        recordStreakContribution(session, now);
         session.enterPause();
         focusSessionRepository.save(session);
 
@@ -251,6 +252,7 @@ public class SessionService {
             finalizeOpenPause(session, now);
             session.resumeFromPause(now);
         }
+        // Normally nothing to credit, since pausing did. A pause opened before pausing credited still owes it.
         recordStreakContribution(session, now);
         return focusSessionRepository.save(session);
     }
@@ -380,7 +382,7 @@ public class SessionService {
                 SessionStatus.INTERRUPTED);
         for (TimeRange restored : offTaskAccounting.dispute(session, episodeStartedAt)) {
             session.restoreOffTaskSeconds(restored.seconds());
-            streakService.recordContribution(session, restored.seconds(), 0, restored.end());
+            streakService.recordContribution(session, restored.seconds(), restored.end());
         }
         return focusSessionRepository.save(session);
     }
@@ -402,17 +404,14 @@ public class SessionService {
 
     /**
      * The active time of a running session that has not been credited yet, as a span of time: the
-     * current segment of an ACTIVE session, or the segment before the open pause of a PAUSED one.
+     * current segment of an ACTIVE session. Pausing credits the segment before it, so a PAUSED
+     * session has none.
      */
     @Transactional(readOnly = true)
     public Optional<TimeRange> uncreditedActiveStretch(FocusSession session, Instant now) {
         if (session.getStatus() == SessionStatus.ACTIVE && session.getActiveSegmentStartedAt() != null) {
             Instant from = session.getActiveSegmentStartedAt();
             return now.isAfter(from) ? Optional.of(new TimeRange(from, now)) : Optional.empty();
-        }
-        if (session.getStatus() == SessionStatus.PAUSED) {
-            return sessionPauseRepository.findFirstBySessionAndFinalizedFalse(session).map(pause -> new TimeRange(
-                    pause.getStartedAt().minusSeconds(session.uncreditedActiveSeconds()), pause.getStartedAt()));
         }
         return Optional.empty();
     }
@@ -466,32 +465,28 @@ public class SessionService {
     }
 
     /**
-     * Credits the session's time that the streak has not seen yet to the current daily and weekly
-     * periods. It runs when a pause is resumed, crediting everything so far (the active time before
-     * the pause plus the pause just finalized), and again when the session ends (complete or
-     * abandon), crediting the remainder. The session remembers what it has already credited, so a
-     * moment of time is never counted twice. An unresolved pause contributes nothing until then.
-     * An interruption credits the time up to the last heartbeat and drops the rest.
+     * Credits the session's active time that the streak has not seen yet to the current daily and
+     * weekly periods. It runs when the session pauses, and again when it ends (complete or abandon),
+     * crediting the remainder. The session remembers what it has already credited, so a moment of
+     * time is never counted twice. Paused time is never credited. An interruption credits the time
+     * up to the last heartbeat and drops the rest.
      *
-     * <p>The time not yet credited is one unbroken stretch ending at {@code creditedUntil}: the
-     * active time since the previous credit, then the pause just finalized, if any. The streak
-     * splits it at midnight and at the start of the week, so time before a boundary counts toward
-     * the period that was then current. Off-task time in the active part is settled here and left
-     * out of the credit.
+     * <p>The time not yet credited is one unbroken stretch of focus ending at {@code creditedUntil}.
+     * The streak splits it at midnight and at the start of the week, so time before a boundary counts
+     * toward the period that was then current. Off-task time in it is settled here and left out of
+     * the credit.
      */
     private void recordStreakContribution(FocusSession session, Instant creditedUntil) {
         long activeSeconds = session.uncreditedActiveSeconds();
-        long pausedSeconds = session.uncreditedPausedSeconds();
-        if (activeSeconds + pausedSeconds <= 0) {
+        if (activeSeconds <= 0) {
             return;
         }
         List<TimeRange> offTask = List.of();
-        if (session.isCameraVerification() && activeSeconds > 0) {
-            Instant activeTo = creditedUntil.minusSeconds(pausedSeconds);
-            offTask = offTaskAccounting.settle(session, activeTo.minusSeconds(activeSeconds), activeTo);
+        if (session.isCameraVerification()) {
+            offTask = offTaskAccounting.settle(session, creditedUntil.minusSeconds(activeSeconds), creditedUntil);
             session.addOffTaskSeconds(offTask.stream().mapToLong(TimeRange::seconds).sum());
         }
-        streakService.recordContribution(session, activeSeconds, pausedSeconds, creditedUntil, offTask);
+        streakService.recordContribution(session, activeSeconds, creditedUntil, offTask);
         session.markStreakCredited();
     }
 

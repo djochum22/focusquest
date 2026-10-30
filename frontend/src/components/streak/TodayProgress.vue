@@ -7,7 +7,7 @@ import StreakFlame from './StreakFlame.vue'
 
 /**
  * Today's daily target as one quiet bar: time so far, and the streak it keeps alive. The backend
- * only credits a session's time at pause, resume and end, so a session that counts adds its
+ * only credits a session's time at pause and end, so a session that counts adds its
  * uncredited time (`extraSeconds`), and while it runs, the seconds since `countingSince`.
  */
 const props = defineProps<{

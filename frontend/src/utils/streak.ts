@@ -115,7 +115,7 @@ export function endEarlyOutcome(
   session: FocusSession,
   daily: StreakProgress | null,
 ): { kept: string; blocking: string } {
-  const keptSeconds = session.activeFocusSeconds + session.finalizedPausedSeconds - session.offTaskSeconds
+  const keptSeconds = session.activeFocusSeconds - session.offTaskSeconds
   const counts = daily !== null && sessionCountsToward(daily, session)
   const kept = counts
     ? `You keep ${formatMinutes(keptSeconds)} toward today's target. No completion XP.`

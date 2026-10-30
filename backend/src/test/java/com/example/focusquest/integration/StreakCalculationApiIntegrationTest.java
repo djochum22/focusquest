@@ -219,7 +219,7 @@ class StreakCalculationApiIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
-    void aPauseThatSpansMidnightIsSplitWhenItIsFinalized() throws Exception {
+    void aPauseThatSpansMidnightCreditsNeitherDay() throws Exception {
         String token = setUpAccount("doug", "UTC");
         setDailyTarget(token, 30);
 
@@ -230,22 +230,22 @@ class StreakCalculationApiIntegrationTest extends ApiIntegrationTest {
         advance(20 * 60);                                            // paused until 00:10
         postAs(token, SESSIONS + "/" + id + "/resume").andExpect(status().isOk());
 
-        // 20 focused minutes and the first 10 paused ones fall before midnight: 30, the target.
+        // Only the 20 focused minutes count, on the day they were spent; the target stays unmet.
         StreakPeriod yesterday = storedPeriod("doug", StreakPeriodType.DAILY, "2026-03-10T00:00:00Z");
-        assertThat(yesterday.getQualifyingSeconds()).isEqualTo(1800);
-        assertThat(yesterday.getStatus()).isEqualTo(StreakPeriodStatus.COMPLETED);
-        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(600));
+        assertThat(yesterday.getQualifyingSeconds()).isEqualTo(1200);
+        assertThat(yesterday.getStatus()).isNotEqualTo(StreakPeriodStatus.COMPLETED);
+        getAs(token, "/api/streaks/current").andExpect(jsonPath("$.daily.qualifyingSeconds").value(0));
 
         advance(5 * 60);
         postAs(token, SESSIONS + "/" + id + "/complete").andExpect(status().isOk());
 
-        // Today has 15 minutes, short of 30; the streak is yesterday's run.
+        // Today has the 5 minutes after the pause, and neither day reached 30, so there is no streak.
         getAs(token, "/api/streaks/current")
-                .andExpect(jsonPath("$.daily.qualifyingSeconds").value(900))
+                .andExpect(jsonPath("$.daily.qualifyingSeconds").value(300))
                 .andExpect(jsonPath("$.daily.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.dailyStreak").value(1));
+                .andExpect(jsonPath("$.dailyStreak").value(0));
         assertThat(storedPeriod("doug", StreakPeriodType.DAILY, "2026-03-10T00:00:00Z").getQualifyingSeconds())
-                .isEqualTo(1800);
+                .isEqualTo(1200);
     }
 
     @Test

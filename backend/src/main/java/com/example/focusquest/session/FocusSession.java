@@ -216,7 +216,7 @@ public class FocusSession {
     }
 
     private void recalculateQualifyingSeconds() {
-        this.qualifyingSeconds = this.activeFocusSeconds + this.finalizedPausedSeconds - this.offTaskSeconds;
+        this.qualifyingSeconds = this.activeFocusSeconds - this.offTaskSeconds;
     }
 
     private long netOvertimeSeconds() {
@@ -276,17 +276,13 @@ public class FocusSession {
         return activeFocusSeconds - streakCreditedActiveSeconds;
     }
 
-    long uncreditedPausedSeconds() {
-        return finalizedPausedSeconds - streakCreditedPausedSeconds;
-    }
-
     /**
      * Focus time not yet credited to the streak as of {@code now}: the active time since the last
-     * credit (including a segment still running) and pauses finalized since then. Off-task time is
-     * not subtracted here; the credit itself does that.
+     * credit, including a segment still running. Off-task time is not subtracted here; the credit
+     * itself does that.
      */
     long uncreditedStreakSecondsAt(Instant now) {
-        return Math.max(0, activeSecondsAt(now) - streakCreditedActiveSeconds) + uncreditedPausedSeconds();
+        return Math.max(0, activeSecondsAt(now) - streakCreditedActiveSeconds);
     }
 
     /** Records that everything accumulated so far has been credited to the streak. */

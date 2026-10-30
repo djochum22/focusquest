@@ -163,6 +163,12 @@ describe('endEarlyOutcome', () => {
     expect(outcome.blocking).toBe("That reaches today's target, so websites unblock now.")
   })
 
+  it('leaves paused time out of what the session keeps', () => {
+    const outcome = endEarlyOutcome(running({ finalizedPausedSeconds: 600 }), makeProgress())
+
+    expect(outcome.kept).toBe("You keep 8 min toward today's target. No completion XP.")
+  })
+
   it('says how much is left when websites stay blocked', () => {
     const outcome = endEarlyOutcome(running(), makeProgress({ qualifyingSeconds: 10 * 60 }))
 

@@ -184,7 +184,7 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(60, TaskMode.TASK_REQUIRED, null);
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        List<StreakContribution> contributions = streakService.recordContribution(session, 300, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(session, 300, BASE_INSTANT);
 
         assertThat(contributions).hasSize(1);
         assertThat(contributions.get(0).getQualifyingSeconds()).isEqualTo(300);
@@ -196,7 +196,7 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(60, TaskMode.TASK_REQUIRED, null);
         FocusSession taskFreeSession = session(TaskMode.TASK_FREE, TaskCategory.TASK_FREE);
 
-        List<StreakContribution> contributions = streakService.recordContribution(taskFreeSession, 300, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(taskFreeSession, 300, BASE_INSTANT);
 
         assertThat(contributions).isEmpty();
         assertThat(period.getQualifyingSeconds()).isZero();
@@ -207,7 +207,7 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(60, TaskMode.TASK_REQUIRED, TaskCategory.STUDYING);
         FocusSession codingSession = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        List<StreakContribution> contributions = streakService.recordContribution(codingSession, 300, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(codingSession, 300, BASE_INSTANT);
 
         assertThat(contributions).isEmpty();
         assertThat(period.getQualifyingSeconds()).isZero();
@@ -219,7 +219,7 @@ class StreakServiceTest {
         StreakPeriod dailyPeriod = createAndStubDailyPeriod(60, TaskMode.TASK_REQUIRED, null);
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        List<StreakContribution> contributions = streakService.recordContribution(session, 300, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(session, 300, BASE_INSTANT);
 
         assertThat(contributions).hasSize(1);
         assertThat(contributions.get(0).getStreakPeriod()).isSameAs(dailyPeriod);
@@ -231,7 +231,7 @@ class StreakServiceTest {
         streakService.markMissedPeriod(period);
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        List<StreakContribution> contributions = streakService.recordContribution(session, 300, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(session, 300, BASE_INSTANT);
 
         assertThat(contributions).isEmpty();
         assertThat(period.getQualifyingSeconds()).isZero();
@@ -244,11 +244,11 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(10, TaskMode.TASK_REQUIRED, null); // 600s target
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        streakService.recordContribution(session, 200, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 200, BASE_INSTANT);
         assertThat(period.getQualifyingSeconds()).isEqualTo(200);
         assertThat(period.getStatus()).isEqualTo(StreakPeriodStatus.ACTIVE);
 
-        streakService.recordContribution(session, 400, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 400, BASE_INSTANT);
         assertThat(period.getQualifyingSeconds()).isEqualTo(600);
         assertThat(period.getOvertimeSeconds()).isZero();
         assertThat(period.getStatus()).isEqualTo(StreakPeriodStatus.COMPLETED);
@@ -260,7 +260,7 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(10, TaskMode.TASK_REQUIRED, null);
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        streakService.recordContribution(session, 150, 90, BASE_INSTANT);
+        streakService.recordContribution(session, 240, BASE_INSTANT);
 
         assertThat(period.getQualifyingSeconds()).isEqualTo(240);
     }
@@ -276,7 +276,7 @@ class StreakServiceTest {
                 .thenReturn(Optional.of(weeklyPeriod));
 
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
-        List<StreakContribution> contributions = streakService.recordContribution(session, 600, 0, BASE_INSTANT);
+        List<StreakContribution> contributions = streakService.recordContribution(session, 600, BASE_INSTANT);
 
         assertThat(contributions).hasSize(2);
         assertThat(dailyPeriod.getQualifyingSeconds()).isEqualTo(600);
@@ -289,7 +289,7 @@ class StreakServiceTest {
     void recordContributionRecordsOvertimeOnceTargetIsExceeded() {
         StreakPeriod period = createAndStubDailyPeriod(5, TaskMode.TASK_REQUIRED, null); // 300s target
 
-        streakService.recordContribution(session(TaskMode.TASK_REQUIRED, TaskCategory.CODING), 500, 0, BASE_INSTANT);
+        streakService.recordContribution(session(TaskMode.TASK_REQUIRED, TaskCategory.CODING), 500, BASE_INSTANT);
 
         assertThat(period.getQualifyingSeconds()).isEqualTo(300);
         assertThat(period.getOvertimeSeconds()).isEqualTo(200);
@@ -301,11 +301,11 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(5, TaskMode.TASK_REQUIRED, null); // 300s target
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        streakService.recordContribution(session, 300, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 300, BASE_INSTANT);
         assertThat(period.getStatus()).isEqualTo(StreakPeriodStatus.COMPLETED);
         Instant completedAt = period.getCompletedAt();
 
-        streakService.recordContribution(session, 120, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 120, BASE_INSTANT);
 
         assertThat(period.getQualifyingSeconds()).isEqualTo(300);
         assertThat(period.getOvertimeSeconds()).isEqualTo(120);
@@ -434,7 +434,7 @@ class StreakServiceTest {
                 .thenReturn(Optional.empty());
 
         List<StreakContribution> contributions =
-                streakService.recordContribution(session(TaskMode.TASK_REQUIRED, TaskCategory.CODING), 600, 0, BASE_INSTANT);
+                streakService.recordContribution(session(TaskMode.TASK_REQUIRED, TaskCategory.CODING), 600, BASE_INSTANT);
 
         assertThat(contributions).hasSize(1);
         assertThat(contributions.get(0).getStreakPeriod().getTargetMinutes()).isEqualTo(30);
@@ -643,14 +643,14 @@ class StreakServiceTest {
         StreakPeriod period = createAndStubDailyPeriod(30, TaskMode.TASK_REQUIRED, null);
         FocusSession session = session(TaskMode.TASK_REQUIRED, TaskCategory.CODING);
 
-        streakService.recordContribution(session, 20 * 60, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 20 * 60, BASE_INSTANT);
         verify(progressionService, never()).awardStreakCompletion(any(), any(), any());
 
-        streakService.recordContribution(session, 10 * 60, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 10 * 60, BASE_INSTANT);
         verify(progressionService).awardStreakCompletion(user, StreakPeriodType.DAILY, period.getId());
 
         // Overtime on an already completed period pays nothing more.
-        streakService.recordContribution(session, 10 * 60, 0, BASE_INSTANT);
+        streakService.recordContribution(session, 10 * 60, BASE_INSTANT);
         verify(progressionService, org.mockito.Mockito.times(1)).awardStreakCompletion(any(), any(), any());
     }
 
