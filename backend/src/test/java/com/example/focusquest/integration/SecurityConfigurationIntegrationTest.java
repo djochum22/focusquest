@@ -210,6 +210,56 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
     }
 
     @Test
+    void repeatedFailedSignInsLockSignInForAWhileEvenForTheRightPassword() throws Exception {
+        setUpAccount("doug", "UTC");
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content(json("username", "doug", "password", "guess-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json("username", "doug", "password", PASSWORD)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"))
+                .andExpect(jsonPath("$.message").value("Too many failed sign-in attempts. Try again in 30 seconds."));
+
+        // The lock runs out, and the right password clears the count.
+        advance(30);
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json("username", "doug", "password", PASSWORD)))
+                .andExpect(status().isOk());
+        for (int attempt = 0; attempt < 4; attempt++) {
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content(json("username", "doug", "password", "guess-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json("username", "doug", "password", PASSWORD)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void eachFurtherFailedSignInLocksForTwiceAsLongUpToFifteenMinutes() throws Exception {
+        setUpAccount("doug", "UTC");
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                    .content(json("username", "nobody", "password", "guess-" + attempt)));
+        }
+        long[] locks = {30, 60, 120, 240, 480, 900, 900};
+        for (int i = 0; i < locks.length - 1; i++) {
+            advance(locks[i] - 1);
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content(json("username", "doug", "password", PASSWORD)))
+                    .andExpect(status().isTooManyRequests());
+            advance(1);
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content(json("username", "doug", "password", "another-guess")))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Test
     void loginIssuesATokenWithoutEverExposingThePasswordOrItsHash() throws Exception {
         setUpAccount("doug", "UTC");
 
@@ -392,7 +442,10 @@ class SecurityConfigurationIntegrationTest extends ApiIntegrationTest {
         getAs(token, "/api/auth/me")
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("X-Frame-Options", "DENY"))
-                .andExpect(header().string("Cache-Control", containsString("no-store")));
+                .andExpect(header().string("Cache-Control", containsString("no-store")))
+                .andExpect(header().string("Referrer-Policy", "same-origin"))
+                .andExpect(header().string("Content-Security-Policy", containsString("script-src 'self';")))
+                .andExpect(header().string("Content-Security-Policy", containsString("frame-ancestors 'none'")));
     }
 
     // --- Local development tooling ---

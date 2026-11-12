@@ -16,10 +16,29 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
+
+    /**
+     * What the web app's pages may load and run: only what the backend itself serves, so text that
+     * somehow got into a page as markup could not run as a script, nor send the sign-in token anywhere
+     * else. Inline styles stay allowed (Vue sets them). {@code ipc:} and {@code ipc.localhost} are how
+     * the page talks to the desktop app when it is open in that app's window.
+     */
+    static final String CONTENT_SECURITY_POLICY = String.join("; ",
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self' ipc: http://ipc.localhost",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthEntryPoint authEntryPoint;
@@ -77,10 +96,17 @@ public class SecurityConfig {
                 })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        if (h2ConsoleEnabled) {
-            // The console renders itself in frames. Every other response keeps the default DENY.
-            http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
-        }
+        http.headers(headers -> {
+            // Nothing in a FocusQuest address (the blocked page's carries the task) is sent to other sites.
+            headers.referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.SAME_ORIGIN));
+            if (h2ConsoleEnabled) {
+                // The console renders itself in frames, with inline scripts, so it gets no content
+                // security policy. Every other response keeps the default DENY.
+                headers.frameOptions(frameOptions -> frameOptions.sameOrigin());
+            } else {
+                headers.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY));
+            }
+        });
 
         return http.build();
     }

@@ -230,7 +230,11 @@ User
 - createdAt
 ```
 
-Passwords must never be stored in plaintext. Passwords must be hashed with BCrypt. BCrypt only handles the first 72 bytes and its encoder rejects anything longer, so setup accepts passwords of 8 to 72 characters and refuses more than 72 UTF-8 bytes with HTTP 400. Login answers 401 for a longer password, since none can have been set. Setup also refuses a time zone that `ZoneId` does not know: every streak calculation resolves it, so an unknown one would break the app after setup.
+Passwords must never be stored in plaintext. Passwords must be hashed with BCrypt. BCrypt only handles the first 72 bytes and its encoder rejects anything longer, so setup accepts passwords of 8 to 72 characters and refuses more than 72 UTF-8 bytes with HTTP 400. Login answers 401 for a longer password, since none can have been set. Setup runs one request at a time, so two arriving together cannot both find no account and each create one. Setup also refuses a time zone that `ZoneId` does not know: every streak calculation resolves it, so an unknown one would break the app after setup.
+
+**Sign-in throttling**
+
+`LoginThrottle` slows password guessing. After 5 failed sign-ins in a row, each further failure locks sign-in: 30 seconds, doubling up to 15 minutes. While locked, `POST /api/auth/login` answers HTTP 429 (`TOO_MANY_REQUESTS`) with how long is left, even for the right password, or guessing could carry on. A successful sign-in clears the count. There is one local account, so one counter covers it; counting per username would tell a real username from an unknown one. Sign-in attempts are checked one at a time, so guesses sent together cannot slip in before the lock. The count is in memory and is cleared by a restart.
 
 **JWT requirements**
 
@@ -279,7 +283,9 @@ Authorization, Content-Type
 **Response headers and development tooling**
 
 - Responses carry Spring Security's default protective headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Cache-Control: no-store`.
-- The H2 console is off by default, because it gives full access to the database, password hash included, behind an empty database password. Start the backend with `FOCUSQUEST_H2_CONSOLE=true` to use it. Only then does security let `/h2-console/**` through and relax `X-Frame-Options` to `SAMEORIGIN`, which the console needs.
+- Responses also carry `Referrer-Policy: same-origin` and a `Content-Security-Policy` (`SecurityConfig.CONTENT_SECURITY_POLICY`): scripts, fonts, images and requests only from the backend's own origin, no plugins, no framing. So text that somehow reached a page as markup could not run as a script or send the sign-in token elsewhere. Inline styles stay allowed, because Vue sets them. `connect-src` also names `ipc:` and `http://ipc.localhost`, which is how the page talks to the desktop app inside its window. The web app therefore has no inline script: the one that applies the saved theme before first paint is a file, `frontend/public/theme-init.js`.
+- The H2 console is off by default, because it gives full access to the database, password hash included, behind an empty database password. Start the backend with `FOCUSQUEST_H2_CONSOLE=true` to use it. Only then does security let `/h2-console/**` through, relax `X-Frame-Options` to `SAMEORIGIN` and leave out the content security policy, which the console needs.
+- The database is opened embedded only. H2's `AUTO_SERVER` mode is not used: it starts a database server on a network port, on every interface, behind the empty database password. To look inside the database while the backend runs, use the H2 console.
 - Every other unauthenticated request, including unknown paths, gets the same 401 JSON body, so routes cannot be enumerated.
 
 **Logging**
@@ -1524,7 +1530,7 @@ Use:
   - `SessionWorkflowApiIntegrationTest`: first-launch setup through a full session (start, pause, resume, complete), abandon and override, planned sessions (fetched again, replaced, discarded), rule locking, error shapes, isolation between users, and export and deletion.
   - `StreakCalculationApiIntegrationTest`: daily and weekly streaks growing and breaking, day and week boundaries in the user's time zone, sessions and pauses split across midnight and the start of the week, overtime, and configuration validation.
   - `ProfileApiIntegrationTest`: editing the display name and time zone, validation, the time-zone lock while blocking is enforced, and a new time zone taking effect from the next day and week without breaking the streak.
-  - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, password and time zone limits, CORS, response headers, and secrets in the logs.
+  - `SecurityConfigurationIntegrationTest`: every route's authentication requirement, expired, forged, tampered and unsigned tokens, login enumeration, sign-in throttling, password and time zone limits, CORS, response headers (the content security policy included), and secrets in the logs.
   - `RetriedRequestApiIntegrationTest`: each session transition sent a second time is refused and changes nothing, compared through the full export and the progression: no time moved or credited twice, no reward or penalty repeated.
 - `RestartRecoveryIntegrationTest` stops and starts the whole application against the same database file in a temporary directory: completed work and a paused session survive, a session the extension was watching when the application went down is interrupted at its last heartbeat, and one run without the extension keeps running.
 - `export/RestoreIntegrationTest` restores exports against a real database: a round trip reproduces everything but the ids, references point at the restored rows, a running session comes back interrupted, and every refusal (blocking enforced, older format, broken reference, duplicate, unknown time zone, missing value) leaves the data as it was.

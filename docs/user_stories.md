@@ -993,3 +993,22 @@ so that blocking Mac apps works as soon as I sign in.
 - Given the user disconnects the desktop app in Settings,  
   when they open another page,  
   then it is not connected again until they connect it themselves.
+
+
+## **US-164: Repeated wrong passwords lock sign-in for a while**
+
+As a user,  
+I want sign-in to lock for a while after several wrong passwords,  
+so that nobody can guess my password by trying many.
+
+**Acceptance criteria:**
+
+- Given five sign-ins in a row have failed,  
+  when anyone tries to sign in again within 30 seconds,  
+  then sign-in is refused, even with the right password, and the page says how long to wait.
+- Given sign-in is locked,  
+  when the wait is over and the user signs in with the right password,  
+  then they are signed in and the count of failures starts again.
+- Given sign-in was locked and the next attempt after the wait fails too,  
+  when it fails,  
+  then sign-in locks for twice as long as before, up to 15 minutes.

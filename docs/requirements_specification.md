@@ -211,7 +211,9 @@ Even though the backend is local, it should:
 - Use a local authentication token or equivalent mechanism.
 - Restrict CORS to the expected frontend origin.
 - Validate all requests.
-- Avoid binding to all network interfaces unless required.
+- Avoid binding to all network interfaces unless required. This includes the database: it is opened embedded only, with no network port of its own.
+- Slow down password guessing: after 5 failed sign-ins in a row, sign-in is locked for 30 seconds, doubling with each further failure up to 15 minutes.
+- Let the web app's pages load and run only what the backend itself serves (a content security policy).
 - Avoid logging task descriptions or other sensitive user data unnecessarily.
 
 ## 7\. Core concepts and terminology

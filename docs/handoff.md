@@ -1,10 +1,36 @@
-# Handoff: what to do next (30 October 2026)
+# Handoff: what to do next (12 November 2026)
 
 Start here. The details live in two longer notes:
 - `docs/platform_roadmap.md`: the container, every browser, the desktop app
 - `docs/camera_roadmap.md`: camera verification
 
-## Focus time rules: done on master, not pushed (30 October 2026)
+## Security pass: done, committed and pushed (12 November 2026)
+
+A read of every part (backend, web app, extension, desktop app, camera companion) for security risks, done 11 November 2026. Four were found and fixed. Before pushing on 12 November 2026 every suite passed together with the redesign below, the end-to-end suite included (`FOCUSQUEST_E2E=1 ./scripts/test-all.sh`), and the built jar had been walked through in a headless browser with no policy violations.
+
+**Fixed:**
+
+1. **The database was reachable from the network.** `AUTO_SERVER=TRUE` in the database address made H2 open a server on a random port on every interface, behind the empty password. Removed (`application.yml`); the backend now listens on its own port only.
+2. **Passwords could be guessed without limit.** After 5 failed sign-ins in a row, sign-in locks for 30 seconds, doubling up to 15 minutes, answering 429 (`LoginThrottle`, US-164).
+3. **No content security policy.** Responses now carry one, and `Referrer-Policy: same-origin` (`SecurityConfig`). The theme script moved out of `index.html` into `frontend/public/theme-init.js`, since inline scripts no longer run.
+4. **Two setups at once could create two accounts.** Setup now runs one at a time (`AuthService.setup`).
+5. **Packages with known advisories** in `frontend/` and `extension/`: updated with `npm audit fix` (lock files only).
+
+**Still to try by hand** (none of these could be tried in a test):
+
+- [ ] Open the desktop app against the new backend (rebuild it with `npm run build` in `desktop/`) and check Settings still shows it connected and the app list loads on the Blocking page. The policy allows the app's channel (`ipc:`), but this could not be tried here.
+- [ ] With the extension installed, check Settings shows it connected and a blocked site still goes to the blocked page.
+- [ ] Sign in wrongly five times and check the page says how long to wait.
+- [ ] If anything opened the database from outside while the backend ran (a database tool), use the H2 console instead (`FOCUSQUEST_H2_CONSOLE=true`).
+
+**Left as they are, on purpose:**
+
+- The remaining `npm audit` findings (5 moderate in `frontend/`, 3 low in `extension/`) are in test and packaging tools only, and fixing them means downgrading `@vue/test-utils` or `web-ext`.
+- The extension and the backend's CORS list trust `http://localhost:5173`, the dev server's address, in every build. Any other project run on that port could disconnect the extension. Dropping it from release builds would need a separate dev build.
+- The desktop app trusts whatever answers as FocusQuest on 127.0.0.1:8080, and its own start page has no content security policy (`"csp": null` in `tauri.conf.json`); that page shows text only.
+- Rust and Python packages were not checked for advisories: `cargo-audit` and `pip-audit` are not installed.
+
+## Focus time rules: done, pushed (30 October 2026, pushed 12 November 2026)
 
 - **Paused time counts for nothing.** Pausing credits the focus so far; the pause is only a record. This replaces the "A2" decision. Past days and rewards were left as they were.
 - **The time that finishes today is always a duration pill,** not only under 25 minutes.

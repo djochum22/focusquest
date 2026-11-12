@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.example.focusquest.config.JwtConfig;
 import com.example.focusquest.security.JwtService;
+import com.example.focusquest.shared.time.ClockProvider;
 import com.example.focusquest.streak.StreakService;
 import com.example.focusquest.user.User;
 import com.example.focusquest.user.UserService;
@@ -40,7 +41,8 @@ class AuthServiceTest {
         when(userService.createUser("doug", "password123", "Doug", "UTC")).thenReturn(user);
         when(jwtService.generateToken("doug")).thenReturn("token");
         when(jwtConfig.getExpirationMinutes()).thenReturn(60L);
-        AuthService authService = new AuthService(userService, streakService, authenticationManager, jwtService, jwtConfig);
+        AuthService authService = new AuthService(userService, streakService, authenticationManager, jwtService, jwtConfig,
+                new LoginThrottle(new ClockProvider()));
 
         LoginResponse response = authService.setup(new SetupRequest("doug", "password123", "Doug", "UTC"));
 

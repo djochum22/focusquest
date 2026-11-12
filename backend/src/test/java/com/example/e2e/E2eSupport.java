@@ -1,5 +1,6 @@
 package com.example.e2e;
 
+import com.example.focusquest.auth.LoginThrottle;
 import com.example.focusquest.shared.time.ClockProvider;
 import org.flywaydb.core.Flyway;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -53,10 +54,12 @@ public class E2eSupport {
 
         private final Flyway flyway;
         private final ClockProvider clockProvider;
+        private final LoginThrottle loginThrottle;
 
-        E2eController(Flyway flyway, ClockProvider clockProvider) {
+        E2eController(Flyway flyway, ClockProvider clockProvider, LoginThrottle loginThrottle) {
             this.flyway = flyway;
             this.clockProvider = clockProvider;
+            this.loginThrottle = loginThrottle;
         }
 
         /** Drops and re-creates the whole schema, and starts the clock again from {@link #START_OF_TEST}. */
@@ -65,6 +68,7 @@ public class E2eSupport {
             flyway.clean();
             flyway.migrate();
             setClockTo(START_OF_TEST);
+            loginThrottle.reset();
             return ResponseEntity.noContent().build();
         }
 

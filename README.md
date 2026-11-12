@@ -53,7 +53,9 @@ Optional: `FOCUSQUEST_H2_CONSOLE=true` enables the H2 database console at
 http://127.0.0.1:8080/h2-console (JDBC URL `jdbc:h2:file:./data/focusquest`, user `sa`, empty
 password). It is off by default because it exposes the whole database.
 
-On first launch the app shows account setup; afterwards it shows login.
+On first launch the app shows account setup; afterwards it shows login. After five wrong passwords
+in a row, sign-in locks for 30 seconds, and for twice as long after each further one, up to 15
+minutes; restarting the backend clears it.
 
 **2. Web app dev server** (optional, http://localhost:5173, only while working on the web app)
 
@@ -184,7 +186,7 @@ database, so they must not run in parallel.
   split across midnight and the start of the week.
 - `ProfileApiIntegrationTest`: editing the profile, and a time-zone change taking effect from the
   next day and week.
-- `SecurityConfigurationIntegrationTest`: authentication on every route, token attacks, CORS,
+- `SecurityConfigurationIntegrationTest`: authentication on every route, token attacks, sign-in throttling, CORS,
   headers, and that no secret reaches the logs.
 
 ## Design tooling (Claude Code)

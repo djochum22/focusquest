@@ -4,7 +4,9 @@ spring:
 
   datasource:
     # FOCUSQUEST_DATA_DIR moves the database (the Docker image keeps it in a volume at /app/data).
-    url: jdbc:h2:file:${FOCUSQUEST_DATA_DIR:./data}/focusquest;AUTO_SERVER=TRUE
+    # Embedded only, without AUTO_SERVER: that would open the database on a network port, on every
+    # interface, behind its empty password. To look inside while the backend runs, use the H2 console.
+    url: jdbc:h2:file:${FOCUSQUEST_DATA_DIR:./data}/focusquest
     driver-class-name: org.h2.Driver
     username: sa
     password: ""

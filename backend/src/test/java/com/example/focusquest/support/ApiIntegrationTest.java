@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.focusquest.auth.ExtensionCredentialRepository;
+import com.example.focusquest.auth.LoginThrottle;
 import com.example.focusquest.blocking.AllowlistTargetRepository;
 import com.example.focusquest.blocking.BlockedAppRepository;
 import com.example.focusquest.blocking.BlockedTargetRepository;
@@ -99,6 +100,8 @@ public abstract class ApiIntegrationTest {
     private ExtensionCredentialRepository extensionCredentialRepository;
     @Autowired
     protected UserRepository userRepository;
+    @Autowired
+    private LoginThrottle loginThrottle;
 
     private Clock originalClock;
     private Instant now;
@@ -124,6 +127,8 @@ public abstract class ApiIntegrationTest {
         extensionCredentialRepository.deleteAllInBatch();
         companionCredentialRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
+        // Failed sign-ins in one test must not lock sign-in for the next.
+        loginThrottle.reset();
 
         originalClock = clockProvider.getClock();
         now = BASE;
