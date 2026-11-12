@@ -39,37 +39,42 @@ const headingId = useId()
 .section__heading {
   margin: 0;
   font-size: inherit;
+  letter-spacing: inherit;
 }
 .section__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 1rem;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
-  padding: 1rem 0.25rem;
+  padding: 0.95rem 0;
   border: 0;
   background: none;
   color: var(--text);
   font: inherit;
+  letter-spacing: inherit;
   text-align: left;
   cursor: pointer;
 }
-.section__row:hover .section__title {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .section__title {
-  font-size: 1.05rem;
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+.section__row[aria-expanded='true'] .section__title {
   font-weight: 600;
 }
 .section__summary {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   font-weight: 400;
 }
 .section__chevron {
   color: var(--text-muted);
-  transition: transform 0.15s;
+  opacity: 0.7;
+  transition: transform 0.25s var(--ease-out);
+}
+.section__row:hover .section__chevron {
+  opacity: 1;
 }
 .section__row[aria-expanded='true'] .section__chevron {
   transform: rotate(180deg);
@@ -78,6 +83,6 @@ const headingId = useId()
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 0 0.25rem 1.5rem;
+  padding: 0.25rem 0 1.75rem;
 }
 </style>

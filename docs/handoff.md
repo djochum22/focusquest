@@ -30,6 +30,34 @@ A read of every part (backend, web app, extension, desktop app, camera companion
 - The desktop app trusts whatever answers as FocusQuest on 127.0.0.1:8080, and its own start page has no content security policy (`"csp": null` in `tauri.conf.json`); that page shows text only.
 - Rust and Python packages were not checked for advisories: `cargo-audit` and `pip-audit` are not installed.
 
+## Redesign: done, committed and pushed (12 November 2026)
+
+The whole web app was restyled on 11 November 2026 at the user's request: "take inspiration from Apple, something new and fresh and especially decluttered". The user looked it over and asked for it to be pushed on 12 November 2026. The design system is in `DESIGN.md` (with its machine-readable copy in `.impeccable/design.json`); the brief and its direction are in `.impeccable/surfaces/`.
+
+**What changed:**
+
+1. **Look.** The system typeface (San Francisco on a Mac) replaces Young Serif and Atkinson Hyperlegible, which are no longer bundled. A white page (black in the dark) replaces the buff one. Fields, tracks and quiet buttons are soft grey fills with no outlines; the only lines are hairlines between rows. Every button is a pill. One green for acting and a session's progress, one blue for today's target, orange for the flame.
+2. **Header.** A thin translucent bar with the brand and five pages: Focus, Streaks, History, Blocking, Settings. The theme switch, the user's name and Sign out left it: **Sign out** is at the foot of Settings, Account, and **Appearance** (Automatic, Light, Dark) is its own row in Settings.
+3. **Start page.** The greeting is the title ("Ready to focus?" is gone). Below it one line (today's ring, minutes, streak), then two controls instead of five: one field holding the task and the category, and one row of lengths. **Task-free is the last entry of the category menu** (it replaces the "Working on a task / Task-free" switch) and **Stopwatch is the last length** (it replaces the "Timer / Stopwatch" switch). The length that finishes today's target carries a small blue ring instead of a line of text below. "Continue where you left off" is a row under Start. The "Session history" link moved to the header.
+4. **Running session.** The clock sits inside a ring that closes as the planned time passes (a stopwatch's ring goes round once an hour). "Websites blocked" and "Paused" are text on the line under the title, not pills. Today's target is one line with a small ring.
+5. **Completion.** The XP is the large figure, then "Session complete", the focused time, the level bar, today's line and the next step.
+6. **Other pages.** Streaks leads with the streak, then XP and gems, then freezes; states are coloured text, not badges; bars are thin with their figures on a line above. Blocking, History and Settings keep their rows, without outlines or badges.
+7. **Around the web app.** The extension's popup, options and blocked pages and the desktop app's start page use the same palette. The app icon and favicon were not redrawn.
+
+**Checked:** 653 web app unit tests, 243 extension tests, all 12 end-to-end tests, types; the design detector reports nothing; screenshots in light and dark at 1280px and at 390px, no sideways scroll. The backend was not changed by this work. Not tried: the desktop app's window (rebuild it with `npm run build` in `desktop/`), Safari and Firefox.
+
+**Reviewed once** by a separate design reviewer (verdict: fix). Applied from it: the Streaks page's blue is kept for today's target only (the XP bar is green, the gem and freeze marks grey); a running or paused session shows today's minutes without the streak label, and no longer repeats the category under a title that already is the category; menus have a stroked chevron; links read alike. The fixes were not sent back for a second verdict.
+
+**Open follow-ups from that review (optional, the user decides):**
+
+1. Streaks: draw today's target as a large ring beside the streak count, and turn level, gems and freezes into plain rows, so the streak is the one large thing.
+2. Completion: keep the closed ring on the "Session complete" screen instead of swapping it for a bar.
+3. Motion: let the segmented control's thumb slide between choices.
+4. Small: a larger tap area for the "Edit" and "Delete" links on a phone; "Username" in Settings set like the fields under it.
+5. The app icon and favicon still use the old dark green.
+
+**Tests changed with it:** the session form's tests (one radio group of lengths, task-free through the menu), `AppShell` (no account controls), `SettingsView` (Appearance, Sign out), `AppearanceControl` in place of `ThemeToggle`, and three end-to-end steps (sign out through Settings, History from the header, the stopwatch as a length).
+
 ## Focus time rules: done, pushed (30 October 2026, pushed 12 November 2026)
 
 - **Paused time counts for nothing.** Pausing credits the focus so far; the pause is only a record. This replaces the "A2" decision. Past days and rewards were left as they were.

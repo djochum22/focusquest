@@ -91,8 +91,8 @@ onMounted(load)
   <AppShell>
     <div class="streaks__title-row">
       <h1 class="page-title">Streaks</h1>
-      <AppButton v-if="ready && streaks.configurationsLoaded" variant="secondary" @click="openSettings()">
-        <svg class="streaks__gear" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+      <AppButton v-if="ready && streaks.configurationsLoaded" variant="secondary" size="small" @click="openSettings()">
+        <svg class="streaks__gear" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -108,17 +108,6 @@ onMounted(load)
         <ErrorMessage :message="loadError" />
         <div><AppButton variant="secondary" @click="load">Try again</AppButton></div>
       </div>
-
-      <section class="streaks__rewards" aria-label="Rewards">
-        <XpDisplay
-          v-if="progression.loaded"
-          :xp="progression.totalXp"
-          :level="progression.level"
-          :level-start-xp="progression.levelStartXp"
-          :next-level-xp="progression.nextLevelXp"
-        />
-        <GemDisplay :balance="progression.loaded ? progression.gems : null" />
-      </section>
 
       <section v-if="streaks.currentLoaded" class="streaks__stack" aria-label="Current progress">
         <StreakProgress
@@ -142,9 +131,20 @@ onMounted(load)
         </p>
       </section>
 
+      <section class="streaks__rewards" aria-label="Rewards">
+        <XpDisplay
+          v-if="progression.loaded"
+          :xp="progression.totalXp"
+          :level="progression.level"
+          :level-start-xp="progression.levelStartXp"
+          :next-level-xp="progression.nextLevelXp"
+        />
+        <GemDisplay :balance="progression.loaded ? progression.gems : null" />
+      </section>
+
       <div v-if="streaks.freezes" class="streaks__stack streaks__block">
         <ErrorMessage :message="freezeError" />
-        <p v-if="freezeBought" class="streaks__saved" role="status">Streak freeze bought.</p>
+        <p v-if="freezeBought" class="status-line status-line--success" role="status">Streak freeze bought.</p>
         <StreakFreezeCard
           :inventory="streaks.freezes"
           :buying="streaks.buyingFreeze"
@@ -155,7 +155,7 @@ onMounted(load)
     </div>
 
     <Modal :open="settingsOpen" title="Streak settings" @close="settingsOpen = false">
-      <fieldset class="streaks__switch">
+      <fieldset class="segmented streaks__switch">
         <legend class="visually-hidden">Streak</legend>
         <label v-for="periodType in (['DAILY', 'WEEKLY'] as const)" :key="periodType">
           <input v-model="settingsPeriod" type="radio" name="streak-settings-period" :value="periodType" />
@@ -163,7 +163,7 @@ onMounted(load)
         </label>
       </fieldset>
 
-      <p v-if="settingsLocked" class="streaks__locked" role="status">
+      <p v-if="settingsLocked" class="status-line status-line--notice" role="status">
         Locked while website blocking is active
         <InfoTip>End your session, or override the blocking, to change your streak settings.</InfoTip>
       </p>
@@ -173,7 +173,7 @@ onMounted(load)
       </p>
 
       <ErrorMessage :message="saveError[settingsPeriod]" />
-      <p v-if="saved === settingsPeriod" class="streaks__saved" role="status">
+      <p v-if="saved === settingsPeriod" class="status-line status-line--success" role="status">
         {{ PERIOD_LABELS[settingsPeriod] }} streak saved.
       </p>
       <StreakConfigurationForm
@@ -198,38 +198,40 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 .streaks__title-row .page-title {
   margin: 0;
 }
-.streaks__title-row .app-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
 .streaks {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 .streaks > .streaks__stack {
-  gap: 1.5rem;
+  gap: 2rem;
 }
 .streaks__stack {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
+/* The streak leads the page; XP and gems follow as two quiet figures side by side. */
 .streaks__rewards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 1.5rem 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
 }
 /* No cards: each part of the page is set off from the one above by a hairline. */
 .streaks__block {
-  padding-top: 1.5rem;
+  padding-top: 2rem;
   border-top: 1px solid var(--border);
+}
+.streaks__block:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 .streaks__empty {
   display: flex;
@@ -237,56 +239,20 @@ onMounted(load)
   gap: 0.5rem;
   margin: 0;
 }
-/* A two-way pill switch, like the session form's; the radios stay real inputs. */
+.streaks__empty :deep(.app-button) {
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .streaks__switch {
-  display: flex;
   align-self: flex-start;
-  margin: 0;
-  padding: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
 }
-.streaks__switch label {
-  padding: 0.3rem 1rem;
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.streaks__switch label:has(input:checked) {
-  background: var(--surface-muted);
-  color: var(--text);
-  font-weight: 600;
-}
-.streaks__switch label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.streaks__switch input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.streaks__note,
-.streaks__locked {
+.streaks__note {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   margin: 0;
-  font-size: 0.9rem;
-}
-.streaks__locked {
-  color: var(--notice);
-  font-weight: 600;
-}
-.streaks__saved {
-  margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--success);
-  border-radius: 8px;
-  background: var(--success-bg);
-  color: var(--success);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 .streaks__close {
   display: flex;

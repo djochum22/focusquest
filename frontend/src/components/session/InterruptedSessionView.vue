@@ -44,6 +44,9 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
+.interrupted {
+  gap: 1.75rem;
+}
 .interrupted__actions {
   display: flex;
   flex-wrap: wrap;

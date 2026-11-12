@@ -26,7 +26,6 @@ const toNextLevel = computed(() => Math.max(0, props.nextLevelXp - props.xp))
       :percent="percent"
       :label="`Progress to level ${level + 1}`"
       :value-text="`${percent}% of the way to level ${level + 1}`"
-      tone="secondary"
     >
       <span data-testid="xp-next">{{ toNextLevel.toLocaleString() }} XP to level {{ level + 1 }}</span>
     </ProgressBar>
@@ -40,23 +39,24 @@ const toNextLevel = computed(() => Math.max(0, props.nextLevelXp - props.xp))
 .stat__label {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
-}
-.stat__level {
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-secondary) 18%, transparent);
-  /* Text colour, not the blue: blue on its own tint falls short of 4.5:1. */
-  color: var(--text);
-  font-weight: 700;
+  font-size: 0.875rem;
 }
 .stat__value {
-  margin: 0 0 0.35rem;
-  font-size: 1.75rem;
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 .stat__unit {
+  color: var(--text-muted);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.011em;
+}
+.stat :deep(.bar__text) {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 </style>

@@ -138,6 +138,7 @@ function onSubmit() {
   flex-direction: column;
   gap: 1rem;
 }
+/* Adding is one line: the field, and its button at the end. */
 .rule-form__bar {
   display: flex;
   gap: 0.5rem;
@@ -145,17 +146,14 @@ function onSubmit() {
 .rule-form__address {
   flex: 1;
   min-width: 0;
-  border-radius: 999px;
-  padding-left: 1rem;
 }
 .rule-form__bar .app-button {
   flex: none;
-  border-radius: 999px;
 }
 .rule-form__error {
   margin: -0.5rem 0 0;
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 .rule-form__active {
   display: flex;
@@ -165,10 +163,17 @@ function onSubmit() {
 .rule-form__active-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  gap: 0.55rem;
+  cursor: pointer;
 }
 .rule-form__active-label input {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+@media (max-width: 30rem) {
+  .rule-form__bar {
+    flex-direction: column;
+  }
 }
 </style>

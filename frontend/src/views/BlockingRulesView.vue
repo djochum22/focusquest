@@ -211,7 +211,7 @@ onMounted(() => {
       </div>
 
       <template v-if="blocking.loaded">
-        <fieldset class="rules__switch">
+        <fieldset class="segmented rules__switch">
           <legend class="visually-hidden">List</legend>
           <label v-for="section in SECTIONS" :key="section.kind">
             <input v-model="shown" type="radio" name="rules-list" :value="section.kind" />
@@ -223,7 +223,7 @@ onMounted(() => {
           </label>
         </fieldset>
 
-        <p v-if="enforced" class="rules__locked" role="status">
+        <p v-if="enforced" class="status-line status-line--notice" role="status">
           Blocking is active: rules can only get stricter
           <InfoTip>
             Until it ends you can add blocked sites and apps and remove allowed sites, but not edit or remove
@@ -231,7 +231,7 @@ onMounted(() => {
           </InfoTip>
         </p>
         <ErrorMessage :message="actionError" />
-        <p v-if="notice" class="rules__saved" role="status">{{ notice }}</p>
+        <p v-if="notice" class="status-line status-line--success" role="status">{{ notice }}</p>
 
         <section
           v-for="section in SECTIONS"
@@ -386,46 +386,19 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.75rem;
 }
-/* A two-way pill switch, like the streak settings'; the radios stay real inputs. */
+/* Which list is shown; each segment carries how many it holds. */
 .rules__switch {
-  display: flex;
   align-self: flex-start;
-  margin: 0;
-  padding: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  max-width: 100%;
 }
 .rules__switch label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 1rem;
-  border-radius: 999px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.rules__switch label:has(input:checked) {
-  background: var(--surface-muted);
-  color: var(--text);
-  font-weight: 600;
-}
-.rules__switch label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.rules__switch input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  padding-inline: 1.1rem;
 }
 .rules__count {
-  min-width: 1.4rem;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: var(--bg);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-align: center;
+  margin-left: 0.3rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 .rules__section {
   display: flex;
@@ -439,21 +412,6 @@ onMounted(() => {
 }
 .rules__note {
   margin: 0;
-  font-size: 0.9rem;
-}
-.rules__locked {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  color: var(--notice);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.rules__saved {
-  margin: 0;
-  color: var(--success);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
 }
 </style>

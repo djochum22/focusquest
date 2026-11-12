@@ -28,28 +28,39 @@ withDefaults(
 </template>
 
 <style scoped>
+/* Every button is a pill. Filled ones act; the link variant is text. */
 .app-button {
-  padding: 0.65rem 1.1rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.15rem;
+  border: 0;
+  border-radius: 999px;
   font: inherit;
+  font-size: 0.9375rem;
   font-weight: 600;
+  letter-spacing: inherit;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    transform 0.2s var(--ease-out);
+}
+.app-button:active:not(:disabled, .app-button--link) {
+  transform: scale(0.97);
 }
 .app-button--small {
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  font-size: 0.875rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8125rem;
 }
 .app-button--large {
-  min-width: 10rem;
+  min-width: 11rem;
   padding: 0.85rem 2rem;
-  border-radius: 999px;
-  font-size: 1.05rem;
+  font-size: 1.0625rem;
 }
 .app-button:disabled {
-  opacity: 0.6;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 .app-button--primary {
@@ -60,12 +71,11 @@ withDefaults(
   background: var(--accent-hover);
 }
 .app-button--secondary {
-  background: transparent;
-  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text);
 }
 .app-button--secondary:hover:not(:disabled) {
-  background: var(--surface-muted);
+  background: var(--surface-strong);
 }
 .app-button--danger {
   background: var(--danger-solid);
@@ -76,14 +86,15 @@ withDefaults(
 }
 .app-button--link {
   padding: 0;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 400;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 .app-button--link:hover:not(:disabled) {
   color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 </style>

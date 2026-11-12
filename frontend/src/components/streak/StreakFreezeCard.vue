@@ -80,6 +80,7 @@ function formatDay(iso: string): string {
     <div class="freezes__actions">
       <AppButton
         variant="secondary"
+        size="small"
         :loading="buying"
         :disabled="blockedReason !== null"
         @click="$emit('buy')"
@@ -103,20 +104,23 @@ function formatDay(iso: string): string {
 }
 .freezes__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
 }
 .freezes__count {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 .freezes__icon {
-  color: var(--accent-secondary);
+  color: var(--text-muted);
 }
 .freezes__owned {
   font-size: 1.5rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 .freezes__name {
   display: flex;
@@ -125,12 +129,9 @@ function formatDay(iso: string): string {
 }
 .freezes__used {
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--success);
-  border-radius: 8px;
-  background: var(--success-bg);
   color: var(--success);
   font-size: 0.9rem;
+  font-weight: 500;
 }
 .freezes__actions {
   display: flex;
@@ -140,6 +141,6 @@ function formatDay(iso: string): string {
 }
 .freezes__reason {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 </style>

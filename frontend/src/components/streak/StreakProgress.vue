@@ -50,7 +50,7 @@ const remainingLabel = computed(() => formatMinutes(Math.ceil(remainingSeconds(p
     </div>
 
     <p class="streak-progress__length" data-testid="streak-length">
-      <StreakFlame class="streak-progress__flame" :class="{ 'streak-progress__flame--out': streakLength === 0 }" :size="30" />
+      <StreakFlame class="streak-progress__flame" :class="{ 'streak-progress__flame--out': streakLength === 0 }" :size="34" />
       <span class="streak-progress__count">{{ streakLength }}</span>{{ ' ' }}<span class="muted">{{ streakUnit(streakLength, progress.periodType) }} in a row</span>
     </p>
     <p v-if="protectedDays && !reached" class="streak-progress__protected" role="status">
@@ -61,7 +61,7 @@ const remainingLabel = computed(() => formatMinutes(Math.ceil(remainingSeconds(p
       :percent="percent"
       :label="`${title} progress`"
       :value-text="`${percent}% of ${progress.targetMinutes} minutes`"
-      :tone="reached ? 'success' : 'accent'"
+      :tone="reached ? 'success' : progress.periodType === 'DAILY' ? 'secondary' : 'accent'"
     >
       <span class="streak-progress__figures">{{ formatMinutes(progress.qualifyingSeconds) }} of {{ progress.targetMinutes }} min</span>
       <template #end>
@@ -75,7 +75,7 @@ const remainingLabel = computed(() => formatMinutes(Math.ceil(remainingSeconds(p
 
 <style scoped>
 .streak-progress {
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 .streak-progress__head {
   display: flex;
@@ -90,46 +90,47 @@ const remainingLabel = computed(() => formatMinutes(Math.ceil(remainingSeconds(p
 }
 .streak-progress__title {
   margin: 0;
-  font-size: 1.15rem;
-}
-.streak-progress__status {
-  flex-shrink: 0;
-  padding: 0.15rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
-  font-size: 0.8rem;
+  font-size: 1.0625rem;
   font-weight: 600;
 }
+/* The state of the day or week, said in colour rather than in a badge. */
+.streak-progress__status {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
 .streak-progress__status--COMPLETED {
-  background: var(--success-bg);
   color: var(--success);
+  font-weight: 600;
 }
 .streak-progress__status--MISSED {
-  background: var(--danger-bg);
   color: var(--danger);
 }
+/* The number the page is about: big, with the flame beside it. */
 .streak-progress__length {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  align-items: baseline;
+  gap: 0.5rem;
   margin: 0;
 }
 .streak-progress__flame {
-  color: var(--notice);
+  align-self: center;
+  color: var(--flame);
 }
 .streak-progress__flame--out {
-  color: var(--border);
+  color: var(--surface-strong);
 }
 .streak-progress__count {
-  font-size: 2rem;
+  font-size: 3.5rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
+  letter-spacing: -0.04em;
 }
 .streak-progress__protected {
   margin: 0;
   color: var(--accent-secondary);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 </style>

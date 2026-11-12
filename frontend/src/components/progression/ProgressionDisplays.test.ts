@@ -21,7 +21,7 @@ describe('XpDisplay', () => {
     const bar = wrapper.get('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('25')
     expect(bar.attributes('aria-label')).toBe('Progress to level 4')
-    expect(bar.get('div').attributes('style')).toContain('width: 25%')
+    expect(bar.get('.bar__fill').attributes('style')).toContain('width: 25%')
     expect(wrapper.get('[data-testid="xp-next"]').text()).toBe('150 XP to level 4')
   })
 

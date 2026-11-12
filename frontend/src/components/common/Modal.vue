@@ -48,25 +48,41 @@ function onClick(event: MouseEvent) {
 </template>
 
 <style scoped>
+/* The one raised surface: a soft-cornered sheet over a dimmed page. */
 .modal {
-  width: min(28rem, calc(100vw - 2rem));
+  width: min(27rem, calc(100vw - 2rem));
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 0;
+  border-radius: var(--radius-dialog);
   background: var(--surface);
+  box-shadow: var(--shadow-raised);
   color: var(--text);
+  /* Fields inside sit on the sheet, so their fill steps one tone further. */
+  --surface-muted: var(--surface-strong);
+}
+.modal[open] {
+  animation: modal-in 0.28s var(--ease-out);
 }
 .modal::backdrop {
-  background: rgb(0 0 0 / 0.5);
+  background: rgb(0 0 0 / 0.38);
 }
 .modal__content {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 .modal__title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.3125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(0.5rem);
+  }
 }
 </style>

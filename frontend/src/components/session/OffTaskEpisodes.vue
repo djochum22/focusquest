@@ -79,10 +79,14 @@ const time = (iso: string) => formatTime(iso, props.timezone)
 
 <style scoped>
 .episodes {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 .episodes summary {
+  color: var(--text-muted);
   cursor: pointer;
+}
+.episodes summary:hover {
+  color: var(--text);
 }
 .episodes__empty {
   margin: 0.5rem 0 0;

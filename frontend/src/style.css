@@ -1,82 +1,104 @@
 :root {
-  /* Light mode: hen mallard in daylight. Warm buffs and mottled browns, bottle-green accents. */
-  --bg: #f6f0e6; /* buff/tan, lightened */
-  --surface: #fffcf7; /* white collar, warmed */
-  --surface-muted: #ede2d0; /* buff #d2b48c, softened */
-  --text: #3e2723; /* dark eye-stripe / cap */
-  --text-muted: #6b5242; /* mottled brown #6f5645 */
-  --border: #d6c4a8; /* buff #c1a587, lightened */
-  --accent: #006b3f; /* drake head green */
-  --accent-hover: #0f5132; /* deeper head green */
-  --accent-contrast: #ffffff;
-  --accent-secondary: #4b6d9f; /* wing speculum blue */
-  --danger: #a3321e; /* chestnut breast, pushed toward red */
-  --danger-bg: #fbece6;
-  --danger-solid: #a3321e;
-  --danger-solid-hover: #80260f;
-  --danger-solid-contrast: #ffffff;
-  --success: #2e6b2b; /* reed green, kept apart from the accent */
-  --success-bg: #e9f1e1;
-  --notice: #8f5200; /* bill/feet orange, darkened for text */
-  --notice-bg: #fdf1d8;
-
   /*
-   * Atkinson Hyperlegible, designed for easy reading, for text and controls; Young Serif, warm and
-   * sturdy, for titles and the big numbers.
+   * Light mode. A white page, near-black text and soft grey fills: controls are filled shapes, not
+   * outlined ones, so the only lines on a page are the hairlines between rows.
    */
-  --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Young Serif', Georgia, serif;
+  --bg: #ffffff;
+  --surface: #ffffff; /* raised: dialogs, tooltips, the chosen segment */
+  --surface-muted: #f1f1f3; /* fills: fields, tracks, quiet buttons */
+  --surface-strong: #e5e5e9; /* the same fills, hovered */
+  --text: #1d1d1f;
+  --text-muted: #636368;
+  --border: #e2e2e6; /* hairlines */
+  --accent: #1f7f38; /* act here, and text that says progress was made */
+  --accent-hover: #186a2e;
+  --accent-contrast: #ffffff;
+  --accent-vivid: #28a745; /* the same green, brighter, for drawn progress: rings and bars */
+  --accent-secondary: #0071e3; /* today's target, wherever it appears */
+  --danger: #d70015;
+  --danger-bg: #fff0ef;
+  --danger-solid: #d70015;
+  --danger-solid-hover: #b00012;
+  --danger-solid-contrast: #ffffff;
+  --success: #1f7f38;
+  --success-bg: #edf8ef;
+  --notice: #b25000;
+  --notice-bg: #fff4e3;
+  --flame: #ff9500; /* the streak's flame */
+  --shadow-raised: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 8px 28px rgb(0 0 0 / 0.14);
+  --shadow-thumb: 0 1px 3px rgb(0 0 0 / 0.14), 0 0 0 0.5px rgb(0 0 0 / 0.05);
+
+  /* The system's own typeface: San Francisco on a Mac, the platform's UI face elsewhere. */
+  --font-body: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-display: var(--font-body);
+
+  --radius-field: 12px;
+  --radius-dialog: 20px;
+  /* Decelerates hard, like the system's own transitions. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   color-scheme: light dark;
   font-family: var(--font-body);
-  line-height: 1.5;
+  line-height: 1.47;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Dark tokens apply when the user picked night mode, or when they have not chosen and the OS is dark. */
+/* Dark tokens apply when the user picked dark, or when they have not chosen and the OS is dark. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    /* Dark mode: drake at dusk. Tail blacks and body grays, iridescent green and speculum blue. */
-    --bg: #111513; /* black tail, green-tinted */
-    --surface: #1a201d;
-    --surface-muted: #27302b;
-    --text: #f1f2ee; /* white collar */
-    --text-muted: #b6bbb5; /* gray body #bebebe */
-    --border: #3a4540;
-    --accent: #4cc38a; /* iridescent head green, lit */
-    --accent-hover: #6fd3a2;
-    --accent-contrast: #0b1410; /* dark text keeps the bright green button readable */
-    --accent-secondary: #8fa6d8; /* wing speculum blue, lit */
-    --danger: #f5a48e; /* chestnut, lightened */
-    --danger-bg: #2e1712;
-    --danger-solid: #b8432c;
-    --danger-solid-hover: #a13823;
-    --success: #a5d67a;
-    --success-bg: #18261a;
-    --notice: #f6c04a; /* yellow bill */
-    --notice-bg: #2a2210;
+    --bg: #000000;
+    --surface: #1d1d1f;
+    --surface-muted: #1d1d1f;
+    --surface-strong: #2c2c2e;
+    --text: #f5f5f7;
+    --text-muted: #a1a1a6;
+    --border: #2c2c2e;
+    --accent: #30d158;
+    --accent-hover: #4ade74;
+    --accent-contrast: #03210c; /* dark text keeps the bright green button readable */
+    --accent-vivid: #30d158;
+    --accent-secondary: #2997ff;
+    --danger: #ff6961;
+    --danger-bg: #2a1211;
+    --danger-solid: #d70015;
+    --danger-solid-hover: #b00012;
+    --success: #30d158;
+    --success-bg: #0d2313;
+    --notice: #ff9f0a;
+    --notice-bg: #2a1c05;
+    --flame: #ff9f0a;
+    --shadow-raised: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 12px 40px rgb(0 0 0 / 0.6);
+    --shadow-thumb: 0 1px 3px rgb(0 0 0 / 0.4);
   }
 }
 
 :root[data-theme='dark'] {
-  /* The same dark tokens, for an explicit night-mode choice. */
-  --bg: #111513; /* black tail, green-tinted */
-  --surface: #1a201d;
-  --surface-muted: #27302b;
-  --text: #f1f2ee; /* white collar */
-  --text-muted: #b6bbb5; /* gray body #bebebe */
-  --border: #3a4540;
-  --accent: #4cc38a; /* iridescent head green, lit */
-  --accent-hover: #6fd3a2;
-  --accent-contrast: #0b1410; /* dark text keeps the bright green button readable */
-  --accent-secondary: #8fa6d8; /* wing speculum blue, lit */
-  --danger: #f5a48e; /* chestnut, lightened */
-  --danger-bg: #2e1712;
-  --danger-solid: #b8432c;
-  --danger-solid-hover: #a13823;
-  --success: #a5d67a;
-  --success-bg: #18261a;
-  --notice: #f6c04a; /* yellow bill */
-  --notice-bg: #2a2210;
+  /* The same dark tokens, for an explicit choice. */
+  --bg: #000000;
+  --surface: #1d1d1f;
+  --surface-muted: #1d1d1f;
+  --surface-strong: #2c2c2e;
+  --text: #f5f5f7;
+  --text-muted: #a1a1a6;
+  --border: #2c2c2e;
+  --accent: #30d158;
+  --accent-hover: #4ade74;
+  --accent-contrast: #03210c; /* dark text keeps the bright green button readable */
+  --accent-vivid: #30d158;
+  --accent-secondary: #2997ff;
+  --danger: #ff6961;
+  --danger-bg: #2a1211;
+  --danger-solid: #d70015;
+  --danger-solid-hover: #b00012;
+  --success: #30d158;
+  --success-bg: #0d2313;
+  --notice: #ff9f0a;
+  --notice-bg: #2a1c05;
+  --flame: #ff9f0a;
+  --shadow-raised: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 12px 40px rgb(0 0 0 / 0.6);
+  --shadow-thumb: 0 1px 3px rgb(0 0 0 / 0.4);
 }
 
 /* Native controls and scrollbars follow the chosen theme too. */
@@ -100,63 +122,90 @@ body {
   color: var(--text);
 }
 
-input,
+h1,
+h2,
+h3 {
+  letter-spacing: -0.022em;
+}
+
+/* Text fields and selects are filled shapes without an outline; focus draws the ring. */
+input:not([type='radio'], [type='checkbox']),
 select {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-radius: var(--radius-field);
+  background: var(--surface-muted);
   color: var(--text);
   font: inherit;
+  letter-spacing: inherit;
+  transition: background-color 0.15s;
+}
+
+input:not([type='radio'], [type='checkbox']):hover:not(:disabled, :focus-visible),
+select:hover:not(:disabled, :focus-visible) {
+  background: var(--surface-strong);
+}
+
+input:disabled,
+select:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+input[type='radio'],
+input[type='checkbox'] {
+  accent-color: var(--accent);
 }
 
 /*
  * Selects drop the native look so every browser honours the padding above: WebKit (Safari and the
- * desktop app) otherwise draws a shorter macOS control. The arrow is two gradients, so it follows
- * the theme's colours.
+ * desktop app) otherwise draws a shorter macOS control. The arrow is the same stroked chevron as the
+ * collapsible rows', in a mid grey that reads on both the light and the dark fill.
  */
 select {
   appearance: none;
   padding-right: 2.25rem;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
-    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 1.15rem) 50%,
-    calc(100% - 0.8rem) 50%;
-  background-size: 0.35rem 0.35rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 0.7rem) 50%;
+  background-size: 1rem 1rem;
   background-repeat: no-repeat;
 }
 
-/* Placeholders are hints, but they still need to be readable: Chromium's default grey is not on dusk. */
+/* Placeholders are hints, but they still need to be readable. */
 ::placeholder {
   color: var(--text-muted);
   opacity: 1;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-secondary) 30%, transparent);
+}
+
+input,
+textarea {
+  caret-color: var(--accent-secondary);
 }
 
 input:focus-visible,
 select:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid color-mix(in srgb, var(--accent-secondary) 55%, transparent);
   outline-offset: 2px;
 }
 
 input[aria-invalid='true'],
 select[aria-invalid='true'] {
-  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1.5px var(--danger);
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-secondary);
+  text-underline-offset: 3px;
 }
 
-/* Shared layout for the centred card screens (login, setup, placeholder dashboard). */
+/* Sign-in and setup: one narrow column, centred on an open page. */
 .auth-page {
   display: flex;
   min-height: 100vh;
@@ -170,31 +219,37 @@ a {
   flex-direction: column;
   gap: 1rem;
   width: 100%;
-  max-width: 26rem;
-  padding: 2rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
+  max-width: 22rem;
 }
 
 .auth-card h1 {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 2.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-align: center;
 }
 
 .auth-card__subtitle {
-  margin: -0.5rem 0 0;
+  margin: -0.5rem 0 0.75rem;
   color: var(--text-muted);
+  text-align: center;
+  text-wrap: balance;
 }
 
 .auth-card__notice {
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--notice);
-  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-field);
   background: var(--notice-bg);
   color: var(--notice);
   font-size: 0.9rem;
+}
+
+.auth-card > button[type='submit'] {
+  margin-top: 0.75rem;
+  padding-block: 0.8rem;
 }
 
 .auth-card__footer {
@@ -204,43 +259,13 @@ a {
   text-align: center;
 }
 
-/*
- * Display type: the brand, page titles and the figures the eye should land on first. Not the session
- * timer: a countdown needs equal-width digits, which the display serif does not have.
- */
-.shell__brand,
-.auth-card h1,
-.page-title,
-.planner__title,
-.meta__task,
-.complete__xp,
-.complete__day,
-.modal__title,
-.stat__value,
-.streak-progress__count,
-.freezes__owned {
-  font-family: var(--font-display);
-  /* Young Serif has only its regular weight; never let the browser fake a bold one. */
-  font-synthesis: none;
-  /* Its default figures are old-style (a small "1", a "5" below the line); lining ones stand as tall
-     as the letters, so "+35 XP" reads as one figure. */
-  font-variant-numeric: lining-nums;
-}
-
 /* Shared layout for the signed-in pages inside AppShell. */
 .page-title {
-  margin: 0 0 1rem;
-  font-size: 1.5rem;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
+  margin: 0 0 1.5rem;
+  font-size: 2.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .muted {
@@ -254,6 +279,93 @@ a {
   gap: 1.25rem;
 }
 
+/*
+ * A segmented control: a soft track of radio labels, the chosen one lifted onto a white thumb. The
+ * radios stay real inputs, each covering its own label invisibly, so a click, a tap or a test lands
+ * on the input, and arrow keys move within the group.
+ */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.segmented label {
+  position: relative;
+  flex: 1;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.segmented label:has(input:checked) {
+  background: var(--surface);
+  box-shadow: var(--shadow-thumb);
+  font-weight: 600;
+}
+
+.segmented label:has(input:focus-visible) {
+  outline: 3px solid color-mix(in srgb, var(--accent-secondary) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.segmented label:has(input:disabled) {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.segmented input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+/* In the dark the thumb is a lighter grey rather than white. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .segmented label:has(input:checked) {
+    background: #48484b;
+  }
+}
+
+:root[data-theme='dark'] .segmented label:has(input:checked) {
+  background: #48484b;
+}
+
+/* A short line that something worked, or that something is locked: a tinted line, never a box. */
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.status-line--success {
+  color: var(--success);
+}
+
+.status-line--notice {
+  color: var(--notice);
+}
+
 /* Hidden on screen, still read by screen readers. */
 .visually-hidden {
   position: absolute;
@@ -262,4 +374,13 @@ a {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

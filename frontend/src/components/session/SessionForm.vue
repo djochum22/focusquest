@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
+import TargetRing from '../streak/TargetRing.vue'
 import AppButton from '../common/AppButton.vue'
 import InfoTip from '../common/InfoTip.vue'
-import FormField from '../common/FormField.vue'
 import type { CreateSessionRequest, TaskCategory, TaskMode, TimerMode } from '../../types/session'
 import { loadSessionDefaults, saveSessionDefaults } from '../../utils/sessionDefaults'
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from '../../utils/sessionLabels'
@@ -95,6 +95,20 @@ watch(
 )
 const errors = ref<FieldErrors<SessionForm>>({})
 const taskId = useId()
+const categoryId = useId()
+
+/**
+ * One menu chooses what the session is for: a category of task, or no task at all. Task-free is a
+ * session type rather than a category, so the menu sets the two together.
+ */
+const taskFree = computed(() => form.taskMode === 'TASK_FREE')
+const categoryChoice = computed<TaskCategory | ''>({
+  get: () => (taskFree.value ? 'TASK_FREE' : form.taskCategory),
+  set: (value) => {
+    form.taskMode = value === 'TASK_FREE' ? 'TASK_FREE' : 'TASK_REQUIRED'
+    if (value !== 'TASK_FREE') form.taskCategory = value
+  },
+})
 const minutesId = useId()
 
 /**
@@ -108,8 +122,20 @@ onMounted(() => {
 
 function pickPreset(minutes: number) {
   durationTouched.value = true
+  timerMode.value = 'COUNTDOWN'
   customDuration.value = false
   form.plannedFocusMinutes = minutes
+}
+
+function pickCustom() {
+  durationTouched.value = true
+  timerMode.value = 'COUNTDOWN'
+  customDuration.value = true
+}
+
+function pickStopwatch() {
+  durationTouched.value = true
+  timerMode.value = 'STOPWATCH'
 }
 
 function onSubmit() {
@@ -117,8 +143,7 @@ function onSubmit() {
   errors.value = validateSession(stopwatch.value ? { ...form, plannedFocusMinutes: MIN_PLANNED_FOCUS_MINUTES } : form)
   if (hasErrors(errors.value) || (!stopwatch.value && form.plannedFocusMinutes === '')) return
 
-  const taskFree = form.taskMode === 'TASK_FREE'
-  const category = taskFree || form.taskCategory === '' ? 'TASK_FREE' : form.taskCategory
+  const category = taskFree.value || form.taskCategory === '' ? 'TASK_FREE' : form.taskCategory
   // A top-up to finish today is a one-off: the next form should not open on "Custom, 5 min".
   const finishing = !customDuration.value && form.plannedFocusMinutes === finishPreset.value
   saveSessionDefaults({
@@ -129,7 +154,7 @@ function onSubmit() {
   emit('submit', {
     taskMode: form.taskMode,
     taskCategory: category,
-    taskDescription: taskFree ? null : form.taskDescription.trim() || null,
+    taskDescription: taskFree.value ? null : form.taskDescription.trim() || null,
     plannedFocusMinutes: stopwatch.value || form.plannedFocusMinutes === '' ? 0 : form.plannedFocusMinutes,
     timerMode: timerMode.value,
     // Only when the camera can be used; otherwise the backend leaves it off.
@@ -140,101 +165,101 @@ function onSubmit() {
 
 <template>
   <form class="session-form" novalidate @submit.prevent="onSubmit">
-    <fieldset class="session-form__mode pills">
-      <legend class="visually-hidden">Session type</legend>
-      <label><input v-model="form.taskMode" type="radio" name="taskMode" value="TASK_REQUIRED" /> Working on a task</label>
-      <label><input v-model="form.taskMode" type="radio" name="taskMode" value="TASK_FREE" /> Task-free</label>
-    </fieldset>
-
-    <fieldset class="session-form__mode pills">
-      <legend class="visually-hidden">Timer type</legend>
-      <label><input v-model="timerMode" type="radio" name="timerMode" value="COUNTDOWN" /> Timer</label>
-      <label><input v-model="timerMode" type="radio" name="timerMode" value="STOPWATCH" /> Stopwatch</label>
-    </fieldset>
-
-    <template v-if="form.taskMode === 'TASK_REQUIRED'">
-      <div class="session-form__task">
+    <!-- What the session is for, as one field: the task typed at the left, its category chosen at the right. -->
+    <div class="session-form__what-wrap">
+      <div class="session-form__what" :class="{ 'session-form__what--invalid': errors.taskDescription || errors.taskCategory }">
         <label :for="taskId" class="visually-hidden">Task (optional)</label>
         <input
           :id="taskId"
           ref="taskInput"
           v-model="form.taskDescription"
-          class="session-form__task-input"
+          class="session-form__task"
           type="text"
-          placeholder="Task (optional)"
+          :placeholder="taskFree ? 'No task for this session' : 'What are you working on?'"
           autocomplete="off"
+          :disabled="taskFree"
           :maxlength="TASK_DESCRIPTION_MAX"
           :aria-invalid="Boolean(errors.taskDescription)"
         />
-        <p v-if="errors.taskDescription" class="session-form__error">{{ errors.taskDescription }}</p>
-      </div>
-    </template>
-
-    <div class="session-form__options">
-      <FormField
-        v-if="form.taskMode === 'TASK_REQUIRED'"
-        v-slot="{ id, invalid }"
-        label="Category"
-        :error="errors.taskCategory"
-      >
-        <select :id="id" v-model="form.taskCategory" :aria-invalid="invalid" aria-required="true">
-          <option value="" disabled>Select a category</option>
+        <label :for="categoryId" class="visually-hidden">Category</label>
+        <select
+          :id="categoryId"
+          v-model="categoryChoice"
+          class="session-form__category"
+          :aria-invalid="Boolean(errors.taskCategory)"
+          aria-required="true"
+        >
+          <option value="" disabled>Category</option>
           <option v-for="category in SELECTABLE_CATEGORIES" :key="category" :value="category">
             {{ CATEGORY_LABELS[category] }}
           </option>
+          <option value="TASK_FREE">{{ CATEGORY_LABELS.TASK_FREE }}</option>
         </select>
-      </FormField>
-
-      <fieldset v-if="!stopwatch" class="session-form__duration">
-        <legend class="session-form__legend">Duration (min)</legend>
-        <div class="pills pills--small">
-          <label v-if="finishPreset">
-            <input
-              type="radio"
-              name="duration"
-              :value="finishPreset"
-              :checked="!customDuration && form.plannedFocusMinutes === finishPreset"
-              @change="pickPreset(finishPreset)"
-            />
-            {{ finishPreset }}<span class="visually-hidden"> min, finishes today's target</span>
-          </label>
-          <label v-for="minutes in PRESET_MINUTES" :key="minutes">
-            <input
-              type="radio"
-              name="duration"
-              :value="minutes"
-              :checked="!customDuration && form.plannedFocusMinutes === minutes"
-              @change="pickPreset(minutes)"
-            />
-            {{ minutes }}<span class="visually-hidden"> min</span>
-          </label>
-          <label>
-            <input v-model="customDuration" type="radio" name="duration" :value="true" @change="durationTouched = true" />
-            Custom
-          </label>
-        </div>
-        <div v-if="customDuration" class="session-form__custom">
-          <label :for="minutesId" class="visually-hidden">Minutes</label>
-          <input
-            :id="minutesId"
-            v-model.number="form.plannedFocusMinutes"
-            type="number"
-            inputmode="numeric"
-            :min="MIN_PLANNED_FOCUS_MINUTES"
-            step="1"
-            :aria-invalid="Boolean(errors.plannedFocusMinutes)"
-          />
-          <span class="muted">min</span>
-        </div>
-        <!-- Beside its own pill, the pill's hidden text has already said this to a screen reader. -->
-        <p v-if="finishMinutes" class="session-form__finish-note" :aria-hidden="finishPreset ? 'true' : undefined">
-          {{ finishMinutes }} min finishes today's target
-        </p>
-        <p v-if="errors.plannedFocusMinutes" class="session-form__error session-form__error--left">
-          {{ errors.plannedFocusMinutes }}
-        </p>
-      </fieldset>
+      </div>
+      <p v-if="errors.taskDescription" class="session-form__error">{{ errors.taskDescription }}</p>
+      <p v-if="errors.taskCategory" class="session-form__error">{{ errors.taskCategory }}</p>
     </div>
+
+    <!-- How long: a planned time counted down, or a stopwatch with no plan. One choice, one control. -->
+    <fieldset class="session-form__duration">
+      <legend class="visually-hidden">Duration</legend>
+      <div class="segmented session-form__lengths">
+        <label v-if="finishPreset" class="session-form__finish" title="Finishes today's target">
+          <input
+            type="radio"
+            name="duration"
+            :value="finishPreset"
+            :checked="!stopwatch && !customDuration && form.plannedFocusMinutes === finishPreset"
+            @change="pickPreset(finishPreset)"
+          />
+          <TargetRing :percent="100" :size="12" />
+          {{ finishPreset }}<span class="session-form__unit"> min</span><span class="visually-hidden">, finishes today's target</span>
+        </label>
+        <label v-for="minutes in PRESET_MINUTES" :key="minutes">
+          <input
+            type="radio"
+            name="duration"
+            :value="minutes"
+            :checked="!stopwatch && !customDuration && form.plannedFocusMinutes === minutes"
+            @change="pickPreset(minutes)"
+          />
+          {{ minutes }}<span class="session-form__unit"> min</span>
+        </label>
+        <label>
+          <input type="radio" name="duration" value="CUSTOM" :checked="!stopwatch && customDuration" @change="pickCustom" />
+          Custom
+        </label>
+        <label>
+          <input type="radio" name="duration" value="STOPWATCH" :checked="stopwatch" @change="pickStopwatch" />
+          Stopwatch
+        </label>
+      </div>
+      <div v-if="customDuration && !stopwatch" class="session-form__custom">
+        <label :for="minutesId" class="visually-hidden">Minutes</label>
+        <input
+          :id="minutesId"
+          v-model.number="form.plannedFocusMinutes"
+          type="number"
+          inputmode="numeric"
+          :min="MIN_PLANNED_FOCUS_MINUTES"
+          step="1"
+          :aria-invalid="Boolean(errors.plannedFocusMinutes)"
+        />
+        <span class="muted">min</span>
+      </div>
+      <!-- The ring on its own segment already marks it; a screen reader hears it there. -->
+      <p
+        v-if="finishMinutes && !stopwatch"
+        class="session-form__finish-note"
+        :class="{ 'visually-hidden': finishPreset }"
+        :aria-hidden="finishPreset ? 'true' : undefined"
+      >
+        {{ finishMinutes }} min finishes today's target
+      </p>
+      <p v-if="errors.plannedFocusMinutes && !stopwatch" class="session-form__error">
+        {{ errors.plannedFocusMinutes }}
+      </p>
+    </fieldset>
 
     <div v-if="cameraAvailable" class="session-form__camera">
       <label class="session-form__camera-label">
@@ -257,135 +282,147 @@ function onSubmit() {
 .session-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.75rem;
 }
-/* Pill switches; the radios stay real inputs for keyboard and screen-reader use. */
-.pills {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  margin: 0;
-  padding: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-.pills label {
-  position: relative;
-  padding: 0.35rem 1rem;
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-/* Sized like the select beside it: equal segments filling the row. */
-.pills--small {
-  flex-wrap: nowrap;
-}
-.pills--small label {
-  flex: 1;
-  padding: 0.45rem 0.5rem;
-  text-align: center;
-  white-space: nowrap;
-}
-.pills label:has(input:checked) {
-  background: var(--surface-muted);
-  color: var(--text);
-  font-weight: 600;
-}
-.pills label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-/* Each radio covers its own label, invisibly, so a click or tap lands on the real input. */
-.pills input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.session-form__mode {
-  align-self: center;
-}
-.session-form__task {
+.session-form__what-wrap {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
-.session-form__task-input {
-  padding: 0.8rem 1.25rem;
-  border-radius: 999px;
-  font-size: 1.1rem;
-  text-align: center;
+/* One filled field holding two controls; the ring is drawn around the whole of it. */
+.session-form__what {
+  display: flex;
+  align-items: stretch;
+  border-radius: 14px;
+  background: var(--surface-muted);
+  transition: box-shadow 0.15s;
+}
+.session-form__what:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-secondary) 55%, transparent);
+}
+.session-form__what--invalid {
+  box-shadow: inset 0 0 0 1.5px var(--danger);
+}
+.session-form__what .session-form__task,
+.session-form__what .session-form__category {
+  border-radius: 14px;
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.session-form__what .session-form__task {
+  flex: 1;
+  min-width: 0;
+  padding: 0.95rem 0.5rem 0.95rem 1.1rem;
+  font-size: 1.0625rem;
+}
+/* The category reads as the field's trailing detail: muted, as wide as its text, behind a hairline. */
+.session-form__what .session-form__category {
+  flex: none;
+  width: auto;
+  max-width: 11rem;
+  margin: 0.55rem 0;
+  padding: 0 2.1rem 0 0.9rem;
+  border-left: 1px solid var(--surface-strong);
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.session-form__what .session-form__category:hover {
+  color: var(--text);
 }
 .session-form__error {
   margin: 0;
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   text-align: center;
-}
-.session-form__error--left {
-  text-align: left;
-}
-.session-form__options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1rem;
-  align-items: start;
 }
 .session-form__duration {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  align-items: center;
+  gap: 0.6rem;
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
-.session-form__legend {
-  padding: 0;
-  margin-bottom: 0.3rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+.session-form__lengths {
+  display: flex;
+  width: 100%;
+}
+.session-form__lengths label {
+  padding: 0.5rem 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Today's ring, small, on the length that finishes today's target. */
+.session-form__finish :deep(svg) {
+  margin-right: 0.2rem;
+  vertical-align: -0.08em;
 }
 .session-form__finish-note {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 .session-form__custom {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.25rem;
 }
 .session-form__custom input {
-  width: 6rem;
+  width: 5.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .session-form__camera {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  font-size: 0.9375rem;
 }
 .session-form__camera-label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
 }
 .session-form__camera-label input {
-  flex: none;
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   margin: 0;
-  padding: 0;
 }
 .session-form__go {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+/* On a phone the two controls stack inside the field, and the lengths drop their unit to fit. */
+@media (max-width: 30rem) {
+  .session-form__what {
+    flex-direction: column;
+  }
+  .session-form__what .session-form__task {
+    padding-right: 1.1rem;
+  }
+  .session-form__what .session-form__category {
+    max-width: none;
+    margin: 0 1.1rem;
+    padding: 0.75rem 1.5rem 0.75rem 0;
+    border-top: 1px solid var(--surface-strong);
+    border-left: 0;
+    background-position: 100% 50%;
+  }
+  .session-form__unit {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
 }
 </style>

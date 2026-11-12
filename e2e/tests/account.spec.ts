@@ -1,9 +1,12 @@
 import { expect, test } from '../support/fixtures'
 import { FRONTEND_URL } from '../support/env'
-import { PASSWORD, setUpAccount } from '../support/flows'
+import { openSettingsSection, PASSWORD, setUpAccount } from '../support/flows'
 
 test('signing in: a wrong password is refused, and the right one returns to the page asked for', async ({ page }) => {
   await setUpAccount(page)
+  // Signing out lives at the foot of the account section in Settings.
+  await page.goto(`${FRONTEND_URL}/settings`)
+  await openSettingsSection(page, 'Account')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/login$/)
 

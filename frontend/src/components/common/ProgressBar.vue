@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
 /**
- * A progress bar tall enough to carry its own figures, so they need no line of their own. The fill
- * is solid. The figures are drawn twice: once over the track, and once in the fill's contrast colour
- * on a copy clipped to the filled part, so they stay readable on both sides of its edge.
+ * A thin progress bar with its figures on a line above it: what is measured at the left, what is
+ * left to go at the right. The figures never sit on the fill, so they read the same at any value.
  */
-const props = withDefaults(
+withDefaults(
   defineProps<{
     /** 0-100. */
     percent: number
@@ -16,8 +13,6 @@ const props = withDefaults(
   }>(),
   { tone: 'accent', valueText: undefined },
 )
-
-const clip = computed(() => `inset(0 ${100 - Math.min(100, Math.max(0, props.percent))}% 0 0 round 999px)`)
 </script>
 
 <template>
@@ -30,23 +25,36 @@ const clip = computed(() => `inset(0 ${100 - Math.min(100, Math.max(0, props.per
     :aria-valuenow="percent"
     :aria-valuetext="valueText"
   >
-    <div class="bar__fill" :class="`bar__fill--${tone}`" :style="{ width: `${percent}%` }" />
-    <span class="bar__text">
+    <p class="bar__text">
       <span><slot /></span>
       <span class="bar__end"><slot name="end" /></span>
-    </span>
-    <!-- The same figures in the contrast colour, visible only where the bar is filled. -->
-    <span class="bar__text bar__text--on-fill" :class="`bar__text--${tone}`" :style="{ clipPath: clip }" aria-hidden="true">
-      <span><slot /></span>
-      <span class="bar__end"><slot name="end" /></span>
-    </span>
+    </p>
+    <div class="bar__track">
+      <div class="bar__fill" :class="`bar__fill--${tone}`" :style="{ width: `${percent}%` }" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .bar {
-  position: relative;
-  height: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.bar__text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.bar__end {
+  color: var(--text-muted);
+}
+.bar__track {
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--surface-muted);
@@ -54,40 +62,13 @@ const clip = computed(() => `inset(0 ${100 - Math.min(100, Math.max(0, props.per
 .bar__fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.3s;
+  transition: width 0.6s var(--ease-out);
 }
 .bar__fill--accent,
-.bar__text--accent {
-  background: var(--accent);
+.bar__fill--success {
+  background: var(--accent-vivid);
 }
-.bar__fill--secondary,
-.bar__text--secondary {
+.bar__fill--secondary {
   background: var(--accent-secondary);
-}
-.bar__fill--success,
-.bar__text--success {
-  background: var(--success);
-}
-.bar__text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0 0.85rem;
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.bar__end {
-  font-weight: 500;
-  opacity: 0.8;
-}
-.bar__text--on-fill {
-  color: var(--accent-contrast);
-  transition: clip-path 0.3s;
 }
 </style>

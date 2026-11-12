@@ -60,17 +60,20 @@ function onDispute() {
 <style scoped>
 .off-task {
   margin: 0;
-  padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  font-size: 0.9375rem;
+  text-align: center;
+  text-wrap: balance;
 }
 .off-task--warning {
-  border: 1px solid var(--danger);
   background: var(--danger-bg);
   color: var(--text);
 }
+.off-task--warning strong {
+  color: var(--danger);
+}
 .off-task--notice {
-  border: 1px solid var(--notice);
   background: var(--notice-bg);
   color: var(--notice);
 }
@@ -81,5 +84,7 @@ function onDispute() {
 .off-task .off-task__dispute {
   margin-left: 0.35rem;
   font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 </style>

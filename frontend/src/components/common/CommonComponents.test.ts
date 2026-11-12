@@ -5,7 +5,7 @@ import ErrorMessage from './ErrorMessage.vue'
 import FormField from './FormField.vue'
 import InfoTip from './InfoTip.vue'
 import Modal from './Modal.vue'
-import ThemeToggle from './ThemeToggle.vue'
+import AppearanceControl from './AppearanceControl.vue'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -192,39 +192,44 @@ describe('ConfirmDialog', () => {
   })
 })
 
-describe('ThemeToggle', () => {
+describe('AppearanceControl', () => {
   afterEach(() => {
     localStorage.clear()
     delete document.documentElement.dataset.theme
   })
+  const choice = (wrapper: ReturnType<typeof mount>, value: string) => wrapper.get(`input[value="${value}"]`)
+  const isChecked = (wrapper: ReturnType<typeof mount>, value: string) =>
+    (choice(wrapper, value).element as HTMLInputElement).checked
 
-  it('switches between light and night mode and remembers the choice', async () => {
-    localStorage.setItem('focusquest.theme', 'light')
-    const wrapper = mount(ThemeToggle)
-    const toggle = wrapper.get('[role="switch"]')
+  it('follows the computer until a mode is chosen, then remembers the choice', async () => {
+    const wrapper = mount(AppearanceControl)
+    expect(isChecked(wrapper, 'auto')).toBe(true)
 
-    expect(toggle.attributes('aria-checked')).toBe('false')
-
-    await toggle.trigger('click')
-    expect(toggle.attributes('aria-checked')).toBe('true')
+    await choice(wrapper, 'dark').setValue()
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(localStorage.getItem('focusquest.theme')).toBe('dark')
+    expect(wrapper.emitted('change')![0]).toEqual(['dark'])
 
-    await toggle.trigger('click')
+    await choice(wrapper, 'light').setValue()
     expect(document.documentElement.dataset.theme).toBe('light')
   })
 
-  it('shows a sun in light mode and a moon in night mode, with an accessible name', async () => {
+  it('starts on a saved choice, and goes back to following the computer on Automatic', async () => {
     localStorage.setItem('focusquest.theme', 'light')
-    const wrapper = mount(ThemeToggle)
-    const toggle = wrapper.get('[role="switch"]')
+    document.documentElement.dataset.theme = 'light'
+    const wrapper = mount(AppearanceControl)
+    expect(isChecked(wrapper, 'light')).toBe(true)
 
-    expect(toggle.attributes('aria-label')).toBe('Night mode')
-    expect(wrapper.find('[data-testid="icon-sun"]').exists()).toBe(true)
+    await choice(wrapper, 'auto').setValue()
+    expect(document.documentElement.dataset.theme).toBeUndefined()
+    expect(localStorage.getItem('focusquest.theme')).toBeNull()
+  })
 
-    await toggle.trigger('click')
-    expect(wrapper.find('[data-testid="icon-moon"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="icon-sun"]').exists()).toBe(false)
+  it('is one named group of three radios', () => {
+    const wrapper = mount(AppearanceControl)
+
+    expect(wrapper.get('legend').text()).toBe('Appearance')
+    expect(wrapper.findAll('input[type="radio"]').map((r) => r.attributes('name'))).toEqual(['appearance', 'appearance', 'appearance'])
   })
 })
 

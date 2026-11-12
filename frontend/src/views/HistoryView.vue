@@ -71,7 +71,6 @@ function timeRange(item: FocusSession) {
 
 <template>
   <AppShell>
-    <RouterLink :to="{ name: 'dashboard' }" class="history__back">← Focus</RouterLink>
     <h1 class="page-title">History</h1>
 
     <LoadingIndicator v-if="loading && !session.historyLoaded" />
@@ -168,16 +167,6 @@ function timeRange(item: FocusSession) {
 </template>
 
 <style scoped>
-.history__back {
-  display: inline-block;
-  margin-bottom: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-.history__back:hover {
-  color: var(--text);
-}
 .history__footer {
   display: flex;
   flex-wrap: wrap;
@@ -186,7 +175,7 @@ function timeRange(item: FocusSession) {
   gap: 0.5rem 1rem;
   margin-top: 1.25rem;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .history__footer > :first-child:not(.history__retention) {
   flex-basis: 100%;
@@ -216,32 +205,29 @@ function timeRange(item: FocusSession) {
 .history__row {
   display: grid;
   /* Fixed widths line the dates and categories up from row to row. */
-  grid-template-columns: minmax(0, 1fr) 7rem 8rem 1rem;
+  grid-template-columns: minmax(0, 1fr) 7rem 7.5rem 1rem;
   align-items: center;
   gap: 1.25rem;
   width: 100%;
-  padding: 0.85rem 0.25rem;
+  padding: 0.95rem 0;
   border: 0;
   background: none;
   color: var(--text);
   font: inherit;
+  letter-spacing: inherit;
   text-align: left;
   cursor: pointer;
 }
-.history__row:hover .history__title {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .history__title {
   overflow: hidden;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .history__date,
 .history__category {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   white-space: nowrap;
 }
 .history__date {
@@ -249,12 +235,17 @@ function timeRange(item: FocusSession) {
 }
 /* An opened session shows its whole title. */
 .history__row[aria-expanded='true'] .history__title {
+  font-weight: 600;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .history__chevron {
   color: var(--text-muted);
-  transition: transform 0.15s;
+  opacity: 0.7;
+  transition: transform 0.25s var(--ease-out);
+}
+.history__row:hover .history__chevron {
+  opacity: 1;
 }
 .history__row[aria-expanded='true'] .history__chevron {
   transform: rotate(180deg);
@@ -263,11 +254,10 @@ function timeRange(item: FocusSession) {
 .history__details {
   display: grid;
   grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 0.4rem 1rem;
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  border-left: 2px solid var(--border);
-  font-size: 0.9rem;
+  gap: 0.45rem 1rem;
+  margin: 0;
+  padding: 0 0 1.25rem;
+  font-size: 0.9375rem;
 }
 .history__details dt {
   color: var(--text-muted);
@@ -280,9 +270,6 @@ function timeRange(item: FocusSession) {
   flex-direction: column;
   gap: 0.25rem;
 }
-.history__status {
-  font-weight: 600;
-}
 .history__status--COMPLETED {
   color: var(--success);
 }
@@ -292,7 +279,6 @@ function timeRange(item: FocusSession) {
 }
 .history__override {
   color: var(--danger);
-  font-weight: 600;
 }
 
 /* On a phone the title gets its own line, with the date and category beneath it. */

@@ -13,7 +13,7 @@ const minutesInput = (wrapper: Wrapper) => wrapper.get('input[type="number"]')
 const preset = (wrapper: Wrapper, value: string) => wrapper.get(`input[name="duration"][value="${value}"]`)
 /** Picks "Custom" and types the minutes. */
 async function typeMinutes(wrapper: Wrapper, value: string) {
-  await wrapper.findAll('input[name="duration"]').at(-1)!.setValue()
+  await preset(wrapper, 'CUSTOM').setValue()
   await minutesInput(wrapper).setValue(value)
 }
 
@@ -61,13 +61,16 @@ describe('SessionForm', () => {
   })
 
   describe('stopwatch', () => {
-    const pickStopwatch = (wrapper: Wrapper) => wrapper.get('input[name="timerMode"][value="STOPWATCH"]').setValue()
+    // The stopwatch is one of the lengths: the last segment of the same control.
+    const pickStopwatch = (wrapper: Wrapper) => preset(wrapper, 'STOPWATCH').setValue()
 
-    it('hides the duration and submits no planned length', async () => {
+    it('is one of the lengths, and submits no planned length', async () => {
       const wrapper = mountForm()
       await pickStopwatch(wrapper)
 
-      expect(wrapper.find('input[name="duration"]').exists()).toBe(false)
+      expect(wrapper.findAll('input[name="duration"]').at(-1)!.attributes('value')).toBe('STOPWATCH')
+      expect((preset(wrapper, '25').element as HTMLInputElement).checked).toBe(false)
+      expect(wrapper.find('input[type="number"]').exists()).toBe(false)
       await submit(wrapper)
       expect(submitted(wrapper)[0]![0]).toMatchObject({ timerMode: 'STOPWATCH', plannedFocusMinutes: 0 })
     })
@@ -91,9 +94,12 @@ describe('SessionForm', () => {
       await submit(second)
 
       const third = mountForm()
-      expect((third.get('input[name="timerMode"][value="STOPWATCH"]').element as HTMLInputElement).checked).toBe(true)
-      await third.get('input[name="timerMode"][value="COUNTDOWN"]').setValue()
-      expect((preset(third, '50').element as HTMLInputElement).checked).toBe(true)
+      expect((preset(third, 'STOPWATCH').element as HTMLInputElement).checked).toBe(true)
+      expect((preset(third, '50').element as HTMLInputElement).checked).toBe(false)
+      // The duration used before the stopwatch is still the one a typed length starts from.
+      await preset(third, '50').setValue()
+      await submit(third)
+      expect(submitted(third)[0]![0]).toMatchObject({ timerMode: 'COUNTDOWN', plannedFocusMinutes: 50 })
     })
   })
 
@@ -167,7 +173,7 @@ describe('SessionForm', () => {
 
       expect((preset(wrapper, '25').element as HTMLInputElement).checked).toBe(true)
       expect(wrapper.find('input[type="number"]').exists()).toBe(false)
-      expect((wrapper.get('input[type="radio"][value="TASK_REQUIRED"]').element as HTMLInputElement).checked).toBe(true)
+      expect((wrapper.get('select').element as HTMLSelectElement).value).not.toBe('TASK_FREE')
     })
 
     it('submits a task session with a trimmed description', async () => {
@@ -204,7 +210,7 @@ describe('SessionForm', () => {
       // Typed while in task mode, then abandoned by switching to task-free.
       await wrapper.get('input[type="text"]').setValue('Should not be sent')
       await wrapper.get('select').setValue('CODING')
-      await wrapper.get('input[type="radio"][value="TASK_FREE"]').setValue()
+      await wrapper.get('select').setValue('TASK_FREE')
 
       await submit(wrapper)
 
@@ -213,33 +219,36 @@ describe('SessionForm', () => {
       ])
     })
 
-    it('hides the task fields for a task-free session, and needs no category', async () => {
+    it('closes the task field for a task-free session, and opens it again for a category', async () => {
       const wrapper = mountForm()
-      await wrapper.get('input[type="radio"][value="TASK_FREE"]').setValue()
+      await wrapper.get('select').setValue('TASK_FREE')
 
-      expect(wrapper.find('select').exists()).toBe(false)
-      expect(wrapper.find('input[type="text"]').exists()).toBe(false)
+      expect(wrapper.get('input[type="text"]').attributes('disabled')).toBeDefined()
       await submit(wrapper)
       expect(submitted(wrapper)).toHaveLength(1)
+
+      await wrapper.get('select').setValue('READING')
+      expect(wrapper.get('input[type="text"]').attributes('disabled')).toBeUndefined()
+      await submit(wrapper)
+      expect(submitted(wrapper)[1]![0]).toMatchObject({ taskMode: 'TASK_REQUIRED', taskCategory: 'READING' })
     })
 
-    it('never offers TASK_FREE as a category of a task session', () => {
+    it('offers task-free last in the same menu as the categories', () => {
       const values = mountForm()
         .findAll('option')
         .map((o) => (o.element as HTMLOptionElement).value)
 
-      expect(values).not.toContain('TASK_FREE')
+      expect(values.at(-1)).toBe('TASK_FREE')
       expect(values).toContain('CODING')
     })
   })
 
   describe('quick choices', () => {
-    it('keeps the session-type radios in one group, so arrow keys move between them', () => {
-      const names = mountForm()
-        .findAll('input[value="TASK_REQUIRED"], input[value="TASK_FREE"]')
-        .map((r) => r.attributes('name'))
+    it('keeps every length, the stopwatch included, in one radio group, so arrow keys move between them', () => {
+      const radios = mountForm().findAll('input[type="radio"]')
 
-      expect(names).toEqual(['taskMode', 'taskMode'])
+      expect(radios.map((r) => r.attributes('value'))).toEqual(['25', '50', '90', 'CUSTOM', 'STOPWATCH'])
+      expect(new Set(radios.map((r) => r.attributes('name')))).toEqual(new Set(['duration']))
     })
 
     it('starts a session of a preset length in one tap', async () => {

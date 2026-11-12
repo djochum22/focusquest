@@ -85,6 +85,9 @@ const canComplete = computed(() => props.session.remainingFocusSeconds <= 0)
 </template>
 
 <style scoped>
+.active {
+  gap: 1.75rem;
+}
 .active__actions {
   display: flex;
   flex-wrap: wrap;
@@ -92,9 +95,12 @@ const canComplete = computed(() => props.session.remainingFocusSeconds <= 0)
   gap: 0.75rem;
 }
 .active__hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   margin: 0;
-  text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 .active .active__leave {
   align-self: center;

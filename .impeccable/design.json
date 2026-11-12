@@ -1,725 +1,906 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-21T12:24:01.161980+00:00",
+  "generatedAt": "2026-11-12T10:42:59Z",
   "title": "Design System: FocusQuest",
   "extensions": {
     "colorMeta": {
-      "buff-page": {
+      "page-white": {
         "role": "neutral",
-        "displayName": "Buff Page",
+        "displayName": "Page White",
         "mode": "light",
-        "canonical": "oklch(95.7% 0.015 81)",
+        "cssVariable": "--bg, --surface",
+        "canonical": "oklch(100.0% 0 0)",
         "tonalRamp": [
-          "#0e0b05",
-          "#29241d",
-          "#464139",
-          "#666058",
-          "#878279",
-          "#aaa49b",
-          "#cec8bf",
-          "#f4eee4"
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
         ]
       },
-      "collar-white": {
+      "ink": {
         "role": "neutral",
-        "displayName": "Collar White",
+        "displayName": "Ink",
         "mode": "light",
-        "canonical": "oklch(99.2% 0.007 81)",
+        "cssVariable": "--text",
+        "canonical": "oklch(23.2% 0.004 286)",
         "tonalRamp": [
-          "#0d0b08",
-          "#272521",
-          "#44423e",
-          "#63615d",
-          "#85827d",
-          "#a7a5a0",
-          "#ccc9c4",
-          "#f1eee9"
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef1"
         ]
       },
-      "softened-buff": {
+      "graphite": {
         "role": "neutral",
-        "displayName": "Softened Buff",
+        "displayName": "Graphite",
         "mode": "light",
-        "canonical": "oklch(91.7% 0.027 80)",
+        "cssVariable": "--text-muted",
+        "canonical": "oklch(50.1% 0.008 286)",
         "tonalRamp": [
-          "#110a01",
-          "#2c2416",
-          "#4a4132",
-          "#696050",
-          "#8b8171",
-          "#aea493",
-          "#d2c8b6",
-          "#f8eddb"
+          "#0b0b0e",
+          "#252529",
+          "#414146",
+          "#616166",
+          "#828287",
+          "#a4a4aa",
+          "#c8c8ce",
+          "#eeeef4"
         ]
       },
-      "eye-stripe-brown": {
+      "mist": {
         "role": "neutral",
-        "displayName": "Eye Stripe Brown",
+        "displayName": "Mist",
         "mode": "light",
-        "canonical": "oklch(30.0% 0.036 30)",
+        "cssVariable": "--surface-muted",
+        "canonical": "oklch(95.9% 0.003 286)",
         "tonalRamp": [
-          "#180503",
-          "#351e1b",
-          "#543b37",
-          "#745a55",
-          "#977b76",
-          "#bb9d98",
-          "#e0c1bb",
-          "#ffe6e0"
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
         ]
       },
-      "mottled-brown": {
+      "mist-pressed": {
         "role": "neutral",
-        "displayName": "Mottled Brown",
+        "displayName": "Mist Pressed",
         "mode": "light",
-        "canonical": "oklch(46.0% 0.042 54)",
+        "cssVariable": "--surface-strong",
+        "canonical": "oklch(92.3% 0.005 286)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828285",
+          "#a4a4a8",
+          "#c9c9cc",
+          "#eeeef2"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "mode": "light",
+        "cssVariable": "--border",
+        "canonical": "oklch(91.4% 0.005 286)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828285",
+          "#a4a4a8",
+          "#c9c9cc",
+          "#eeeef2"
+        ]
+      },
+      "go-green": {
+        "role": "primary",
+        "displayName": "Go Green",
+        "mode": "light",
+        "cssVariable": "--accent, --success",
+        "canonical": "oklch(52.6% 0.138 148)",
+        "tonalRamp": [
+          "#001100",
+          "#002f0b",
+          "#00511b",
+          "#0e752e",
+          "#3d9850",
+          "#63bc72",
+          "#87e295",
+          "#c8ffce"
+        ]
+      },
+      "go-green-deep": {
+        "role": "primary",
+        "displayName": "Go Green Deep",
+        "mode": "light",
+        "cssVariable": "--accent-hover",
+        "canonical": "oklch(46.2% 0.121 148)",
+        "tonalRamp": [
+          "#001100",
+          "#002f0b",
+          "#00511b",
+          "#247337",
+          "#499657",
+          "#6dba79",
+          "#91df9c",
+          "#c9ffcf"
+        ]
+      },
+      "ring-green": {
+        "role": "primary",
+        "displayName": "Ring Green",
+        "mode": "light",
+        "cssVariable": "--accent-vivid",
+        "canonical": "oklch(64.0% 0.175 147)",
+        "tonalRamp": [
+          "#001100",
+          "#002f08",
+          "#005117",
+          "#017627",
+          "#159d3b",
+          "#49c15e",
+          "#72e782",
+          "#c9ffcd"
+        ]
+      },
+      "target-blue": {
+        "role": "secondary",
+        "displayName": "Target Blue",
+        "mode": "light",
+        "cssVariable": "--accent-secondary",
+        "canonical": "oklch(56.3% 0.193 256)",
+        "tonalRamp": [
+          "#00072b",
+          "#002353",
+          "#003f86",
+          "#005ebe",
+          "#1d7ff2",
+          "#65a7fe",
+          "#a7ccfe",
+          "#e5f0fe"
+        ]
+      },
+      "flame-orange": {
+        "role": "tertiary",
+        "displayName": "Flame Orange",
+        "mode": "light",
+        "cssVariable": "--flame",
+        "canonical": "oklch(76.5% 0.175 63)",
+        "tonalRamp": [
+          "#190500",
+          "#3b1c00",
+          "#623600",
+          "#8d5000",
+          "#bb6c00",
+          "#ec8900",
+          "#ffb878",
+          "#feeada"
+        ]
+      },
+      "stop-red": {
+        "role": "state",
+        "displayName": "Stop Red",
+        "mode": "both",
+        "cssVariable": "--danger (light), --danger-solid",
+        "canonical": "oklch(55.3% 0.225 27)",
+        "tonalRamp": [
+          "#230000",
+          "#4e0001",
+          "#810007",
+          "#b90010",
+          "#eb2a2a",
+          "#fe7467",
+          "#feb3aa",
+          "#fee9e6"
+        ]
+      },
+      "stop-red-deep": {
+        "role": "state",
+        "displayName": "Stop Red Deep",
+        "mode": "both",
+        "cssVariable": "--danger-solid-hover",
+        "canonical": "oklch(47.6% 0.194 27)",
+        "tonalRamp": [
+          "#220000",
+          "#4e0002",
+          "#810009",
+          "#b60f18",
+          "#df423d",
+          "#fe7368",
+          "#ffb3aa",
+          "#fee9e6"
+        ]
+      },
+      "red-wash": {
+        "role": "state",
+        "displayName": "Red Wash",
+        "mode": "light",
+        "cssVariable": "--danger-bg",
+        "canonical": "oklch(96.7% 0.016 22)",
+        "tonalRamp": [
+          "#110808",
+          "#2d2221",
+          "#4a3f3e",
+          "#6a5e5d",
+          "#8c7f7e",
+          "#afa1a0",
+          "#d4c5c4",
+          "#f9eae9"
+        ]
+      },
+      "green-wash": {
+        "role": "state",
+        "displayName": "Green Wash",
+        "mode": "light",
+        "cssVariable": "--success-bg",
+        "canonical": "oklch(96.8% 0.017 151)",
+        "tonalRamp": [
+          "#060d08",
+          "#1f2721",
+          "#3c453e",
+          "#5b645c",
+          "#7b857d",
+          "#9ea8a0",
+          "#c2ccc4",
+          "#e7f2e9"
+        ]
+      },
+      "amber": {
+        "role": "state",
+        "displayName": "Amber",
+        "mode": "light",
+        "cssVariable": "--notice",
+        "canonical": "oklch(54.7% 0.147 49)",
+        "tonalRamp": [
+          "#1e0200",
+          "#411700",
+          "#6c2d00",
+          "#9b4400",
+          "#c66222",
+          "#ed864a",
+          "#ffb690",
+          "#ffeadf"
+        ]
+      },
+      "amber-wash": {
+        "role": "state",
+        "displayName": "Amber Wash",
+        "mode": "light",
+        "cssVariable": "--notice-bg",
+        "canonical": "oklch(97.1% 0.025 79)",
+        "tonalRamp": [
+          "#110a02",
+          "#2c2417",
+          "#494133",
+          "#696051",
+          "#8b8172",
+          "#aea494",
+          "#d2c8b7",
+          "#f8eddc"
+        ]
+      },
+      "page-black": {
+        "role": "neutral",
+        "displayName": "Page Black",
+        "mode": "dark",
+        "cssVariable": "--bg",
+        "canonical": "oklch(0.0% 0 0)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "mode": "dark",
+        "cssVariable": "--surface, --surface-muted",
+        "canonical": "oklch(23.2% 0.004 286)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef1"
+        ]
+      },
+      "slate-lifted": {
+        "role": "neutral",
+        "displayName": "Slate Lifted",
+        "mode": "dark",
+        "cssVariable": "--surface-strong, --border",
+        "canonical": "oklch(29.4% 0.004 286)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef1"
+        ]
+      },
+      "thumb-grey": {
+        "role": "neutral",
+        "displayName": "Thumb Grey",
+        "mode": "dark",
+        "cssVariable": "the chosen segment's thumb",
+        "canonical": "oklch(40.3% 0.005 286)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424245",
+          "#616164",
+          "#828285",
+          "#a5a5a8",
+          "#c9c9cc",
+          "#eeeef2"
+        ]
+      },
+      "paper-grey": {
+        "role": "neutral",
+        "displayName": "Paper Grey",
+        "mode": "dark",
+        "cssVariable": "--text",
+        "canonical": "oklch(97.1% 0.003 286)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "ash": {
+        "role": "neutral",
+        "displayName": "Ash",
+        "mode": "dark",
+        "cssVariable": "--text-muted",
+        "canonical": "oklch(71.1% 0.007 286)",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252528",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4a9",
+          "#c8c8ce",
+          "#eeeef3"
+        ]
+      },
+      "lit-green": {
+        "role": "primary",
+        "displayName": "Lit Green",
+        "mode": "dark",
+        "cssVariable": "--accent, --accent-vivid, --success",
+        "canonical": "oklch(75.6% 0.208 147)",
+        "tonalRamp": [
+          "#001100",
+          "#002f09",
+          "#005118",
+          "#017628",
+          "#019d38",
+          "#1ac64d",
+          "#54ec72",
+          "#c9ffcd"
+        ]
+      },
+      "lit-green-hover": {
+        "role": "primary",
+        "displayName": "Lit Green Hover",
+        "mode": "dark",
+        "cssVariable": "--accent-hover",
+        "canonical": "oklch(79.8% 0.193 149)",
+        "tonalRamp": [
+          "#001101",
+          "#002f0e",
+          "#00511f",
+          "#007631",
+          "#019d43",
+          "#24c45c",
+          "#59eb80",
+          "#c8ffd1"
+        ]
+      },
+      "green-ink": {
+        "role": "primary",
+        "displayName": "Green Ink",
+        "mode": "dark",
+        "cssVariable": "--accent-contrast",
+        "canonical": "oklch(21.9% 0.054 150)",
+        "tonalRamp": [
+          "#001102",
+          "#0e2c17",
+          "#2c4a33",
+          "#4b6a51",
+          "#6b8c72",
+          "#8daf94",
+          "#b1d4b7",
+          "#d6f9dc"
+        ]
+      },
+      "lit-blue": {
+        "role": "secondary",
+        "displayName": "Lit Blue",
+        "mode": "dark",
+        "cssVariable": "--accent-secondary",
+        "canonical": "oklch(66.9% 0.181 252)",
+        "tonalRamp": [
+          "#000a24",
+          "#00254b",
+          "#00427c",
+          "#0062b1",
+          "#0083ea",
+          "#58a9ff",
+          "#a2cdfe",
+          "#e4f0fe"
+        ]
+      },
+      "lit-red": {
+        "role": "state",
+        "displayName": "Lit Red",
+        "mode": "dark",
+        "cssVariable": "--danger",
+        "canonical": "oklch(70.7% 0.185 26)",
+        "tonalRamp": [
+          "#220000",
+          "#4e0003",
+          "#81000d",
+          "#b21b21",
+          "#db4843",
+          "#ff736a",
+          "#ffb3aa",
+          "#ffe9e6"
+        ]
+      },
+      "red-night-wash": {
+        "role": "state",
+        "displayName": "Red Night Wash",
+        "mode": "dark",
+        "cssVariable": "--danger-bg",
+        "canonical": "oklch(21.8% 0.040 23)",
+        "tonalRamp": [
+          "#190404",
+          "#361d1c",
+          "#553a38",
+          "#775956",
+          "#997977",
+          "#bd9c99",
+          "#e2c0bd",
+          "#fee9e7"
+        ]
+      },
+      "green-night-wash": {
+        "role": "state",
+        "displayName": "Green Night Wash",
+        "mode": "dark",
+        "cssVariable": "--success-bg",
+        "canonical": "oklch(23.3% 0.042 151)",
+        "tonalRamp": [
+          "#001003",
+          "#152b1a",
+          "#314837",
+          "#506855",
+          "#718a76",
+          "#93ad98",
+          "#b6d1bb",
+          "#dbf7e0"
+        ]
+      },
+      "lit-amber": {
+        "role": "tertiary",
+        "displayName": "Lit Amber",
+        "mode": "dark",
+        "cssVariable": "--notice, --flame",
+        "canonical": "oklch(78.2% 0.171 67)",
         "tonalRamp": [
           "#180600",
-          "#351f10",
-          "#543c2d",
-          "#755b4b",
-          "#977c6b",
-          "#bb9f8d",
-          "#e0c3b0",
-          "#ffe8d5"
+          "#381e00",
+          "#5f3700",
+          "#895300",
+          "#b67003",
+          "#e68e01",
+          "#ffb96d",
+          "#feebd8"
         ]
       },
-      "buff-hairline": {
-        "role": "neutral",
-        "displayName": "Buff Hairline",
-        "mode": "light",
-        "canonical": "oklch(82.8% 0.043 79)",
+      "amber-night-wash": {
+        "role": "state",
+        "displayName": "Amber Night Wash",
+        "mode": "dark",
+        "cssVariable": "--notice-bg",
+        "canonical": "oklch(23.9% 0.042 77)",
         "tonalRamp": [
           "#150800",
-          "#30220a",
-          "#4e3f27",
-          "#6f5f45",
-          "#908066",
-          "#b4a287",
-          "#d9c6aa",
-          "#feeccf"
-        ]
-      },
-      "drake-green": {
-        "role": "primary",
-        "displayName": "Drake Green",
-        "mode": "light",
-        "canonical": "oklch(46.4% 0.111 157)",
-        "tonalRamp": [
-          "#001600",
-          "#00330b",
-          "#005228",
-          "#137347",
-          "#3f9667",
-          "#65ba89",
-          "#89dfac",
-          "#afffd1"
-        ]
-      },
-      "drake-green-deep": {
-        "role": "primary",
-        "displayName": "Drake Green Deep",
-        "mode": "light",
-        "canonical": "oklch(38.6% 0.083 158)",
-        "tonalRamp": [
-          "#001400",
-          "#003014",
-          "#0c4f30",
-          "#336f4e",
-          "#55926f",
-          "#78b591",
-          "#9bdab4",
-          "#c0ffd9"
-        ]
-      },
-      "speculum-blue": {
-        "role": "secondary",
-        "displayName": "Speculum Blue",
-        "mode": "light",
-        "canonical": "oklch(53.1% 0.088 258)",
-        "tonalRamp": [
-          "#00052f",
-          "#04234f",
-          "#224270",
-          "#406293",
-          "#6184b7",
-          "#82a7dd",
-          "#a5cbff",
-          "#caf1ff"
-        ]
-      },
-      "chestnut": {
-        "role": "state",
-        "displayName": "Chestnut",
-        "mode": "light",
-        "canonical": "oklch(48.4% 0.152 32)",
-        "tonalRamp": [
-          "#2d0000",
-          "#5a0000",
-          "#800700",
-          "#a63521",
-          "#cd5943",
-          "#f57d65",
-          "#ffa188",
-          "#ffd1bb"
-        ]
-      },
-      "chestnut-wash": {
-        "role": "state",
-        "displayName": "Chestnut Wash",
-        "mode": "light",
-        "canonical": "oklch(95.3% 0.018 43)",
-        "tonalRamp": [
-          "#120906",
-          "#2d221e",
-          "#4b3f3a",
-          "#6b5e59",
-          "#8c7f7a",
-          "#b0a29c",
-          "#d4c6c0",
-          "#faebe5"
-        ]
-      },
-      "chestnut-deep": {
-        "role": "state",
-        "displayName": "Chestnut Deep",
-        "mode": "light",
-        "canonical": "oklch(40.6% 0.128 35)",
-        "tonalRamp": [
-          "#2d0000",
-          "#530000",
-          "#771d05",
-          "#9c402a",
-          "#c2634b",
-          "#ea866d",
-          "#ffaa90",
-          "#ffd1b8"
-        ]
-      },
-      "reed-green": {
-        "role": "state",
-        "displayName": "Reed Green",
-        "mode": "light",
-        "canonical": "oklch(47.2% 0.116 143)",
-        "tonalRamp": [
-          "#001400",
-          "#003100",
-          "#0f500e",
-          "#347131",
-          "#569452",
-          "#79b874",
-          "#9cdd97",
-          "#c1ffbb"
-        ]
-      },
-      "reed-wash": {
-        "role": "state",
-        "displayName": "Reed Wash",
-        "mode": "light",
-        "canonical": "oklch(94.8% 0.023 129)",
-        "tonalRamp": [
-          "#080d04",
-          "#22271b",
-          "#3e4538",
-          "#5d6456",
-          "#7e8577",
-          "#a1a899",
-          "#c5ccbd",
-          "#eaf2e2"
-        ]
-      },
-      "bill-orange": {
-        "role": "state",
-        "displayName": "Bill Orange",
-        "mode": "light",
-        "canonical": "oklch(49.9% 0.114 63)",
-        "tonalRamp": [
-          "#270000",
-          "#480f00",
-          "#6a3000",
-          "#8d5000",
-          "#b17230",
-          "#d79555",
-          "#feb979",
-          "#ffde9d"
-        ]
-      },
-      "bill-wash": {
-        "role": "state",
-        "displayName": "Bill Wash",
-        "mode": "light",
-        "canonical": "oklch(96.1% 0.035 85)",
-        "tonalRamp": [
-          "#120a00",
-          "#2d2410",
-          "#4b412c",
-          "#6a604a",
-          "#8c816b",
-          "#afa48c",
-          "#d4c8b0",
-          "#f9edd4"
-        ]
-      },
-      "dusk-black": {
-        "role": "neutral",
-        "displayName": "Dusk Black",
-        "mode": "dark",
-        "canonical": "oklch(19.1% 0.007 164)",
-        "tonalRamp": [
-          "#080c0a",
-          "#222624",
-          "#3f4341",
-          "#5e6360",
-          "#7e8481",
-          "#a1a6a4",
-          "#c5cbc8",
-          "#eaf0ed"
-        ]
-      },
-      "dusk-surface": {
-        "role": "neutral",
-        "displayName": "Dusk Surface",
-        "mode": "dark",
-        "canonical": "oklch(23.6% 0.010 164)",
-        "tonalRamp": [
-          "#070d0a",
-          "#212724",
-          "#3d4440",
-          "#5c6360",
-          "#7d8481",
-          "#9fa7a3",
-          "#c3cbc7",
-          "#e8f1ec"
-        ]
-      },
-      "dusk-muted": {
-        "role": "neutral",
-        "displayName": "Dusk Muted",
-        "mode": "dark",
-        "canonical": "oklch(29.9% 0.015 161)",
-        "tonalRamp": [
-          "#060d09",
-          "#1f2723",
-          "#3b453f",
-          "#5a645e",
-          "#7b857f",
-          "#9da8a2",
-          "#c1ccc6",
-          "#e6f2eb"
-        ]
-      },
-      "dusk-collar": {
-        "role": "neutral",
-        "displayName": "Dusk Collar",
-        "mode": "dark",
-        "canonical": "oklch(95.9% 0.005 118)",
-        "tonalRamp": [
-          "#0b0b09",
-          "#252522",
-          "#42423f",
-          "#61625e",
-          "#82837f",
-          "#a4a5a2",
-          "#c9cac6",
-          "#eeefeb"
-        ]
-      },
-      "dusk-gray": {
-        "role": "neutral",
-        "displayName": "Dusk Gray",
-        "mode": "dark",
-        "canonical": "oklch(78.6% 0.010 141)",
-        "tonalRamp": [
-          "#090c08",
-          "#222622",
-          "#3f433e",
-          "#5e635d",
-          "#7f847e",
-          "#a2a7a1",
-          "#c6cbc5",
-          "#ebf0ea"
-        ]
-      },
-      "dusk-hairline": {
-        "role": "neutral",
-        "displayName": "Dusk Hairline",
-        "mode": "dark",
-        "canonical": "oklch(37.9% 0.017 166)",
-        "tonalRamp": [
-          "#050d0a",
-          "#1d2823",
-          "#3a4540",
-          "#59645f",
-          "#798680",
-          "#9ca9a3",
-          "#c0cdc7",
-          "#e5f2ec"
-        ]
-      },
-      "iridescent-green": {
-        "role": "primary",
-        "displayName": "Iridescent Green",
-        "mode": "dark",
-        "canonical": "oklch(73.5% 0.136 159)",
-        "tonalRamp": [
-          "#001600",
-          "#003607",
-          "#005625",
-          "#007744",
-          "#0e9a64",
-          "#47bf86",
-          "#70e4a9",
-          "#a4ffd2"
-        ]
-      },
-      "iridescent-green-lit": {
-        "role": "primary",
-        "displayName": "Iridescent Green Lit",
-        "mode": "dark",
-        "canonical": "oklch(79.3% 0.119 161)",
-        "tonalRamp": [
-          "#001600",
-          "#00340f",
-          "#00542b",
-          "#00754a",
-          "#2e986a",
-          "#57bc8c",
-          "#7de1af",
-          "#a3ffd4"
-        ]
-      },
-      "iridescent-ink": {
-        "role": "primary",
-        "displayName": "Iridescent Ink",
-        "mode": "dark",
-        "canonical": "oklch(18.1% 0.016 165)",
-        "tonalRamp": [
-          "#050d0a",
-          "#1e2823",
-          "#3a4540",
-          "#59645f",
-          "#7a8580",
-          "#9ca8a3",
-          "#c0cdc7",
-          "#e5f2ec"
-        ]
-      },
-      "speculum-blue-lit": {
-        "role": "secondary",
-        "displayName": "Speculum Blue Lit",
-        "mode": "dark",
-        "canonical": "oklch(72.6% 0.078 265)",
-        "tonalRamp": [
-          "#01052b",
-          "#12224a",
-          "#2e406b",
-          "#4c608e",
-          "#6c82b1",
-          "#8ea5d7",
-          "#b1c9fd",
-          "#d6eeff"
-        ]
-      },
-      "chestnut-lit": {
-        "role": "state",
-        "displayName": "Chestnut Lit",
-        "mode": "dark",
-        "canonical": "oklch(79.3% 0.102 36)",
-        "tonalRamp": [
-          "#290000",
-          "#4b0600",
-          "#6e2917",
-          "#924a37",
-          "#b76b57",
-          "#dd8e78",
-          "#ffb29b",
-          "#ffd7bf"
-        ]
-      },
-      "chestnut-solid-dusk": {
-        "role": "state",
-        "displayName": "Chestnut Solid Dusk",
-        "mode": "dark",
-        "canonical": "oklch(54.2% 0.156 33)",
-        "tonalRamp": [
-          "#2d0000",
-          "#5b0000",
-          "#810200",
-          "#a7331c",
-          "#cf5840",
-          "#f77c62",
-          "#ffa085",
-          "#ffd1ba"
-        ]
-      },
-      "reed-green-lit": {
-        "role": "state",
-        "displayName": "Reed Green Lit",
-        "mode": "dark",
-        "canonical": "oklch(82.1% 0.131 132)",
-        "tonalRamp": [
-          "#001200",
-          "#062f00",
-          "#254f00",
-          "#446f0a",
-          "#659237",
-          "#86b65b",
-          "#aadb7f",
-          "#d1ffab"
-        ]
-      },
-      "bill-yellow": {
-        "role": "state",
-        "displayName": "Bill Yellow",
-        "mode": "dark",
-        "canonical": "oklch(83.6% 0.145 84)",
-        "tonalRamp": [
-          "#210000",
-          "#441500",
-          "#653500",
-          "#885600",
-          "#ab7800",
-          "#d09b13",
-          "#f6c04a",
-          "#ffe88d"
+          "#30220b",
+          "#4f3f28",
+          "#6f5e46",
+          "#918066",
+          "#b4a288",
+          "#d9c6ab",
+          "#ffecd0"
         ]
       }
     },
     "cssVariables": {
-      "--bg": "buff-page / dusk-black",
-      "--surface": "collar-white / dusk-surface",
-      "--surface-muted": "softened-buff / dusk-muted",
-      "--text": "eye-stripe-brown / dusk-collar",
-      "--text-muted": "mottled-brown / dusk-gray",
-      "--border": "buff-hairline / dusk-hairline",
-      "--accent": "drake-green / iridescent-green",
-      "--accent-hover": "drake-green-deep / iridescent-green-lit",
-      "--accent-contrast": "#ffffff / iridescent-ink",
-      "--accent-secondary": "speculum-blue / speculum-blue-lit",
-      "--danger": "chestnut / chestnut-lit",
-      "--danger-bg": "chestnut-wash / #2e1712",
-      "--danger-solid": "chestnut / chestnut-solid-dusk",
-      "--success": "reed-green / reed-green-lit",
-      "--success-bg": "reed-wash / #18261a",
-      "--notice": "bill-orange / bill-yellow",
-      "--notice-bg": "bill-wash / #2a2210"
+      "--bg": "page-white / page-black",
+      "--surface": "page-white / slate",
+      "--surface-muted": "mist / slate",
+      "--surface-strong": "mist-pressed / slate-lifted",
+      "--text": "ink / paper-grey",
+      "--text-muted": "graphite / ash",
+      "--border": "hairline / slate-lifted",
+      "--accent": "go-green / lit-green",
+      "--accent-hover": "go-green-deep / lit-green-hover",
+      "--accent-contrast": "page-white / green-ink",
+      "--accent-vivid": "ring-green / lit-green",
+      "--accent-secondary": "target-blue / lit-blue",
+      "--danger": "stop-red / lit-red",
+      "--danger-bg": "red-wash / red-night-wash",
+      "--danger-solid": "stop-red / stop-red",
+      "--danger-solid-hover": "stop-red-deep / stop-red-deep",
+      "--success": "go-green / lit-green",
+      "--success-bg": "green-wash / green-night-wash",
+      "--notice": "amber / lit-amber",
+      "--notice-bg": "amber-wash / amber-night-wash",
+      "--flame": "flame-orange / lit-amber"
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Dashboard planner title, one per screen."
+        "purpose": "The dashboard greeting and the blocked page's title. One per screen."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Page titles and the brand on sign-in screens."
-      },
-      "stat": {
-        "displayName": "Stat",
-        "purpose": "XP, gems, streak count, freezes."
+        "purpose": "Page titles, and the brand on sign-in and setup."
       },
       "timer": {
         "displayName": "Timer",
-        "purpose": "Session countdown only; tabular figures."
+        "purpose": "The session clock inside the ring; the only 300-weight text. 17cqw once the clock passes an hour."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "The streak count; the XP of a finished session in the same style, larger and green."
+      },
+      "stat": {
+        "displayName": "Stat",
+        "purpose": "XP and gems on the Streaks page."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Collapsible section titles."
+        "purpose": "The task of a running, paused or planned session; \"Day 5\" on completion."
+      },
+      "dialog-title": {
+        "displayName": "Dialog title",
+        "purpose": "Dialog headings; \"Session complete\" at 600."
+      },
+      "row-title": {
+        "displayName": "Row title",
+        "purpose": "Collapsible rows in Settings; 600 when open."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "All running text."
+        "purpose": "Running text, field text, row text."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Button labels; 0.8125rem small, 1.0625rem large."
+      },
+      "detail": {
+        "displayName": "Detail",
+        "purpose": "Header pages, segmented labels, summaries, link buttons, bar captions."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Form labels and nav."
-      },
-      "small": {
-        "displayName": "Small",
-        "purpose": "Helper text, errors, tooltips, pills, link-buttons."
+        "purpose": "Field labels; errors, tooltips and the blocking note at 400."
       }
     },
     "shadows": [
       {
-        "name": "tooltip-lift",
-        "value": "0 4px 16px rgb(0 0 0 / 0.12)",
-        "purpose": "InfoTip popovers only."
+        "name": "raised",
+        "value": "0 0 0 0.5px rgb(0 0 0 / 0.06), 0 8px 28px rgb(0 0 0 / 0.14)",
+        "darkValue": "0 0 0 0.5px rgb(255 255 255 / 0.12), 0 12px 40px rgb(0 0 0 / 0.6)",
+        "purpose": "Dialogs, tooltips, and the skip link while it has keyboard focus."
       },
       {
         "name": "thumb",
-        "value": "0 1px 2px rgb(0 0 0 / 0.25)",
-        "purpose": "Theme toggle knob."
+        "value": "0 1px 3px rgb(0 0 0 / 0.14), 0 0 0 0.5px rgb(0 0 0 / 0.05)",
+        "darkValue": "0 1px 3px rgb(0 0 0 / 0.4)",
+        "purpose": "The chosen segment of a segmented control."
+      },
+      {
+        "name": "header-line",
+        "value": "0 1px 0 color-mix(in srgb, var(--border) 70%, transparent)",
+        "purpose": "The line under the translucent header (with backdrop-filter: saturate(180%) blur(20px) over the page colour at 78%)."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 3px solid color-mix(in srgb, var(--accent-secondary) 55%, transparent); outline-offset: 2px",
+        "purpose": "Keyboard focus on every input, select, button and link."
       }
     ],
     "motion": [
       {
-        "name": "state-change",
-        "value": "0.15s",
-        "purpose": "Button background and chevron rotation."
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The one easing: decelerates hard, like the system's own transitions."
       },
       {
-        "name": "tooltip-fade",
-        "value": "opacity 0.12s",
-        "purpose": "InfoTip open/close."
+        "name": "ring-sweep",
+        "value": "stroke-dasharray 1s var(--ease-out)",
+        "purpose": "The authored moment: the session ring sweeps from empty to its place when the timer appears."
       },
       {
         "name": "progress-fill",
-        "value": "width 0.3s",
-        "purpose": "Progress bar fill and its clipped label."
+        "value": "0.6s var(--ease-out)",
+        "purpose": "Bars and the small target ring filling."
       },
       {
-        "name": "timer-fill",
-        "value": "width 0.25s linear",
-        "purpose": "Session timer bar."
+        "name": "xp-rise",
+        "value": "0.7s var(--ease-out), from opacity 0.2, translateY(0.6rem) scale(0.96)",
+        "purpose": "The XP figure of a finished session, once."
+      },
+      {
+        "name": "dialog-in",
+        "value": "0.28s var(--ease-out), from opacity 0, scale(0.96) translateY(0.5rem)",
+        "purpose": "A dialog opening."
+      },
+      {
+        "name": "state",
+        "value": "0.15s",
+        "purpose": "Fill and text-colour changes on hover; segmented thumb 0.2s; chevrons 0.25s; tooltips 0.18s."
+      },
+      {
+        "name": "press",
+        "value": "transform: scale(0.97), 0.2s var(--ease-out)",
+        "purpose": "A filled button while pressed."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "all transitions and animations 0.01ms",
+        "purpose": "Under prefers-reduced-motion: reduce."
       }
     ],
-    "breakpoints": []
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "40rem",
+        "purpose": "Below it: the brand leaves the header, the pages spread across it, top padding drops to 2rem, InfoTips dock at the bottom."
+      },
+      {
+        "name": "history-stack",
+        "value": "32rem",
+        "purpose": "Below it: a History row puts its title on its own line."
+      },
+      {
+        "name": "narrow",
+        "value": "30rem",
+        "purpose": "Below it: the task field stacks task over category, lengths drop \"min\", add-rule forms stack."
+      }
+    ]
   },
   "components": [
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one main action on a screen.",
-      "html": "<button class=\"ds-btn ds-btn-primary\">Start focusing</button>",
-      "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-primary{background:var(--accent);color:var(--accent-contrast)}.ds-btn-primary:hover{background:var(--accent-hover)}"
-    },
-    {
-      "name": "Secondary Button",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "Alternative actions; hairline outline.",
-      "html": "<button class=\"ds-btn ds-btn-secondary\">Pause</button>",
-      "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-secondary{background:transparent;border-color:var(--border);color:var(--text)}.ds-btn-secondary:hover{background:var(--surface-muted)}"
-    },
-    {
-      "name": "Small Pill Button",
-      "kind": "button",
-      "refersTo": "button-small",
-      "description": "Buttons inside panels.",
-      "html": "<button class=\"ds-btn ds-btn-secondary ds-btn-small\">Add site</button>",
-      "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-secondary{background:transparent;border-color:var(--border);color:var(--text)}.ds-btn-secondary:hover{background:var(--surface-muted)}.ds-btn-small{padding:.4rem .9rem;border-radius:999px;font-size:.875rem}"
+      "description": "The one main action on a screen: a green pill.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save profile</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.15rem;border:0;border-radius:999px;font:inherit;letter-spacing:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:background-color .15s,color .15s,transform .2s cubic-bezier(.16,1,.3,1)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}.ds-btn-primary{background:var(--accent);color:var(--accent-contrast)}.ds-btn-primary:hover{background:var(--accent-hover)}"
     },
     {
       "name": "Large Pill Button",
       "kind": "button",
       "refersTo": "button-large",
-      "description": "The main action of a dashboard state: Start focusing, Complete, Resume, Plan another (and Pause beside Complete, as secondary).",
+      "description": "The main action of a dashboard state: Start focusing, Pause, Complete, Resume, Plan another.",
       "html": "<button class=\"ds-btn ds-btn-primary ds-btn-large\">Start focusing</button>",
-      "css": ".ds-btn{padding:.65rem 1.1rem;border:1px solid transparent;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;transition:background-color .15s}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-primary{background:var(--accent);color:var(--accent-contrast)}.ds-btn-primary:hover{background:var(--accent-hover)}.ds-btn-large{min-width:10rem;padding:.85rem 2rem;border-radius:999px;font-size:1.05rem}"
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.15rem;border:0;border-radius:999px;font:inherit;letter-spacing:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:background-color .15s,color .15s,transform .2s cubic-bezier(.16,1,.3,1)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}.ds-btn-primary{background:var(--accent);color:var(--accent-contrast)}.ds-btn-primary:hover{background:var(--accent-hover)}.ds-btn-large{min-width:11rem;padding:.85rem 2rem;font-size:1.0625rem}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A quiet filled pill: Pause beside Complete, Cancel in a dialog.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Keep focusing</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.15rem;border:0;border-radius:999px;font:inherit;letter-spacing:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:background-color .15s,color .15s,transform .2s cubic-bezier(.16,1,.3,1)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}.ds-btn-secondary{background:var(--surface-muted);color:var(--text)}.ds-btn-secondary:hover{background:var(--surface-strong)}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Confirms a destructive action in a dialog, and nowhere else.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">End session</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.15rem;border:0;border-radius:999px;font:inherit;letter-spacing:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:background-color .15s,color .15s,transform .2s cubic-bezier(.16,1,.3,1)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}.ds-btn-danger{background:var(--danger-solid);color:var(--danger-solid-contrast)}.ds-btn-danger:hover{background:var(--danger-solid-hover)}"
     },
     {
       "name": "Link Button",
       "kind": "button",
       "refersTo": "button-link",
-      "description": "Quiet secondary or discouraged actions.",
-      "html": "<button class=\"ds-btn-link\">Override blocking</button>",
-      "css": ".ds-btn-link{padding:0;border:0;background:transparent;color:var(--text-muted);font:inherit;font-size:.85rem;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.ds-btn-link:hover{color:var(--text)}.ds-btn-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+      "description": "Secondary or discouraged actions: End early, Change details, Sign out.",
+      "html": "<button class=\"ds-link\">End early</button>",
+      "css": ".ds-link{padding:0;border:0;border-radius:4px;background:none;color:var(--text-muted);font:inherit;letter-spacing:inherit;font-size:.875rem;cursor:pointer;transition:color .15s}.ds-link:hover{color:var(--text);text-decoration:underline;text-underline-offset:3px}.ds-link:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}"
     },
     {
       "name": "Text Field",
       "kind": "input",
       "refersTo": "input",
-      "description": "Label above, optional info tip beside it.",
-      "html": "<div class=\"ds-field\"><label class=\"ds-label\" for=\"ds-task\">Task</label><input id=\"ds-task\" class=\"ds-input\" value=\"Read chapter 4\"></div>",
-      "css": ".ds-field{display:flex;flex-direction:column;gap:.3rem}.ds-label{font-size:.9rem;font-weight:600;color:var(--text)}.ds-input{width:100%;padding:.6rem .75rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}.ds-input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+      "description": "A filled field with its muted label above; no border.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Display name</span><input class=\"ds-input\" value=\"Doug\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:.4rem}.ds-field-label{color:var(--text-muted);font-size:.8125rem;font-weight:500}.ds-input{width:100%;padding:.7rem .9rem;border:0;border-radius:12px;background:var(--surface-muted);color:var(--text);font:inherit;letter-spacing:inherit;caret-color:var(--accent-secondary);transition:background-color .15s}.ds-input:hover:not(:focus-visible){background:var(--surface-strong)}.ds-input:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}"
+    },
+    {
+      "name": "Task Field",
+      "kind": "custom",
+      "refersTo": "task-field",
+      "description": "The dashboard's one field: the task typed at the left, its category at the right, one focus ring around both.",
+      "html": "<div class=\"ds-task\"><input class=\"ds-task-input\" placeholder=\"What are you working on?\"><select class=\"ds-task-cat\"><option>Writing</option><option>Studying</option><option>Task-free</option></select></div>",
+      "css": ".ds-task{display:flex;max-width:32rem;border-radius:14px;background:var(--surface-muted);transition:box-shadow .15s}.ds-task:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-secondary) 55%,transparent)}.ds-task-input{flex:1;min-width:0;padding:.95rem .5rem .95rem 1.1rem;border:0;background:transparent;color:var(--text);font:inherit;letter-spacing:inherit;font-size:1.0625rem;outline:none}.ds-task-input::placeholder{color:var(--text-muted)}.ds-task-cat{appearance:none;margin:.55rem 0;padding:0 2.1rem 0 .9rem;border:0;border-left:1px solid var(--surface-strong);background:transparent url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\") no-repeat calc(100% - .7rem) 50%/1rem;color:var(--text-muted);font:inherit;letter-spacing:inherit;font-size:.9375rem;cursor:pointer;outline:none}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented",
+      "description": "Every either-or choice: a soft track, the chosen segment lifted on a thumb.",
+      "html": "<fieldset class=\"ds-seg\"><label><input type=\"radio\" name=\"ds-len\" checked>25 min</label><label><input type=\"radio\" name=\"ds-len\">50 min</label><label><input type=\"radio\" name=\"ds-len\">90 min</label><label><input type=\"radio\" name=\"ds-len\">Custom</label><label><input type=\"radio\" name=\"ds-len\">Stopwatch</label></fieldset>",
+      "css": ".ds-seg{display:inline-flex;margin:0;padding:2px;border:0;border-radius:10px;background:var(--surface-muted)}.ds-seg label{position:relative;flex:1;padding:.4rem 1rem;border-radius:8px;color:var(--text);font-size:.875rem;font-weight:500;text-align:center;white-space:nowrap;cursor:pointer;transition:background-color .2s cubic-bezier(.16,1,.3,1),box-shadow .2s cubic-bezier(.16,1,.3,1)}.ds-seg label:has(input:checked){background:var(--surface);box-shadow:var(--shadow-thumb);font-weight:600}.ds-seg label:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:1px}.ds-seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:inherit}"
+    },
+    {
+      "name": "Session Ring",
+      "kind": "custom",
+      "refersTo": "session-ring",
+      "description": "The signature: the session as a ring that closes as the planned time passes, the light clock inside.",
+      "html": "<div class=\"ds-ring\"><svg viewBox=\"0 0 120 120\" aria-hidden=\"true\"><circle class=\"ds-ring-track\" cx=\"60\" cy=\"60\" r=\"56\"/><circle class=\"ds-ring-arc\" cx=\"60\" cy=\"60\" r=\"56\" pathLength=\"100\" stroke-dasharray=\"28 100\" transform=\"rotate(-90 60 60)\"/></svg><div class=\"ds-ring-face\"><p class=\"ds-ring-clock\">18:00</p><p class=\"ds-ring-status\">Ends 10:53 PM</p></div></div>",
+      "css": ".ds-ring{position:relative;width:18rem;max-width:100%;aspect-ratio:1;container-type:inline-size}.ds-ring svg{display:block;width:100%;height:100%}.ds-ring circle{fill:none;stroke-width:4.5}.ds-ring-track{stroke:var(--surface-muted)}.ds-ring-arc{stroke:var(--accent-vivid);stroke-linecap:round;transition:stroke-dasharray 1s cubic-bezier(.16,1,.3,1)}.ds-ring-face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;padding-top:1.4rem}.ds-ring-clock{margin:0;color:var(--text);font-size:23cqw;font-weight:300;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.03em}.ds-ring-status{margin:0;min-height:1.4rem;color:var(--text-muted);font-size:.875rem}"
+    },
+    {
+      "name": "Today's Line",
+      "kind": "custom",
+      "refersTo": "target-ring",
+      "description": "Today's target: a small blue ring, the minutes, and the streak beside them.",
+      "html": "<p class=\"ds-today\"><span class=\"ds-today-fig\"><svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\"><circle class=\"ds-tr-track\" cx=\"10\" cy=\"10\" r=\"7.5\"/><circle class=\"ds-tr-arc\" cx=\"10\" cy=\"10\" r=\"7.5\" pathLength=\"100\" stroke-dasharray=\"33 100\" transform=\"rotate(-90 10 10)\"/></svg>Today 10 / 30 min</span><span class=\"ds-today-streak\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M13.5 1.5c.4 2.9-.9 4.9-2.4 6.6-1.6 1.8-3.6 3.6-3.6 6.9A6.3 6.3 0 0 0 9.4 19.6c-.6-2.6.7-4.3 2.2-5.6.2 1.7 1.1 2.6 2.3 3.1-.3-1.8.3-3.4 1.5-4.6 1.6 1.5 2.6 3.4 2.6 5.5 0 1-.3 1.9-.7 2.6A6.5 6.5 0 0 0 20 15c0-5.6-4.6-8.6-6.5-13.5z\"/></svg>4-day streak</span></p>",
+      "css": ".ds-today{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.25rem 1.1rem;margin:0;color:var(--text-muted);font-size:.9375rem;font-variant-numeric:tabular-nums}.ds-today-fig,.ds-today-streak{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}.ds-today-streak{gap:.25rem;color:var(--text);font-weight:600}.ds-today-streak svg{color:var(--flame)}.ds-today circle{fill:none;stroke-width:3}.ds-tr-track{stroke:var(--surface-strong)}.ds-tr-arc{stroke:var(--accent-secondary);stroke-linecap:round}"
     },
     {
       "name": "Header Navigation",
       "kind": "nav",
-      "description": "Text links; current page at full text weight 600.",
-      "html": "<nav class=\"ds-nav\"><span class=\"ds-brand\">FocusQuest</span><a class=\"ds-current\" href=\"#\">Focus</a><a href=\"#\">Streaks</a><a href=\"#\">Blocking</a><a href=\"#\">Settings</a></nav>",
-      "css": ".ds-nav{display:flex;align-items:center;gap:1rem;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface)}.ds-brand{font-family:'Young Serif',Georgia,serif;font-synthesis:none;margin-right:.5rem;color:var(--text)}.ds-nav a{color:var(--text-muted);text-decoration:none}.ds-nav a:hover{color:var(--text)}.ds-nav a.ds-current{color:var(--text);font-weight:600}"
+      "refersTo": "header",
+      "description": "A thin translucent bar: the brand at the left, five pages centred, no account controls.",
+      "html": "<header class=\"ds-nav\"><span class=\"ds-nav-brand\">FocusQuest</span><nav class=\"ds-nav-links\"><a aria-current=\"page\">Focus</a><a>Streaks</a><a>History</a><a>Blocking</a><a>Settings</a></nav><span></span></header>",
+      "css": ".ds-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1.5rem;height:3rem;padding:0 1.5rem;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);box-shadow:0 1px 0 color-mix(in srgb,var(--border) 70%,transparent)}.ds-nav-brand{color:var(--text);font-size:.95rem;font-weight:700;letter-spacing:-.02em}.ds-nav-links{display:flex;gap:.25rem}.ds-nav-links a{padding:.3rem .75rem;border-radius:999px;color:var(--text-muted);font-size:.875rem;text-decoration:none;cursor:pointer;transition:color .15s}.ds-nav-links a:hover{color:var(--text)}.ds-nav-links a[aria-current]{color:var(--text);font-weight:600}"
     },
     {
-      "name": "Status Pill",
-      "kind": "chip",
-      "refersTo": "status-pill",
-      "description": "Session status; notice tone while blocking is active.",
-      "html": "<span class=\"ds-pill\">Blocking off</span> <span class=\"ds-pill ds-pill-active\">Blocking on</span>",
-      "css": ".ds-pill{display:inline-block;padding:.15rem .6rem;border-radius:999px;background:var(--surface-muted);color:var(--text);font-size:.85rem;font-weight:600}.ds-pill-active{background:var(--notice-bg);color:var(--notice)}"
-    },
-    {
-      "name": "Collapsible Section",
+      "name": "Collapsible Row",
       "kind": "custom",
-      "description": "One line per item: title, muted summary, chevron; hairline below.",
-      "html": "<div class=\"ds-section\"><button class=\"ds-section-row\" aria-expanded=\"false\"><span class=\"ds-section-title\">Profile</span><span class=\"ds-section-summary\">Douglas · Europe/Berlin</span><svg class=\"ds-chev\" viewBox=\"0 0 16 16\" width=\"16\" height=\"16\"><path d=\"M4 6l4 4 4-4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button></div>",
-      "css": ".ds-section{border-bottom:1px solid var(--border)}.ds-section-row{display:grid;grid-template-columns:minmax(0,1fr) auto 1rem;align-items:center;gap:1rem;width:100%;padding:1rem .25rem;border:0;background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer}.ds-section-row:hover .ds-section-title{text-decoration:underline;text-underline-offset:3px}.ds-section-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-section-title{font-size:1.05rem;font-weight:600}.ds-section-summary{color:var(--text-muted);font-size:.9rem}.ds-chev{color:var(--text-muted);transition:transform .15s}.ds-section-row[aria-expanded=true] .ds-chev{transform:rotate(180deg)}"
+      "refersTo": null,
+      "description": "Settings and History: a title, a muted summary of the current value, a chevron; opens in place between hairlines.",
+      "html": "<div class=\"ds-rows\"><button class=\"ds-row\" aria-expanded=\"false\"><span class=\"ds-row-title\">Appearance</span><span class=\"ds-row-sum\">Automatic</span><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M4 6l4 4 4-4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button><button class=\"ds-row\" aria-expanded=\"false\"><span class=\"ds-row-title\">Camera verification</span><span class=\"ds-row-sum\">Off</span><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M4 6l4 4 4-4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button></div>",
+      "css": ".ds-rows{max-width:42rem;border-top:1px solid var(--border)}.ds-row{display:grid;grid-template-columns:minmax(0,1fr) auto 1rem;align-items:center;gap:.75rem;width:100%;padding:.95rem 0;border:0;border-bottom:1px solid var(--border);background:none;color:var(--text);font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer}.ds-row-title{font-size:1.0625rem;font-weight:500}.ds-row-sum{color:var(--text-muted);font-size:.9375rem}.ds-row svg{color:var(--text-muted);opacity:.7;transition:transform .25s cubic-bezier(.16,1,.3,1)}.ds-row:hover svg{opacity:1}.ds-row[aria-expanded=\"true\"] svg{transform:rotate(180deg)}.ds-row[aria-expanded=\"true\"] .ds-row-title{font-weight:600}.ds-row:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-secondary) 55%,transparent);outline-offset:2px}"
     },
     {
       "name": "Progress Bar",
       "kind": "custom",
       "refersTo": "progress-bar",
-      "description": "Pill track with label that flips to contrast colour under the fill.",
-      "html": "<div class=\"ds-bar\"><div class=\"ds-bar-fill\" style=\"width:60%\"></div><span class=\"ds-bar-text\"><span>Today</span><span>18 / 30 min</span></span><span class=\"ds-bar-text ds-bar-on\" style=\"clip-path:inset(0 40% 0 0)\"><span>Today</span><span>18 / 30 min</span></span></div>",
-      "css": ".ds-bar{position:relative;height:1.75rem;overflow:hidden;border-radius:999px;background:var(--surface-muted)}.ds-bar-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .3s}.ds-bar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 .85rem;color:var(--text);font-size:.85rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}.ds-bar-on{background:var(--accent);color:var(--accent-contrast)}"
+      "description": "Measures other than the session: figures on a line above, a thin 6px bar below.",
+      "html": "<div class=\"ds-bar\"><p class=\"ds-bar-text\"><span>7 min of 30 min</span><span class=\"ds-bar-end\">23 min to go</span></p><div class=\"ds-bar-track\"><div class=\"ds-bar-fill\" style=\"width:23%\"></div></div></div>",
+      "css": ".ds-bar{display:flex;flex-direction:column;gap:.45rem;max-width:40rem}.ds-bar-text{display:flex;justify-content:space-between;gap:1rem;margin:0;color:var(--text);font-size:.875rem;font-variant-numeric:tabular-nums}.ds-bar-end{color:var(--text-muted)}.ds-bar-track{height:6px;overflow:hidden;border-radius:999px;background:var(--surface-muted)}.ds-bar-fill{height:100%;border-radius:999px;background:var(--accent-secondary);transition:width .6s cubic-bezier(.16,1,.3,1)}"
     },
     {
       "name": "Info Tip",
       "kind": "custom",
-      "description": "Circular 'i' that reveals an explanation on hover or focus.",
-      "html": "<span class=\"ds-info\"><button class=\"ds-info-btn\" aria-label=\"About streak freezes\">i</button><span class=\"ds-info-tip\">A freeze keeps your streak alive for one missed day.</span></span>",
-      "css": ".ds-info{position:relative;display:inline-flex;margin-top:4rem}.ds-info-btn{display:inline-flex;align-items:center;justify-content:center;width:1.15rem;height:1.15rem;padding:0;border:1px solid var(--text-muted);border-radius:50%;background:transparent;color:var(--text-muted);font:.7rem/1 'Young Serif',Georgia,serif;font-synthesis:none;cursor:help}.ds-info-btn:hover{border-color:var(--text);color:var(--text)}.ds-info-tip{position:absolute;bottom:calc(100% + .5rem);left:50%;width:max-content;max-width:18rem;padding:.6rem .75rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);box-shadow:0 4px 16px rgb(0 0 0 / .12);color:var(--text);font-size:.85rem;line-height:1.4;transform:translateX(-50%);opacity:0;visibility:hidden;transition:opacity .12s}.ds-info:hover .ds-info-tip,.ds-info-btn:focus-visible+.ds-info-tip{opacity:1;visibility:visible}"
+      "refersTo": "info-tip",
+      "description": "How explanations stay off the page: a small filled \"i\" that opens a raised popover.",
+      "html": "<span class=\"ds-info\"><button class=\"ds-info-btn\" aria-label=\"More information\">i</button><span class=\"ds-info-tip\" role=\"tooltip\">A new time zone takes effect from your next day and week.</span></span>",
+      "css": ".ds-info{position:relative;display:inline-flex;margin-top:5rem}.ds-info-btn{width:1.05rem;height:1.05rem;padding:0;border:0;border-radius:50%;background:var(--surface-strong);color:var(--text-muted);font:600 .68rem/1 inherit;cursor:help;transition:background-color .15s,color .15s}.ds-info-btn:hover{background:var(--text-muted);color:var(--bg)}.ds-info-tip{position:absolute;bottom:calc(100% + .6rem);left:50%;width:max-content;max-width:18rem;padding:.7rem .85rem;border-radius:12px;background:var(--surface);box-shadow:var(--shadow-raised);color:var(--text);font-size:.8125rem;line-height:1.45;transform:translateX(-50%)}"
     }
   ],
   "narrative": {
-    "northStar": "The Quiet Mallard",
-    "overview": "FocusQuest borrows its colours from a mallard. By day it is the hen: buff paper, mottled browns, a dark eye-stripe for text. At dusk it is the drake: green-black water and grey body, lit by the iridescent head green. The duck stays calm on the surface and works hard underneath, and so does the interface. The page is quiet and warm, and the green appears only where the student acts or where progress is measured.\n\nThe mood is calm, warm and purposeful. Density is low: one narrow column (44rem at most) and generous vertical rhythm. Each page shows what the student needs right now, and detail sits one click away behind an info tip or a collapsed row. Progression (XP, gems, streaks) is visible but never loud. It shows up as big serif numbers and filled bars, not as celebrations.\n\nThis is not a generic SaaS dashboard (no stat-card grids, gradients or purple-blue tech palette). It is not a sterile productivity tool either (no cold grey-on-white blankness). Warmth comes from the buff ground and the serif, and calm comes from removing frames.",
+    "northStar": "The Closing Ring",
+    "overview": "FocusQuest shows one thing per screen, at the size it deserves. The start page is a greeting, one field, one control and one green button. A running session is a ring with the time inside it. The same ring, small, marks how far today's target has come. Everything else on a page is quieter than that one thing, or is one click away.\n\nThe page is white, or black in the dark, with near-black or near-white text. Type is the system's own typeface: heavy and tightly tracked in titles, light and large in the clock. Controls are filled grey shapes without outlines, so the only lines on a page are the hairlines between rows. Colour is spent on meaning: green where the student acts and where progress was made, blue for today's target, orange for the streak's flame.\n\nDensity is low. The signed-in pages sit in one centred column (42rem; 32rem on the dashboard) under a thin translucent bar that carries only the brand and the five pages. Explanations stay behind an \"i\", secondary actions are quiet text, and long lists collapse to one row per item. Progression (XP, gems, streaks) appears as large bold figures and thin bars, never as celebration.",
     "keyCharacteristics": [
-      "Warm buff ground in light mode, green-tinted near-black at dusk; both modes are first-class.",
-      "No cards. Content sits on the page, divided by hairlines.",
-      "Young Serif for titles and the figures the eye should land on; Atkinson Hyperlegible for everything else.",
-      "One accent, drake green, reserved for primary actions and measured progress.",
-      "Explanations hide behind an \"i\"; secondary actions are quiet underlined links.",
-      "Pills for small controls and status; gently rounded rectangles for fields and main buttons."
+      "A white page in light mode and a black page in dark mode; both are first-class.",
+      "The system typeface only; no font is bundled.",
+      "Filled controls without outlines; hairlines only between rows.",
+      "No cards. Content sits open on the page.",
+      "Every button is a pill; every either-or choice is a segmented control with a lifted thumb.",
+      "A ring for time and for today's target; thin 6px bars for everything else that is measured.",
+      "Green acts and records progress, blue is today's target, orange is the flame."
     ],
     "rules": [
       {
-        "name": "The One Green Rule",
-        "section": "colors",
-        "body": "Drake green means \"act here\" or \"progress made\". Never use it decoratively, for headings or for success messages; success has its own reed green."
+        "name": "The Three Meanings Rule",
+        "body": "Green means \"act here\" or \"progress was made\". Blue means today's target, or something to follow or focus. Orange means the streak's flame. Before colouring anything, name which of the three it is; if it is none, leave it in text or muted text.",
+        "section": "colors"
       },
       {
-        "name": "The Two Ducks Rule",
-        "section": "colors",
-        "body": "Every colour is a CSS custom property with a light value and a dark value (`frontend/src/style.css`). Never hard-code a hex in a component, and check every new screen in both modes."
+        "name": "The Two Greens Rule",
+        "body": "Use `--accent` for green text and green buttons, and `--accent-vivid` for green shapes (arcs and bar fills). In light mode the vivid green is too pale for text, and the text green is too dull for a ring.",
+        "section": "colors"
       },
       {
-        "name": "The Single Weight Serif Rule",
-        "section": "typography",
-        "body": "Young Serif has one weight. Every display element sets `font-synthesis: none`, so the browser never fakes a bold; hierarchy in the serif comes from size alone."
+        "name": "The Two Modes Rule",
+        "body": "Take every colour from a custom property and check each new screen in light and in dark. The one colour set outside the tokens is the dark segmented thumb (Thumb Grey), because a white thumb would glare on black.",
+        "section": "colors"
       },
       {
-        "name": "The Honest Digits Rule",
-        "section": "typography",
-        "body": "The countdown stays in Atkinson with tabular figures, because the serif's digits are not of equal width and a ticking clock would jitter. Any figure that changes every second follows the same rule."
+        "name": "The Light Clock Rule",
+        "body": "Only the session clock is weight 300. Everything else large is 700. Do not set other figures light, and do not set the clock bold.",
+        "section": "typography"
+      },
+      {
+        "name": "The Steady Digits Rule",
+        "body": "Any figure that changes while the student watches (the clock, minutes today, counts, XP) sets `font-variant-numeric: tabular-nums`, so it does not shift as it ticks.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tight Titles Rule",
+        "body": "Tracking tightens as type grows: -0.011em for body, -0.022em for headings, -0.03em for page titles and the clock, -0.035em for the greeting, -0.04em for the largest figures. Never add positive tracking or uppercase labels.",
+        "section": "typography"
       },
       {
         "name": "The No-Card Rule",
-        "section": "elevation",
-        "body": "Content is never boxed in a bordered, rounded panel. Separate groups with a hairline (`border-bottom: 1px solid var(--border)`) and space. The sign-in/setup column is the one surviving framed surface, and the legacy `.card` class is unused; do not revive it."
+        "body": "Never box content in a bordered or shadowed panel. Set groups apart with space and a hairline (`1px solid var(--border)`). The sign-in column is unframed too.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Four Lifts Rule",
+        "body": "Only the header, a dialog, a tooltip and the segmented thumb rise above the page. A new surface that wants a shadow should be one of those four or stay flat.",
+        "section": "elevation"
       }
     ],
     "dos": [
-      "Do take every colour from the CSS custom properties in `frontend/src/style.css`, and check new screens in light and dark mode.",
-      "Do separate content with 1px hairlines and space rather than frames.",
-      "Do put explanations behind an InfoTip; keep visible only short text or what the student must act on.",
-      "Do make secondary or discouraged actions link-buttons, and use `size=\"small\"` pill buttons inside panels.",
-      "Do collapse long lists and settings to one line per item that opens in place.",
-      "Do say a consequence the student commits to (blocking that outlasts the session) in plain text where they commit, not in a tooltip.",
-      "Do keep the page from scrolling sideways at 390px; check `scrollWidth` at phone width.",
-      "Do state outcomes the app can work out (\"That reaches today's target, so websites unblock now\") instead of if/otherwise copy.",
-      "Do keep the theme toggle neutral when on; green is not a decoration for switches.",
-      "Do set big numbers in Young Serif with `font-synthesis: none`, and keep the timer in Atkinson with tabular figures.",
-      "Do keep the page to a single column of at most 44rem."
+      "Do give each screen one main thing and size it accordingly: the greeting and Start on the start page, the ring while working, the XP figure afterwards.",
+      "Do take every colour from the custom properties in `frontend/src/style.css`, and check new screens in light and dark.",
+      "Do use the system typeface stack; set titles at 700 with tight tracking and the session clock at 300 with tabular figures.",
+      "Do make controls filled shapes without outlines: Mist at rest, Mist Pressed on hover, the blue ring on focus.",
+      "Do separate rows and sections with a 1px hairline and space.",
+      "Do make every button a pill, and use the large size only for a dashboard state's main action.",
+      "Do use a segmented control for an either-or choice.",
+      "Do draw today's target in blue and the session in green, and keep orange for the flame.",
+      "Do put explanations behind an InfoTip, make secondary or discouraged actions link buttons, and collapse long lists to one row per item.",
+      "Do say a consequence the student commits to (blocking that outlasts the session) in plain text where they commit.",
+      "Do put a bar's figures on a line above it.",
+      "Do keep the main column to 42rem (32rem on the dashboard) and check that the page does not scroll sideways at 390px.",
+      "Do keep account controls (Appearance, Sign out) in Settings."
     ],
     "donts": [
-      "Don't wrap content in bordered, rounded cards, or revive the unused `.card` class.",
-      "Don't use drake green for decoration, headings or success; success is reed green.",
-      "Don't build a generic SaaS dashboard: no stat-card grids, gradients or purple-blue tech palette.",
-      "Don't let it turn sterile: no cold grey-on-white, keep the buff ground and the serif.",
-      "Don't add shadows beyond the tooltip and the toggle thumb; depth is tonal.",
-      "Don't bold Young Serif or use it for the timer.",
-      "Don't show detail a general student doesn't need (per-category rules, pairing or calibration dates)."
+      "Don't wrap content in a bordered or shadowed card.",
+      "Don't outline a control. Borders are for hairlines between rows.",
+      "Don't bundle or load a font.",
+      "Don't set text in Ring Green in light mode, or draw a ring or bar in the text green.",
+      "Don't use blue for a primary action, or green for today's target before it is reached.",
+      "Don't add a shadow to anything but a dialog, a tooltip or the segmented thumb.",
+      "Don't put text on a bar's fill.",
+      "Don't add motion beyond a state change; the ring's sweep is the one authored moment on a session screen.",
+      "Don't put status in a pill or badge; say it in a coloured line of text.",
+      "Don't add account controls, icons or a second row to the header.",
+      "Don't show detail a student does not need now (per-category rules, pairing or calibration dates); put it one click away."
     ]
   }
 }

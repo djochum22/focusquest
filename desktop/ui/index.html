@@ -8,19 +8,19 @@
        ?state=starting, or ?state=failed&message=… -->
   <style>
     :root {
-      --background: #f8f9fa;
-      --text: #1f2421;
-      --muted: #5c6660;
-      --brand: #006b3f;
-      --problem: #a4262c;
+      --background: #ffffff;
+      --text: #1d1d1f;
+      --muted: #636368;
+      --brand: #1f7f38;
+      --problem: #d70015;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --background: #161a18;
-        --text: #e8ebe9;
-        --muted: #a3ada7;
-        --brand: #4fbf8a;
-        --problem: #f1868b;
+        --background: #000000;
+        --text: #f5f5f7;
+        --muted: #a1a1a6;
+        --brand: #30d158;
+        --problem: #ff6961;
       }
     }
     * { box-sizing: border-box; }
@@ -37,7 +37,7 @@
     }
     main { max-width: 30rem; text-align: center; }
     svg { width: 56px; height: 56px; }
-    h1 { margin: 16px 0 4px; font-size: 1.25rem; font-weight: 600; }
+    h1 { margin: 16px 0 4px; font-size: 1.3125rem; font-weight: 700; letter-spacing: -0.02em; }
     p { margin: 0; color: var(--muted); }
     .failed h1 { color: var(--problem); }
     .failed p { -webkit-user-select: text; user-select: text; }

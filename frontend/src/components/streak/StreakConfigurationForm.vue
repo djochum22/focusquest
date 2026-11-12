@@ -145,12 +145,21 @@ function onSubmit() {
   border: 0;
 }
 .streak-form__mode legend {
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.4rem;
   padding: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.streak-form__mode label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
 }
 .streak-form__mode input {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
 }
 </style>

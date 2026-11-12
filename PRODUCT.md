@@ -31,7 +31,7 @@ Duolingo-style progression (streaks, XP, levels) combined with real enforcement:
 - Undecided: whether it will be distributed to other students beyond the author.
 
 ## Brand Commitments
-Game-like but calm: progression rewards real effort while the interface stays quiet and purposeful, not childish or nagging. Name: FocusQuest. Existing UI conventions (recorded by the user): no bordered cards, explanations behind info tips, quiet link-style secondary actions, collapsible rows, Young Serif for titles and big numbers, Atkinson Hyperlegible for everything else.
+Game-like but calm: progression rewards real effort while the interface stays quiet and purposeful, not childish or nagging. Name: FocusQuest. UI conventions (recorded by the user): no bordered cards, explanations behind info tips, quiet link-style secondary actions, collapsible rows. Since 11 November 2026, at the user's request ("take inspiration from Apple, something new and fresh and especially decluttered"): the system typeface, a white or black page, filled controls without outlines, and one thing per screen at the size it deserves.
 
 ## Evidence on Hand
 Working app and full documentation in `docs/`. No testimonials, user numbers or external users are on record; do not invent any.
@@ -44,4 +44,4 @@ Working app and full documentation in `docs/`. No testimonials, user numbers or 
 5. One product everywhere: the same experience in browser, desktop window and extension.
 
 ## Accessibility & Inclusion
-Must be legible: Atkinson Hyperlegible body font; light and dark modes both supported and checked.
+Must be legible: the system typeface at comfortable sizes, text contrast of at least 4.5:1; light and dark modes both supported and checked.

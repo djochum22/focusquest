@@ -63,57 +63,59 @@ function onClick() {
   display: inline-flex;
   vertical-align: middle;
 }
+/* A small filled circle, quieter than an outlined one; the area a finger can hit reaches 24px. */
 .info__button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
   padding: 0;
-  border: 1px solid var(--text-muted);
+  border: 0;
   border-radius: 50%;
-  background: transparent;
+  background: var(--surface-strong);
   color: var(--text-muted);
-  font: 0.7rem/1 var(--font-display);
-  font-synthesis: none;
+  font: 600 0.68rem/1 var(--font-body);
   cursor: help;
-}
-/* The circle stays small; the area a finger can hit reaches 24px around it. */
-.info__button {
-  position: relative;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 .info__button::after {
   position: absolute;
   inset: -0.3rem;
   content: '';
 }
-.info__button:hover {
-  border-color: var(--text);
-  color: var(--text);
+.info__button:hover,
+.info__button[aria-expanded='true'] {
+  background: var(--text-muted);
+  color: var(--bg);
 }
 .info__tip {
   position: absolute;
-  bottom: calc(100% + 0.5rem);
+  bottom: calc(100% + 0.6rem);
   left: 50%;
   z-index: 10;
   width: max-content;
   max-width: min(18rem, 80vw);
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  box-shadow: var(--shadow-raised);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   font-style: normal;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.45;
   text-align: left;
   transform: translateX(-50%);
   /* Out of the layout while closed, so a tip near the edge never widens the page. aria-describedby
      still reads hidden text. */
   display: none;
-  transition: opacity 0.12s;
+  transition:
+    opacity 0.18s var(--ease-out),
+    translate 0.18s var(--ease-out);
 }
 .info__tip--open {
   display: block;
@@ -121,6 +123,7 @@ function onClick() {
 @starting-style {
   .info__tip--open {
     opacity: 0;
+    translate: 0 0.25rem;
   }
 }
 /* On a phone the tip docks along the bottom of the screen, clear of the edges and the content. */

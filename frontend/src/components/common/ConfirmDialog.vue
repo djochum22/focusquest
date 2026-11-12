@@ -36,14 +36,21 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>()
 .confirm__body {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
 }
 .confirm__body :deep(p) {
   margin: 0;
 }
+.confirm__body :deep(strong) {
+  color: var(--text);
+}
 .confirm__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 </style>

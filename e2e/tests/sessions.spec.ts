@@ -61,7 +61,7 @@ test('an abandoned session keeps blocking until the user overrides it at an XP p
   await expect(page.getByRole('button', { name: 'Override blocking' })).toBeHidden()
   await expectSiteOpen(site)
 
-  await page.getByRole('link', { name: 'Session history' }).click()
+  await page.getByRole('link', { name: 'History', exact: true }).click()
   await page.getByRole('button', { expanded: false }).first().click()   // sessions start collapsed
   await expect(page.getByText('Overridden, XP penalty applied')).toBeVisible()
 
@@ -123,11 +123,11 @@ test('a session whose browser goes quiet is interrupted, keeps the unmet target 
 test('a stopwatch counts up, and stopping it counts the focus but not the pause', async ({ page }) => {
   await setUpAccount(page)
   await page.getByRole('radio', { name: 'Stopwatch' }).check()
-  await expect(page.getByRole('radio', { name: /^25/ })).toBeHidden()   // no duration to choose
+  await expect(page.getByRole('radio', { name: /^25/ })).not.toBeChecked()   // the stopwatch is one of the lengths: no duration is chosen
   await page.getByRole('button', { name: 'Start focusing' }).click()
 
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
-  await expect(page.getByText(/· Stopwatch/)).toBeVisible()
+  await expect(page.getByLabel('Active session').getByText('Stopwatch', { exact: true })).toBeVisible()
   await expect(page.getByRole('progressbar', { name: 'Session progress' })).toBeHidden()
 
   await advanceBackendClock(5 * 60)

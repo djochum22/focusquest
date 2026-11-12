@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getErrorMessage } from '../api/apiError'
 import AppButton from '../components/common/AppButton.vue'
+import AppearanceControl from '../components/common/AppearanceControl.vue'
 import AppShell from '../components/common/AppShell.vue'
 import CameraVerificationCard from '../components/settings/CameraVerificationCard.vue'
 import ConfirmDialog from '../components/common/ConfirmDialog.vue'
@@ -19,6 +20,7 @@ import { readBackupFile, useSettingsStore } from '../stores/settingsStore'
 import type { LocalDataExport } from '../types/settings'
 import { formatDateTime } from '../utils/dateTime'
 import { isOverridable } from '../utils/sessionState'
+import { loadThemePreference } from '../utils/theme'
 import { DISPLAY_NAME_MAX, hasErrors, validateProfile, type FieldErrors, type ProfileForm } from '../utils/validation'
 
 const auth = useAuthStore()
@@ -28,6 +30,16 @@ const desktop = useDesktopStore()
 const session = useSessionStore()
 const router = useRouter()
 const camera = useCameraStore()
+
+/** What the closed Appearance row says. */
+const APPEARANCE_SUMMARY = { auto: 'Automatic', light: 'Light', dark: 'Dark' } as const
+const appearance = ref<keyof typeof APPEARANCE_SUMMARY>(loadThemePreference() ?? 'auto')
+
+/** Signing out lives here, at the foot of the account, rather than in the header of every page. */
+async function onSignOut() {
+  auth.logout()
+  await router.replace({ name: 'login' })
+}
 
 /** The one-word status each collapsed section shows. */
 const EXTENSION_SUMMARY = {
@@ -254,17 +266,22 @@ async function onConfirmDelete() {
               </InfoTip>
             </template>
           </FormField>
-          <p v-if="timezoneLocked" class="settings__locked">
+          <p v-if="timezoneLocked" class="status-line status-line--notice">
             The time zone cannot be changed while website blocking is active
             <InfoTip>End your session, or override the blocking, first.</InfoTip>
           </p>
 
           <ErrorMessage :message="profileError" />
           <p v-if="profileSaved" class="settings__done" role="status">Profile saved.</p>
-          <div>
+          <div class="settings__actions settings__actions--apart">
             <AppButton type="submit" size="small" :loading="savingProfile" :disabled="!profileChanged">Save profile</AppButton>
+            <AppButton variant="link" class="settings__signout" @click="onSignOut">Sign out</AppButton>
           </div>
         </form>
+      </SettingsSection>
+
+      <SettingsSection title="Appearance" :summary="APPEARANCE_SUMMARY[appearance]">
+        <div><AppearanceControl @change="appearance = $event" /></div>
       </SettingsSection>
 
       <SettingsSection v-if="!desktop.inDesktopApp" title="Browser extension">
@@ -486,22 +503,15 @@ async function onConfirmDelete() {
 }
 .settings__ok {
   color: var(--success);
-  font-weight: 600;
-}
-.settings__locked {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  color: var(--notice);
-  font-size: 0.9rem;
-  font-weight: 600;
 }
 .settings__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.75rem 1.1rem;
+}
+.settings__actions--apart {
+  justify-content: space-between;
 }
 .settings__check-row {
   display: flex;
@@ -511,18 +521,20 @@ async function onConfirmDelete() {
 .settings__check {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  cursor: pointer;
 }
 .settings__check input {
   flex: none;
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   margin: 0;
 }
 .settings__done {
   margin: 0;
   color: var(--success);
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 /* Each data action on one line: what it does on the left, its button on the right. */
 .settings__data {
@@ -535,10 +547,10 @@ async function onConfirmDelete() {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  padding: 0.6rem 0;
+  padding: 0.7rem 0;
 }
 .settings__data-row + .settings__data-row {
-  border-top: 1px dashed var(--border);
+  border-top: 1px solid var(--border);
 }
 .settings__data-name {
   display: flex;

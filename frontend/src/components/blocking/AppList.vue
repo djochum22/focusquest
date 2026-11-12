@@ -47,8 +47,8 @@ const emit = defineEmits<{ edit: [app: BlockedApp]; delete: [app: BlockedApp] }>
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 0.75rem 0;
+  gap: 0.35rem 1rem;
+  padding: 0.85rem 0;
   border-top: 1px solid var(--border);
 }
 .app-list__item:last-child {
@@ -57,21 +57,20 @@ const emit = defineEmits<{ edit: [app: BlockedApp]; delete: [app: BlockedApp] }>
 .app-list__name {
   flex: 1;
   min-width: 10rem;
-  font-weight: 600;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 .app-list__item--inactive .app-list__name {
-  opacity: 0.6;
+  color: var(--text-muted);
 }
 .app-list__badge {
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--notice);
-  border-radius: 999px;
   color: var(--notice);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 .app-list__actions {
   display: flex;
   gap: 1rem;
+  margin-left: 0.5rem;
 }
 </style>

@@ -34,19 +34,20 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
 </template>
 
 <style scoped>
+/* One row per rule: the site, what kind of rule it is in muted text, and its two quiet actions. */
 .rule-item {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 0.75rem 0;
+  gap: 0.35rem 1rem;
+  padding: 0.85rem 0;
   border-top: 1px solid var(--border);
 }
 .rule-item:last-child {
   border-bottom: 1px solid var(--border);
 }
 .rule-item--inactive .rule-item__text {
-  opacity: 0.6;
+  color: var(--text-muted);
 }
 .rule-item__text {
   display: flex;
@@ -56,25 +57,23 @@ const emit = defineEmits<{ edit: []; delete: [] }>()
   overflow-wrap: anywhere;
 }
 .rule-item__name {
-  font-weight: 600;
+  font-weight: 500;
 }
 .rule-item__value {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 .rule-item__badge {
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 .rule-item__badge--inactive {
-  border-color: var(--notice);
   color: var(--notice);
+  font-weight: 500;
 }
 .rule-item__actions {
   display: flex;
   gap: 1rem;
+  margin-left: 0.5rem;
 }
 </style>

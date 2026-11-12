@@ -237,17 +237,17 @@ function onDefaultChange(event: Event) {
 .camera {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 .camera__text,
 .camera__hint {
   margin: 0;
 }
 .camera__hint {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 .camera__consent-title {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.4rem;
   font-weight: 600;
 }
 .camera__points {
@@ -256,14 +256,15 @@ function onDefaultChange(event: Event) {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
+/* The companion program is its own group inside the section, set off by a hairline above it. */
 .camera__companion {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.85rem 0 0 1rem;
-  border-left: 2px solid var(--border);
+  gap: 0.7rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 .camera__subhead {
   display: flex;
@@ -273,6 +274,8 @@ function onDefaultChange(event: Event) {
 .camera__subheading {
   margin: 0;
   font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: inherit;
 }
 /* A status with the actions that change it beside it, wrapping under it on a narrow screen. */
 .camera__line {
@@ -293,6 +296,7 @@ function onDefaultChange(event: Event) {
 }
 .camera__connected {
   color: var(--success);
+  font-weight: 600;
 }
 .camera__calibration-status {
   margin: 0;
@@ -300,11 +304,12 @@ function onDefaultChange(event: Event) {
 .camera__token {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .camera__token-label {
-  font-weight: 600;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 .camera__token-row {
   display: flex;
@@ -316,6 +321,7 @@ function onDefaultChange(event: Event) {
   min-width: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.85rem;
+  letter-spacing: 0;
 }
 .camera__option-row {
   display: flex;
@@ -325,13 +331,13 @@ function onDefaultChange(event: Event) {
 .camera__option {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  cursor: pointer;
 }
-/* The global input style makes every input full width with padding; a checkbox sits at its own size. */
 .camera__option input {
   flex: none;
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   margin: 0;
-  padding: 0;
 }
 </style>

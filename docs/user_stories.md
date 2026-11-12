@@ -223,7 +223,7 @@ so that I can count whatever time I manage without committing to a length.
   then no duration is asked for, and the choice is remembered for the next session.
 - Given a stopwatch session is running,  
   when the user looks at it,  
-  then the clock counts up with no progress bar, and Pause and Stop are offered.
+  then the clock counts up with no planned time to fill (its ring goes round once an hour), and Pause and Stop are offered.
 - Given a stopwatch session is running or paused,  
   when the user stops it,  
   then it completes at any length, its focused time counts toward today, and it earns XP for each whole minute focused.

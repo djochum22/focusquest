@@ -34,6 +34,13 @@ src/
   views/        One component per route
 ```
 
+## Look and feel
+
+The design system is in [`../DESIGN.md`](../DESIGN.md). Every colour, radius and shadow is a custom
+property in `src/style.css` with a light and a dark value; components never hard-code one. The
+typeface is the system's own, so no font is bundled. Shared patterns live in `style.css` too:
+`.segmented` (a segmented control over real radio inputs) and `.status-line`.
+
 ## Authentication
 
 - On opening `/login` or `/setup`, the app calls the public `GET /api/auth/setup-status` and shows

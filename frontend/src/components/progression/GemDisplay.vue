@@ -36,12 +36,15 @@ defineProps<{ balance: number | null }>()
   gap: 0.4rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .stat__value {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 .stat__value--pending {
   color: var(--text-muted);
@@ -50,14 +53,17 @@ defineProps<{ balance: number | null }>()
 }
 .stat__value:has(.stat__gem) {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.4rem;
 }
 .stat__gem {
-  color: var(--accent-secondary);
+  align-self: center;
+  color: var(--text-muted);
 }
 .stat__unit {
+  color: var(--text-muted);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.011em;
 }
 </style>

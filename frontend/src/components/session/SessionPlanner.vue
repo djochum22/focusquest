@@ -29,7 +29,7 @@ const camera = useCameraStore()
 const auth = useAuthStore()
 const streak = useStreakStore()
 
-/** The start page opens with a time-of-day greeting. */
+/** The start page's headline is a time-of-day greeting. */
 const greeting = computed(() => {
   const hour = new Date().getHours()
   const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
@@ -115,24 +115,12 @@ function onChange() {
 
   <section v-else class="stage planner" aria-label="New focus session">
     <header class="planner__hero">
-      <p class="planner__greeting muted">{{ greeting }}</p>
-      <h2 class="planner__title">Ready to focus?</h2>
+      <h2 class="planner__title">{{ greeting }}</h2>
+      <TodayProgress v-if="streak.daily" :progress="streak.daily" :streak-length="streak.dailyStreak">
+        <template v-if="$slots.today" #default><slot name="today" /></template>
+      </TodayProgress>
     </header>
-    <TodayProgress v-if="streak.daily" :progress="streak.daily" :streak-length="streak.dailyStreak">
-      <template v-if="$slots.today" #default><slot name="today" /></template>
-    </TodayProgress>
     <ErrorMessage :message="submitError" />
-    <!-- A quiet second way to start, not a boxed one: the action, and below it what it carries on. -->
-    <button
-      v-if="unfinished && continueDetail"
-      type="button"
-      class="planner__continue"
-      :disabled="session.busy"
-      @click="onSubmit(unfinished)"
-    >
-      <span class="planner__continue-action">Continue where you left off</span>
-      <span class="planner__continue-detail">{{ continueDetail }}</span>
-    </button>
     <SessionForm
       :submitting="session.busy"
       :camera-available="camera.settings?.enabled ?? false"
@@ -146,70 +134,98 @@ function onChange() {
         <p class="planner__blocking">{{ blockingNote }}</p>
       </template>
     </SessionForm>
+    <!-- A quiet second way to start, below the form: the session ended early, one tap to carry on. -->
+    <button
+      v-if="unfinished && continueDetail"
+      type="button"
+      class="planner__continue"
+      :disabled="session.busy"
+      @click="onSubmit(unfinished)"
+    >
+      <span class="planner__continue-text">
+        <span class="planner__continue-action">Continue where you left off</span>
+        <span class="planner__continue-detail">{{ continueDetail }}</span>
+      </span>
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
   </section>
 </template>
 
 <style scoped>
 .planner {
-  gap: 1.75rem;
+  gap: 2rem;
 }
 .planner__hero {
-  text-align: center;
-}
-.planner__greeting {
-  margin: 0 0 0.25rem;
-  font-size: 1.05rem;
-}
-.planner__title {
-  margin: 0;
-  font-size: 2.5rem;
-  line-height: 1.15;
-  text-wrap: balance;
-}
-.planner__continue {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.1rem;
-  align-self: center;
-  max-width: 26rem;
-  padding: 0.25rem 0.5rem;
+  gap: 0.9rem;
+  text-align: center;
+}
+.planner__title {
+  margin: 0;
+  font-size: clamp(2.25rem, 7vw, 3rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+/* One row between hairlines: what it carries on at the left, a chevron at the right. */
+.planner__continue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 0.25rem;
   border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: none;
   color: var(--text);
   font: inherit;
-  text-align: center;
+  letter-spacing: inherit;
+  text-align: left;
   cursor: pointer;
+}
+.planner__continue svg {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 0.2s var(--ease-out);
+}
+.planner__continue:hover:not(:disabled) svg {
+  transform: translateX(3px);
+}
+.planner__continue-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .planner__continue-action {
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 3px;
-}
-.planner__continue:hover:not(:disabled) .planner__continue-action {
-  text-decoration-color: currentColor;
 }
 .planner__continue-detail {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 .planner__continue:disabled {
-  opacity: 0.6;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 .planner__actions {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.9rem;
 }
 .planner__blocking {
-  max-width: 26rem;
+  max-width: 24rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   text-align: center;
   text-wrap: balance;
 }

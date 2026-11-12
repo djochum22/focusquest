@@ -38,10 +38,10 @@ describe('StreakProgress', () => {
     expect(bar.attributes('aria-valuemin')).toBe('0')
     expect(bar.attributes('aria-valuemax')).toBe('100')
     expect(bar.attributes('aria-valuetext')).toBe('50% of 30 minutes')
-    expect(bar.get('div').attributes('style')).toContain('width: 50%')
+    expect(bar.get('.bar__fill').attributes('style')).toContain('width: 50%')
   })
 
-  it('shows nothing counted yet at the start of a period, inside the bar', () => {
+  it('shows nothing counted yet at the start of a period, on the line above the bar', () => {
     const wrapper = mountProgress()
     const bar = wrapper.get('[role="progressbar"]')
 

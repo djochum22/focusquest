@@ -97,37 +97,47 @@ const streak = computed(() => {
 .blocked {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.6rem;
   width: 100%;
-  max-width: 26rem;
+  max-width: 24rem;
+  text-align: center;
 }
-
+.blocked .page-title {
+  margin: 0;
+  font-size: clamp(2.25rem, 8vw, 3rem);
+}
 .blocked p {
   margin: 0;
+  text-wrap: balance;
 }
-
 .blocked__site {
-  font-size: 1.1rem;
+  color: var(--text-muted);
+  font-size: 1.0625rem;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
-
+.blocked__site strong {
+  color: var(--text);
+  font-weight: 600;
+}
 .blocked__session {
-  margin-top: 1rem;
+  margin: 1.5rem 0 0.5rem;
 }
-
 .blocked__task {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-
 .blocked__timer {
-  font-size: 2.75rem;
-  font-weight: 700;
+  font-size: 4rem;
+  font-weight: 300;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  letter-spacing: -0.03em;
 }
-
 .blocked__streak {
-  margin: 1rem 0 0.5rem;
+  align-self: stretch;
+  margin: 1rem 0;
+  text-align: left;
 }
 </style>

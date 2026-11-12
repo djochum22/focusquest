@@ -216,16 +216,12 @@ describe('DashboardView', () => {
     running.unmount()
   })
 
-  it('links to the session history from the start page only', async () => {
+  it('reaches the session history from the navigation, not from a link on the start page', async () => {
     vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(null)
     const idle = await mountDashboard()
-    expect(idle.get('a[href="/history"]').text()).toContain('Session history')
+    expect(idle.get('nav a[href="/history"]').text()).toBe('History')
+    expect(idle.find('main a[href="/history"]').exists()).toBe(false)
     idle.unmount()
-
-    vi.mocked(sessionApi.fetchCurrentSession).mockResolvedValue(makeSession())
-    const running = await mountDashboard()
-    expect(running.find('main a[href="/history"]').exists()).toBe(false)
-    running.unmount()
   })
 
   it('creates a session from the form and starts it in one step', async () => {
@@ -573,7 +569,7 @@ describe('DashboardView', () => {
     const wrapper = await mountDashboard()
     expect(wrapper.text()).toContain("Websites stay blocked until today's 60 min target is reached")
 
-    await wrapper.find('input[value="TASK_FREE"]').setValue()
+    await wrapper.get('select').setValue('TASK_FREE')
     expect(wrapper.text()).toContain("This session won't count toward today's target.")
     wrapper.unmount()
   })

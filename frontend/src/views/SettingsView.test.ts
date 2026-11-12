@@ -77,19 +77,42 @@ beforeEach(async () => {
 })
 
 describe('SettingsView', () => {
+  it('signs out from the account section and goes to the sign-in page', async () => {
+    const { wrapper, router } = await mountView()
+    const signOut = button(wrapper, 'Sign out')!
+
+    await signOut.trigger('click')
+    await flushPromises()
+
+    expect(useAuthStore().user).toBeNull()
+    expect(router.currentRoute.value.name).toBe('login')
+  })
+
+  it('sets the appearance, and says the choice on the closed row', async () => {
+    const { wrapper } = await mountView()
+    const appearance = section(wrapper, 'Appearance')
+    expect(appearance.get('button[aria-expanded]').text()).toContain('Automatic')
+
+    await appearance.get('input[value="dark"]').setValue()
+
+    expect(appearance.get('button[aria-expanded]').text()).toContain('Dark')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    delete document.documentElement.dataset.theme
+  })
+
   it('leaves out the browser extension inside the desktop app, which blocks websites itself', async () => {
     vi.mocked(desktopBridge.isInDesktopApp).mockReturnValue(true)
     const { wrapper } = await mountView()
 
     const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())
-    expect(titles).toEqual(['Account', 'Desktop app', 'Camera verification', 'Session history', 'Your data'])
+    expect(titles).toEqual(['Account', 'Appearance', 'Desktop app', 'Camera verification', 'Session history', 'Your data'])
     expect(bridge.getExtensionState).not.toHaveBeenCalled()
   })
 
   it('shows each area as a closed row with its status, opening on click', async () => {
     const { wrapper } = await mountView()
     const titles = wrapper.findAll('h2 .section__title').map((title) => title.text())
-    expect(titles).toEqual(['Account', 'Browser extension', 'Camera verification', 'Session history', 'Your data'])
+    expect(titles).toEqual(['Account', 'Appearance', 'Browser extension', 'Camera verification', 'Session history', 'Your data'])
     const account = section(wrapper, 'Account')
     const row = account.get('button[aria-expanded]')
     expect(row.attributes('aria-expanded')).toBe('false')

@@ -61,6 +61,9 @@ const reached = computed(() => props.session.remainingFocusSeconds <= 0)
 </template>
 
 <style scoped>
+.paused {
+  gap: 1.75rem;
+}
 .paused__actions {
   display: flex;
   flex-wrap: wrap;

@@ -381,8 +381,6 @@ onBeforeUnmount(() => {
             Overriding unblocks them for the rest of today, at an XP penalty.
           </InfoTip>
         </p>
-        <!-- History is reached from here rather than the main navigation. -->
-        <RouterLink :to="{ name: 'history' }" class="dashboard__history">Session history →</RouterLink>
       </template>
     </div>
 
@@ -420,9 +418,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 34rem;
+  max-width: 32rem;
   margin: 0 auto;
-  padding-top: 6vh;
+  padding-top: min(5vh, 3rem);
 }
 .dashboard__milestone {
   display: block;
@@ -430,23 +428,11 @@ onBeforeUnmount(() => {
   color: var(--success);
   font-weight: 600;
 }
-.dashboard__history {
-  align-self: center;
-  margin-top: 1.5rem;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-.dashboard__history:hover {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .dashboard__override {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  margin: 1rem 0 0;
+  margin: 0.5rem 0 0;
 }
 </style>

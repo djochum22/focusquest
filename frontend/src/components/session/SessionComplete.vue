@@ -60,32 +60,32 @@ onMounted(() => head.value?.focus())
 <template>
   <section class="stage complete" aria-label="Session complete">
     <header ref="head" class="complete__head" tabindex="-1">
-      <p class="complete__label muted">Session complete</p>
       <p v-if="xpGained !== null && xpGained > 0" class="complete__xp">
         +{{ xpGained }} XP
       </p>
       <p v-else class="complete__xp">{{ focused }}</p>
-      <div v-if="level" class="complete__level">
-        <div
-          class="complete__level-bar"
-          role="progressbar"
-          :aria-label="`Progress to level ${level.level + 1}`"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          :aria-valuenow="levelPercent"
-        >
-          <div class="complete__level-fill" :style="{ width: `${levelPercent}%` }" />
-        </div>
-        <p class="complete__level-text">
-          <strong v-if="levelledUp">Level {{ level.level }} reached</strong>
-          <template v-else>Level {{ level.level }}</template>
-          · {{ Math.max(0, level.nextLevelXp - level.totalXp).toLocaleString() }} XP to level {{ level.level + 1 }}
-        </p>
-      </div>
+      <h2 class="complete__label">Session complete</h2>
       <p class="complete__detail">
         {{ focused }} focused<template v-if="task"> on {{ task }}</template>
       </p>
     </header>
+    <div v-if="level" class="complete__level">
+      <div
+        class="complete__level-bar"
+        role="progressbar"
+        :aria-label="`Progress to level ${level.level + 1}`"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="levelPercent"
+      >
+        <div class="complete__level-fill" :style="{ width: `${levelPercent}%` }" />
+      </div>
+      <p class="complete__level-text">
+        <strong v-if="levelledUp">Level {{ level.level }} reached</strong>
+        <template v-else>Level {{ level.level }}</template>
+        · {{ Math.max(0, level.nextLevelXp - level.totalXp).toLocaleString() }} XP to level {{ level.level + 1 }}
+      </p>
+    </div>
     <p v-if="milestoneReached" class="complete__streak">
       <StreakFlame class="complete__flame" :size="26" />
       <span class="complete__day">Day {{ Math.max(1, streakLength) }}</span> of your streak
@@ -100,50 +100,59 @@ onMounted(() => head.value?.focus())
       </template>
     </TodayProgress>
     <!-- Short of the target, the next step is the one the line above names: finish the day. -->
-    <template v-if="finishMinutes">
-      <AppButton size="large" :disabled="busy" @click="emit('finish')">Finish today · {{ finishMinutes }} min</AppButton>
-      <AppButton variant="link" :disabled="busy" @click="emit('next')">Plan another</AppButton>
-    </template>
-    <AppButton v-else size="large" @click="emit('next')">Plan another</AppButton>
+    <div class="complete__next">
+      <template v-if="finishMinutes">
+        <AppButton size="large" :disabled="busy" @click="emit('finish')">Finish today · {{ finishMinutes }} min</AppButton>
+        <AppButton variant="link" :disabled="busy" @click="emit('next')">Plan another</AppButton>
+      </template>
+      <AppButton v-else size="large" @click="emit('next')">Plan another</AppButton>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .complete {
   align-items: center;
+  gap: 1.75rem;
   text-align: center;
 }
 .complete__head {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 .complete__head:focus {
   outline: none;
 }
-.complete__label,
-.complete__detail {
+/* The figure the eye lands on: what the session earned. */
+.complete__xp {
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+  font-size: clamp(3.5rem, 14vw, 5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.complete__label {
   margin: 0;
+  font-size: 1.3125rem;
+  font-weight: 600;
 }
 .complete__detail {
   max-width: 28rem;
+  margin: 0;
+  color: var(--text-muted);
   overflow-wrap: anywhere;
   text-wrap: balance;
-}
-.complete__xp {
-  margin: 0;
-  color: var(--accent);
-  font-size: 3.5rem;
-  line-height: 1.1;
 }
 .complete__level {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  width: min(14rem, 100%);
-  margin: 0.5rem 0;
+  gap: 0.5rem;
+  width: min(15rem, 100%);
 }
 .complete__level-bar {
   width: 100%;
@@ -155,12 +164,13 @@ onMounted(() => head.value?.focus())
 .complete__level-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-vivid);
 }
 .complete__level-text {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 .complete__level-text strong {
   color: var(--text);
@@ -175,29 +185,35 @@ onMounted(() => head.value?.focus())
 }
 .complete__flame {
   align-self: center;
-  color: var(--notice);
+  color: var(--flame);
 }
 .complete__day {
   color: var(--text);
   font-size: 1.75rem;
+  font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.028em;
 }
 .complete__free {
   color: var(--success);
   font-weight: 600;
 }
-.complete > :deep(.today) {
-  align-self: stretch;
+.complete__next {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
 }
 @media (prefers-reduced-motion: no-preference) {
   .complete__xp {
-    animation: complete-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: complete-rise 0.7s var(--ease-out) both;
   }
 }
 @keyframes complete-rise {
   from {
-    opacity: 0.35;
-    transform: translateY(0.4rem);
+    opacity: 0.2;
+    transform: translateY(0.6rem) scale(0.96);
   }
 }
 </style>

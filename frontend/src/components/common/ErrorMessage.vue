@@ -9,9 +9,8 @@ defineProps<{ message: string | null }>()
 <style scoped>
 .error-message {
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--danger);
-  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-field);
   background: var(--danger-bg);
   color: var(--danger);
   font-size: 0.9rem;

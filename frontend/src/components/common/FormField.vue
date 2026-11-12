@@ -26,7 +26,7 @@ const controlId = useId()
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 .form-field__label-row {
   display: flex;
@@ -34,12 +34,13 @@ const controlId = useId()
   gap: 0.4rem;
 }
 label {
-  font-size: 0.9rem;
-  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 .form-field__error {
   margin: 0;
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 </style>

@@ -2,11 +2,11 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { StreakProgress } from '../../types/streak'
 import { formatMinutes } from '../../utils/duration'
-import ProgressBar from '../common/ProgressBar.vue'
 import StreakFlame from './StreakFlame.vue'
+import TargetRing from './TargetRing.vue'
 
 /**
- * Today's daily target as one quiet bar: time so far, and the streak it keeps alive. The backend
+ * Today's daily target as one quiet line: time so far, and the streak it keeps alive. The backend
  * only credits a session's time at pause and end, so a session that counts adds its
  * uncredited time (`extraSeconds`), and while it runs, the seconds since `countingSince`.
  */
@@ -18,7 +18,7 @@ const props = defineProps<{
   extraSeconds?: number
   /** `Date.now()` when `extraSeconds` was measured, while it keeps growing; null otherwise. */
   countingSince?: number | null
-  /** A slimmer bar, for beside a running session's own timer. */
+  /** Beside a running or paused session: only the minutes, and the line announces when the session crosses the target. */
   compact?: boolean
   /** Leave the streak out, where the screen already shows it larger. */
   hideStreak?: boolean
@@ -61,54 +61,35 @@ const liveNote = computed(() =>
 </script>
 
 <template>
-  <!-- Today is speculum blue on every screen (reed green once reached), so it never reads as the
-       session's own green. Beside a running or paused session the timer leads: today is a quiet
-       line over a thin bar, with its figures beside the bar rather than on it. -->
-  <div v-if="compact" class="today today--compact">
+  <!-- Today is blue on every screen (green once reached), so it never reads as the session's own
+       green: a small ring, the minutes so far, and the streak the day keeps alive. -->
+  <div class="today" :class="{ 'today--compact': compact }">
     <div class="today__line">
-      <span>
-        <template v-if="reached">Today's target reached</template>
-        <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
-      </span>
-      <span v-if="!hideStreak && !(reachedLive && streakLength === 0)" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
-        <StreakFlame v-if="streakLength > 0" class="today__flame" />
-        {{ streakText }}
-      </span>
-    </div>
-    <div
-      class="today__thin"
-      role="progressbar"
-      aria-label="Today's target"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      :aria-valuenow="percent"
-      :aria-valuetext="`${formatMinutes(seconds)} of ${progress.targetMinutes} minutes`"
-    >
-      <div class="today__thin-fill" :class="{ 'today__thin-fill--reached': reached }" :style="{ width: `${percent}%` }" />
-    </div>
-    <!-- Always present, so screen readers announce the line when a running session crosses the target. -->
-    <p class="today__note today__note--news" role="status">{{ reachedLive ? liveNote : '' }}</p>
-  </div>
-
-  <div v-else class="today">
-    <div class="today__row">
-      <ProgressBar
-        class="today__bar"
-        :percent="percent"
-        label="Today's target"
-        :value-text="`${formatMinutes(seconds)} of ${progress.targetMinutes} minutes`"
-        :tone="reached ? 'success' : 'secondary'"
+      <span
+        class="today__figures"
+        role="progressbar"
+        aria-label="Today's target"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="percent"
+        :aria-valuetext="`${formatMinutes(seconds)} of ${progress.targetMinutes} minutes`"
       >
+        <TargetRing :percent="percent" :reached="reached" />
         <template v-if="reached">Today's target reached</template>
         <template v-else>Today {{ Math.floor(seconds / 60) }} / {{ progress.targetMinutes }} min</template>
-      </ProgressBar>
-      <!-- The streak sits beside the bar, never on it, so the fill edge cannot cut through it. -->
-      <span v-if="!hideStreak" class="today__streak" :class="{ 'today__streak--none': streakLength === 0 }">
+      </span>
+      <span
+        v-if="!hideStreak && !compact"
+        class="today__streak"
+        :class="{ 'today__streak--none': streakLength === 0 }"
+      >
         <StreakFlame v-if="streakLength > 0" class="today__flame" />
         {{ streakText }}
       </span>
     </div>
-    <p v-if="$slots.default" class="today__note"><slot /></p>
+    <!-- Always present beside a session, so screen readers announce the line when it crosses the target. -->
+    <p v-if="compact" class="today__note today__note--news" role="status">{{ reachedLive ? liveNote : '' }}</p>
+    <p v-else-if="$slots.default" class="today__note"><slot /></p>
   </div>
 </template>
 
@@ -116,60 +97,37 @@ const liveNote = computed(() =>
 .today {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.4rem;
 }
-.today__row {
+.today__line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 0.25rem 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
 }
-.today__bar {
-  flex: 1;
-  min-width: 0;
-}
+.today__figures,
 .today__streak {
   display: inline-flex;
-  flex: none;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0.4rem;
   white-space: nowrap;
 }
-.today__line .today__streak {
+.today__streak {
+  gap: 0.25rem;
   color: var(--text);
+  font-weight: 600;
 }
-.today__streak--none,
-.today__line .today__streak--none {
+.today__streak--none {
   color: var(--text-muted);
   font-weight: 400;
 }
 .today__flame {
-  color: var(--notice);
-}
-.today__line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-}
-.today__thin {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-muted);
-}
-.today__thin-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent-secondary);
-  transition: width 0.3s;
-}
-.today__thin-fill--reached {
-  background: var(--success);
+  color: var(--flame);
 }
 /* The live line keeps its place in the page while empty, out of sight and out of the layout. */
 .today__note:empty {
@@ -180,10 +138,12 @@ const liveNote = computed(() =>
   clip-path: inset(50%);
 }
 .today__note {
+  max-width: 26rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   text-align: center;
+  text-wrap: balance;
 }
 .today__note--news {
   color: var(--success);
